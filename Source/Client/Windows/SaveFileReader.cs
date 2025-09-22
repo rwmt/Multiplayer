@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Xml;
+using JetBrains.Annotations;
 using UnityEngine;
 using Verse;
 
@@ -45,10 +46,7 @@ namespace Multiplayer.Client
         {
             try
             {
-                var saveFile = new SaveFile(Path.GetFileNameWithoutExtension(file.Name), false, file);
-                using var stream = file.OpenRead();
-                ReadSaveInfo(stream, saveFile);
-                data[file] = saveFile;
+                data[file] = SaveFile.ReadSpSave(file);
             }
             catch (Exception ex)
             {
@@ -60,55 +58,12 @@ namespace Multiplayer.Client
         {
             try
             {
-                var displayName = Path.ChangeExtension(Path.GetRelativePath(Multiplayer.ReplaysDir, file.FullName), null);
-                var saveFile = new SaveFile(displayName, true, file);
-
-                var replay = Replay.ForLoading(file);
-                if (!replay.LoadInfo()) return;
-
-                saveFile.gameName = replay.info.name;
-                saveFile.protocol = replay.info.protocol;
-                saveFile.replaySections = replay.info.sections.Count;
-
-                if (!replay.info.rwVersion.NullOrEmpty())
-                {
-                    saveFile.rwVersion = replay.info.rwVersion;
-                    saveFile.modIds = replay.info.modIds.ToArray();
-                    saveFile.modNames = replay.info.modNames.ToArray();
-                    saveFile.asyncTime = replay.info.asyncTime;
-                    saveFile.multifaction = replay.info.multifaction;
-                }
-                else
-                {
-                    using var zip = replay.OpenZipRead();
-                    using var stream = zip.GetEntry("world/000_save")!.Open();
-                    ReadSaveInfo(stream, saveFile);
-                }
-
-                data[file] = saveFile;
+                data[file] = SaveFile.ReadMpSave(file);
             }
             catch (Exception ex)
             {
                 Log.Warning($"Exception loading replay info of {file.Name}: {ex}");
             }
-        }
-
-        private void ReadSaveInfo(Stream stream, SaveFile save)
-        {
-            using var reader = new XmlTextReader(stream);
-            reader.ReadToNextElement(); // savedGame
-            reader.ReadToNextElement(); // meta
-
-            if (reader.Name != "meta") return;
-
-            reader.ReadToDescendant("gameVersion");
-            save.rwVersion = VersionControl.VersionStringWithoutRev(reader.ReadString());
-
-            reader.ReadToNextSibling("modIds");
-            save.modIds = reader.ReadStrings();
-
-            reader.ReadToNextSibling("modNames");
-            save.modNames = reader.ReadStrings();
         }
 
         public SaveFile GetData(FileInfo file)
@@ -124,18 +79,18 @@ namespace Multiplayer.Client
         }
     }
 
-    public class SaveFile
+    public class SaveFile(string displayName, bool replay, FileInfo file)
     {
-        public string displayName;
-        public bool replay;
+        public string displayName = displayName;
+        public bool replay = replay;
         public int replaySections;
-        public FileInfo file;
+        public FileInfo file = file;
 
         public string gameName;
 
         public string rwVersion;
-        public string[] modNames = Array.Empty<string>();
-        public string[] modIds = Array.Empty<string>();
+        public string[] modNames = [];
+        public string[] modIds = [];
 
         public int protocol;
         public bool asyncTime;
@@ -164,11 +119,62 @@ namespace Multiplayer.Client
             }
         }
 
-        public SaveFile(string displayName, bool replay, FileInfo file)
+        [CanBeNull]
+        public static SaveFile ReadSpSave(FileInfo file)
         {
-            this.displayName = displayName;
-            this.replay = replay;
-            this.file = file;
+            var saveFile = new SaveFile(Path.GetFileNameWithoutExtension(file.Name), false, file);
+            using var stream = file.OpenRead();
+            ReadSaveInfo(stream, saveFile);
+            return saveFile;
+        }
+
+        [CanBeNull]
+        public static SaveFile ReadMpSave(FileInfo file)
+        {
+            var displayName = Path.ChangeExtension(Path.GetRelativePath(Multiplayer.ReplaysDir, file.FullName), null);
+            var saveFile = new SaveFile(displayName, true, file);
+
+            var replay = Replay.ForLoading(file);
+            if (!replay.LoadInfo()) return null;
+
+            saveFile.gameName = replay.info.name;
+            saveFile.protocol = replay.info.protocol;
+            saveFile.replaySections = replay.info.sections.Count;
+
+            if (!replay.info.rwVersion.NullOrEmpty())
+            {
+                saveFile.rwVersion = replay.info.rwVersion;
+                saveFile.modIds = replay.info.modIds.ToArray();
+                saveFile.modNames = replay.info.modNames.ToArray();
+                saveFile.asyncTime = replay.info.asyncTime;
+                saveFile.multifaction = replay.info.multifaction;
+            }
+            else
+            {
+                using var zip = replay.OpenZipRead();
+                using var stream = zip.GetEntry("world/000_save")!.Open();
+                ReadSaveInfo(stream, saveFile);
+            }
+
+            return saveFile;
+        }
+
+        private static void ReadSaveInfo(Stream stream, SaveFile save)
+        {
+            using var reader = new XmlTextReader(stream);
+            reader.ReadToNextElement(); // savedGame
+            reader.ReadToNextElement(); // meta
+
+            if (reader.Name != "meta") return;
+
+            reader.ReadToDescendant("gameVersion");
+            save.rwVersion = VersionControl.VersionStringWithoutRev(reader.ReadString());
+
+            reader.ReadToNextSibling("modIds");
+            save.modIds = reader.ReadStrings();
+
+            reader.ReadToNextSibling("modNames");
+            save.modNames = reader.ReadStrings();
         }
     }
 }

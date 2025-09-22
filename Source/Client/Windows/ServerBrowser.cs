@@ -271,7 +271,7 @@ namespace Multiplayer.Client
             width += 120;
         }
 
-        private static void CheckGameVersionAndMods(SaveFile file, Action action)
+        public static void CheckGameVersionAndMods(SaveFile file, Action action)
         {
             ScribeMetaHeaderUtility.lastMode = ScribeMetaHeaderUtility.ScribeHeaderMode.Map;
             ScribeMetaHeaderUtility.loadedGameVersion = file.rwVersion;
