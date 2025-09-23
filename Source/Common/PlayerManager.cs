@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
@@ -84,9 +84,9 @@ namespace Multiplayer.Common
             if (player.hasJoined)
             {
                 // Send PlayerCount command to remove the player from their last known map
-                if (player.currentMap != -1)
+                if (player.currentMapId != -1)
                 {
-                    byte[] playerCountData = ByteWriter.GetBytes(player.currentMap, -1); // previousMap: player's map, newMap: -1 (disconnected)
+                    byte[] playerCountData = ByteWriter.GetBytes(player.currentMapId, -1); // previousMap: player's map, newMap: -1 (disconnected)
                     server.commands.Send(CommandType.PlayerCount, ScheduledCommand.NoFaction, ScheduledCommand.Global, playerCountData);
                 }
                 // todo check player.IsPlaying?

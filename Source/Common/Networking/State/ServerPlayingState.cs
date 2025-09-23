@@ -51,12 +51,12 @@ namespace Multiplayer.Common
             if (cmd == CommandType.PlayerCount)
             {
                 ByteReader reader = new ByteReader(extra);
-                var prevMap = reader.ReadInt32();
-                var newMap = reader.ReadInt32();
-                if (Player.currentMap != prevMap)
-                    ServerLog.Error($"Inconsistent player {Player.Username} map. Last known map: {Player.currentMap}, " +
-                                    $"however received command with transition: {prevMap} -> {newMap}");
-                Player.currentMap = newMap;
+                var prevMapId = reader.ReadInt32();
+                var newMapId = reader.ReadInt32();
+                if (Player.currentMapId != prevMapId)
+                    ServerLog.Error($"Inconsistent player {Player.Username} map. Last known map: {Player.currentMapId}, " +
+                                    $"however received command with transition: {prevMapId} -> {newMapId}");
+                Player.currentMapId = newMapId;
             }
 
             // todo check if map id is valid for the player
