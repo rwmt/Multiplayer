@@ -42,6 +42,8 @@ namespace Multiplayer.Client
         public static readonly Texture2D GiftModeIcon = ContentFinder<Texture2D>.Get("UI/Buttons/GiftMode");
         public static readonly Texture2D TradeModeIcon = ContentFinder<Texture2D>.Get("UI/Buttons/TradeMode");
 
+        public const string MpHostReplayCmdLineArg = "mphostreplay";
+
         static MultiplayerStatic()
         {
             Native.InitLmfPtr(
@@ -262,6 +264,11 @@ namespace Multiplayer.Client
                 ExtendDirectXmlSaver.extend = true;
                 DirectXmlSaver.SaveDataObject(new SyncContainer(), "SyncHandlers.xml");
                 ExtendDirectXmlSaver.extend = false;
+            }
+
+            if (GenCommandLine.TryGetCommandLineArg(MpHostReplayCmdLineArg, out var path))
+            {
+                DoubleLongEvent(() => HostWindow.VerifyAndOpen(path), "Loading");
             }
         }
 

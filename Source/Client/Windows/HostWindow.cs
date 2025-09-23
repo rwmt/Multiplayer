@@ -2,6 +2,7 @@ using Multiplayer.Common;
 using RimWorld;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using UnityEngine;
 using Verse;
@@ -33,6 +34,16 @@ namespace Multiplayer.Client
         private float height;
 
         private ServerSettings serverSettings;
+
+        public static void VerifyAndOpen(string path)
+        {
+            FileInfo fileInfo = new(path);
+            var saveFile = SaveFile.ReadMpSave(fileInfo);
+            ServerBrowser.CheckGameVersionAndMods(
+                saveFile,
+                () => { Find.WindowStack.Add(new HostWindow(saveFile) { returnToServerBrowser = false }); }
+            );
+        }
 
         public HostWindow(SaveFile file = null)
         {
