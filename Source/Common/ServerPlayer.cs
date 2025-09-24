@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Linq;
 
@@ -31,7 +31,7 @@ namespace Multiplayer.Common
         public int unfrozenAt;
 
         // Track which map the player is currently on
-        public int currentMap = -1;
+        public int currentMapId = -1;
 
         public string Username => conn.username;
         public int Latency => conn.Latency;

@@ -56,8 +56,8 @@ namespace Multiplayer.Client.Patches
     {
         // Special identifier for world map (since it doesn't have a uniqueID like regular maps)
         public const int WorldMapId = -2;
-        public const int InvalidMapIndex = -1;
-        public static int lastMovedToMap = InvalidMapIndex;
+        public const int InvalidMapId = -1;
+        public static int lastMovedToMapId = InvalidMapId;
         public static int lastSentAtTick = -1;
 
         // Vtr rates
@@ -69,18 +69,18 @@ namespace Multiplayer.Client.Patches
         public static void SendViewedMapUpdate(int previous, int current)
         {
             string warn = string.Empty;
-            if (previous != lastMovedToMap)
-                warn = $" mismatch between expected previous map {previous} and last moved to map {lastMovedToMap}";
+            if (previous != lastMovedToMapId)
+                warn = $" mismatch between expected previous map {previous} and last moved to map {lastMovedToMapId}";
             else if (previous == current) return;
             int currentTick = Find.TickManager?.TicksGame ?? 0;
-            MpLog.Debug($"VTR MapSwitchPatch: {lastMovedToMap}->{current} @ tick {currentTick}{warn}");
+            MpLog.Debug($"VTR MapSwitchPatch: {lastMovedToMapId}->{current} @ tick {currentTick}{warn}");
             Multiplayer.Client.SendCommand(CommandType.PlayerCount, ScheduledCommand.Global, ByteWriter.GetBytes(previous, current));
-            lastMovedToMap = current;
+            lastMovedToMapId = current;
         }
 
         public static void Reset()
         {
-            lastMovedToMap = InvalidMapIndex;
+            lastMovedToMapId = InvalidMapId;
         }
     }
 
@@ -94,13 +94,13 @@ namespace Multiplayer.Client.Patches
             try
             {
                 // WorldRenderModePatch will handle it
-                if (VTRSync.lastMovedToMap == VTRSync.WorldMapId) return;
-                int previousMap = GetPreviousMapIndex();
-                int newMap = value?.uniqueID ?? VTRSync.InvalidMapIndex;
+                if (VTRSync.lastMovedToMapId == VTRSync.WorldMapId) return;
+                int previousMap = GetPreviousMapId();
+                int newMap = value?.uniqueID ?? VTRSync.InvalidMapId;
                 int currentTick = Find.TickManager?.TicksGame ?? 0;
 
                 if (previousMap == newMap) return;
-                if (VTRSync.lastMovedToMap == newMap && currentTick == VTRSync.lastSentAtTick) return;
+                if (VTRSync.lastMovedToMapId == newMap && currentTick == VTRSync.lastSentAtTick) return;
 
                 VTRSync.SendViewedMapUpdate(previousMap, newMap);
                 VTRSync.lastSentAtTick = currentTick;
@@ -111,16 +111,16 @@ namespace Multiplayer.Client.Patches
             }
         }
 
-        private static int GetPreviousMapIndex()
+        private static int GetPreviousMapId()
         {
             bool currentMapIsRemovedAndWasLatestMap = Current.Game.currentMapIndex >= Find.Maps.Count;
 
             if (currentMapIsRemovedAndWasLatestMap)
             {
-                return VTRSync.InvalidMapIndex;
+                return VTRSync.InvalidMapId;
             }
 
-            return Find.CurrentMap?.uniqueID ?? VTRSync.InvalidMapIndex;
+            return Find.CurrentMap?.uniqueID ?? VTRSync.InvalidMapId;
         }
     }
 
@@ -138,16 +138,16 @@ namespace Multiplayer.Client.Patches
                 // Detect transition to world map (Planet mode)
                 if (__result == WorldRenderMode.Planet && lastRenderMode != WorldRenderMode.Planet)
                 {
-                    if (VTRSync.lastMovedToMap != VTRSync.InvalidMapIndex && VTRSync.lastMovedToMap != VTRSync.WorldMapId)
+                    if (VTRSync.lastMovedToMapId != VTRSync.InvalidMapId && VTRSync.lastMovedToMapId != VTRSync.WorldMapId)
                     {
-                        VTRSync.SendViewedMapUpdate(VTRSync.lastMovedToMap, VTRSync.WorldMapId);
+                        VTRSync.SendViewedMapUpdate(VTRSync.lastMovedToMapId, VTRSync.WorldMapId);
                     }
                 }
                 // Detect transition back to tile map
                 else if (__result != WorldRenderMode.Planet && lastRenderMode == WorldRenderMode.Planet)
                 {
-                    var newMap = Find.CurrentMap?.uniqueID ?? VTRSync.InvalidMapIndex;
-                    if (newMap != VTRSync.InvalidMapIndex && VTRSync.lastMovedToMap == VTRSync.WorldMapId)
+                    var newMap = Find.CurrentMap?.uniqueID ?? VTRSync.InvalidMapId;
+                    if (newMap != VTRSync.InvalidMapId && VTRSync.lastMovedToMapId == VTRSync.WorldMapId)
                     {
                         VTRSync.SendViewedMapUpdate(VTRSync.WorldMapId, newMap);
                     }
