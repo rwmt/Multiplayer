@@ -428,8 +428,8 @@ public static class PerformanceRecorder
     {
         try
         {
-            var fileName = $"MpLogs/MpPerf-{results.StartTime:MMddHHmmss}.txt";
-            var filePath = Path.Combine(GenFilePaths.SaveDataFolderPath, fileName);
+            var fileName = $"MpPerf-{results.StartTime:MMddHHmmss}.txt";
+            var filePath = Path.Combine(Multiplayer.LogsDir, fileName);
 
             var sb = new StringBuilder();
             sb.AppendLine("MULTIPLAYER PERFORMANCE RECORDING RESULTS");
