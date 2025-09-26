@@ -37,7 +37,8 @@ public static class VersionChecker
 
     private static bool isContinuousRelease =
         Multiplayer.modContentPack.ModMetaData.Source == ContentSource.ModsFolder &&
-        MpVersion.GitDescription?.StartsWith("continuous") == true;
+        MpVersion.GitDescription?.StartsWith("continuous") == true &&
+        MpVersion.GitHash?.EndsWith("dirty") == false;
 
     private static async Task<Release?> GetLatestContinuousRelease()
     {
