@@ -303,8 +303,8 @@ namespace Multiplayer.Client.DebugUi
 
                     float nonPerfInterval = PerformanceRecorder.NonPerfFrameIntervalSetting;
                     var nonPerfLabelRect = new Rect(x, currentY, width, lineHeight);
-                    Widgets.Label(nonPerfLabelRect, $"Non-performance metric sample interval: {nonPerfInterval}");
-                    currentY += lineHeight + 1;
+                    Widgets.Label(nonPerfLabelRect, ref currentY, $"Non-performance metric sample interval: {nonPerfInterval}");
+                    currentY += 1;
 
                     var nonPerfSliderRect = new Rect(x, currentY, width, lineHeight);
                     nonPerfInterval = Widgets.HorizontalSlider(nonPerfSliderRect, nonPerfInterval, 1f, 300f, roundTo: 0);
@@ -623,21 +623,25 @@ namespace Multiplayer.Client.DebugUi
             float labelWidth = width * LabelColumnWidth;
             float valueWidth = width * (1f - LabelColumnWidth);
 
+            float height = 0;
             // Label with right padding
             using (MpStyle.Set(GameFont.Tiny).Set(Color.white).Set(TextAnchor.MiddleLeft))
             {
-                Rect labelRect = new(x, y, labelWidth - 4f, LineHeight);
+                var labelRect = new Rect(x, y, labelWidth - 4f, LineHeight).FitToTextWithinWidth(label);
                 Widgets.Label(labelRect, label);
+                height = labelRect.height;
             }
 
             // Value with left padding
             using (MpStyle.Set(GameFont.Tiny).Set(valueColor).Set(TextAnchor.MiddleLeft))
             {
-                Rect valueRect = new(x + labelWidth + 4f, y, valueWidth - 4f, LineHeight);
+                var valueRect =
+                    new Rect(x + labelWidth + 4f, y, valueWidth - 8f, LineHeight).FitToTextWithinWidth(value);
                 Widgets.Label(valueRect, value);
+                height = Math.Max(height, valueRect.height);
             }
 
-            return y + LineHeight + 1f; // Small padding between lines
+            return y + height;
         }
     }
 }

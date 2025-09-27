@@ -119,6 +119,13 @@ namespace Multiplayer.Client
             return rect;
         }
 
+        public static Rect FitToTextWithinWidth(this Rect rect, string text)
+        {
+            var height = Text.CalcHeight(text, rect.width);
+            rect.height = height;
+            return rect;
+        }
+
         public static Rect MarginLeft(this Rect rect, float margin)
         {
             rect.x += margin;
