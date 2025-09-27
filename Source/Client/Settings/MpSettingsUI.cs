@@ -93,6 +93,17 @@ public static class MpSettingsUI
             listing.TextFieldNumericLabeled("Desync radius:  ", ref settings.desyncTracesRadius, ref desyncRadiusBuffer, 1f,
                 200f);
 
+            if (MpVersion.IsDebug && FileAssoc.IsSupported())
+            {
+                if (FileAssoc.IsRegistered())
+                {
+                    if (listing.ButtonText("Remove file associations")) FileAssoc.Remove();
+                }
+                else
+                {
+                    if (listing.ButtonText("Register file associations")) FileAssoc.Register();
+                }
+            }
 #if DEBUG
             using (MpStyle.Set(TextAnchor.MiddleCenter))
                 if (listing.ButtonTextLabeled("Desync tracing mode", settings.desyncTracingMode.ToString()))
