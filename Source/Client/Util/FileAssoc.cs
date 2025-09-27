@@ -3,9 +3,11 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using Microsoft.Win32;
+using UnityEngine;
 
 namespace Multiplayer.Client.Util;
 
+/// Only Windows support for now. Calling methods of this class from another OS is a no-op.
 public static class FileAssoc
 {
     public const string ReplayProgId = "RimworldMultiplayer.Replay.1";
@@ -18,6 +20,7 @@ public static class FileAssoc
 
     public static void Register()
     {
+        if (!IsSupported()) return;
         var appPath = Process.GetCurrentProcess().MainModule?.FileName ?? Environment.GetCommandLineArgs()[0];
         appPath = Path.GetFullPath(appPath);
         RegisterApp(appPath);
@@ -26,6 +29,7 @@ public static class FileAssoc
 
     public static void Remove()
     {
+        if (!IsSupported()) return;
         var rootKey = GetAssociationsRootKey();
         rootKey.DeleteSubKeyTree(ReplayProgId, throwOnMissingSubKey: false);
         rootKey.DeleteSubKey(ReplayExtension, throwOnMissingSubKey: false);
@@ -33,9 +37,12 @@ public static class FileAssoc
 
     public static bool IsRegistered()
     {
+        if (!IsSupported()) return false;
         var rootKey = GetAssociationsRootKey();
         return rootKey.OpenSubKey(ReplayProgId) != null || rootKey.OpenSubKey(ReplayExtension) != null;
     }
+
+    public static bool IsSupported() => Application.platform == RuntimePlatform.WindowsPlayer;
 
     private static void RegisterApp(string appPath)
     {

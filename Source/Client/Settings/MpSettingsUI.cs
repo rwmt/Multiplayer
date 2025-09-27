@@ -93,9 +93,8 @@ public static class MpSettingsUI
             listing.TextFieldNumericLabeled("Desync radius:  ", ref settings.desyncTracesRadius, ref desyncRadiusBuffer, 1f,
                 200f);
 
-            if (MpVersion.IsDebug && Application.platform == RuntimePlatform.WindowsPlayer)
+            if (MpVersion.IsDebug && FileAssoc.IsSupported())
             {
-                // Do not load the class on platforms other than Windows as it uses Windows-specific API.
                 if (FileAssoc.IsRegistered())
                 {
                     if (listing.ButtonText("Remove file associations")) FileAssoc.Remove();
