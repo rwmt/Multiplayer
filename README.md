@@ -5,20 +5,20 @@
 The RimWorld Multiplayer mod allows users to play full games of Rimworld cooperatively.
 
 ## Links
-[Steam Workshop ](https://steamcommunity.com/sharedfiles/filedetails/?id=2606448745)|
-[ Website ](https://rimworldmultiplayer.com)|
-[ Discord ](https://discord.gg/S4bxXpv)|
-[ Documentation](https://hackmd.io/@rimworldmultiplayer/docs/)
+[Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=2606448745) |
+[Website](https://rimworldmultiplayer.com) |
+[Discord](https://discord.gg/S4bxXpv) |
+[Documentation](https://hackmd.io/@rimworldmultiplayer/docs/)
 
 ## Development
-[Git Releases ](https://github.com/rwmt/Multiplayer/releases)|
-[ Installation ](https://hackmd.io/Gd_gueokTNui_fqzOSG2Tg#Installation)|
-[ Hosting ](https://hackmd.io/Gd_gueokTNui_fqzOSG2Tg#Hosting-and-Joining)|
-[ FAQ ](https://hackmd.io/Gd_gueokTNui_fqzOSG2Tg#FAQ)|
-[ Contributing ](https://github.com/rwmt/Multiplayer/blob/master/CONTRIBUTORS.md)|
-[ DEV Wiki](https://hackmd.io/Gd_gueokTNui_fqzOSG2Tg#Dev-MP-Wiki)
+[Git Releases](https://github.com/rwmt/Multiplayer/releases) |
+[Installation](https://hackmd.io/@rimworldmultiplayer/docs/https%3A%2F%2Fhackmd.io%2F%40rimworldmultiplayer%2Fplay%23Installation) |
+[Hosting](https://hackmd.io/@rimworldmultiplayer/docs/https%3A%2F%2Fhackmd.io%2F%40rimworldmultiplayer%2Fplay%23Installation#Hosting-and-Joining) |
+[FAQ](https://hackmd.io/@rimworldmultiplayer/docs/https%3A%2F%2Fhackmd.io%2F%40rimworldmultiplayer%2Ffaq%23Common-Questions#FAQ) |
+[Contributing](https://github.com/rwmt/Multiplayer/blob/master/CONTRIBUTORS.md) |
+[DEV Wiki](https://hackmd.io/@rimworldmultiplayer/docs/https%3A%2F%2Fhackmd.io%2F%40rimworldmultiplayer%2Fdev-home)
 
-Please do all pull requests to the [development](https://github.com/rwmt/Multiplayer/tree/development) branch.
+Please do all pull requests to the [dev](https://github.com/rwmt/Multiplayer/tree/dev) branch.
 
 ## Donations
 
@@ -35,3 +35,4 @@ If you’re feeling generous these are people who have contributed greatly to th
 
 ## Notes
 Thanks to Pardeike for making [Harmony](https://github.com/pardeike/Harmony) and RevenantX for creating [LiteNetLib](https://github.com/RevenantX/LiteNetLib)
+
