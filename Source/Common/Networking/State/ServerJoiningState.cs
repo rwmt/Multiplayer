@@ -14,7 +14,7 @@ public class ServerJoiningState : AsyncConnectionState
         HandleUsername(await Packet(Packets.Client_Username));
 
         while (await Server.InitData() is null && await EndIfDead())
-            if (Server.initDataState == InitDataState.Waiting)
+            if (Server.InitDataState == InitDataState.Waiting)
                 await RequestInitData();
 
         connection.Send(Packets.Server_UsernameOk);
@@ -83,23 +83,20 @@ public class ServerJoiningState : AsyncConnectionState
 
     private async Task RequestInitData()
     {
-        Server.initDataState = InitDataState.Requested;
-        Server.initDataSource = new TaskCompletionSource<ServerInitData?>();
-
-        Player.SendPacket(Packets.Server_InitDataRequest, ByteWriter.GetBytes(Server.settings.syncConfigs));
-
-        ServerLog.Verbose("Sent initial data request");
-
-        var initData = await PacketOrNull(Packets.Client_InitData).Fragmented();
-
-        if (initData != null)
+        ByteReader? initData = null;
+        var completionSource = Server.StartInitData();
+        try
         {
-            Server.CompleteInitData(ServerInitData.Deserialize(initData));
+            Player.SendPacket(Packets.Server_InitDataRequest, ByteWriter.GetBytes(Server.settings.syncConfigs));
+
+            ServerLog.Verbose("Sent initial data request");
+            initData = await PacketOrNull(Packets.Client_InitData).Fragmented();
         }
-        else
+        finally
         {
-            Server.initDataState = InitDataState.Waiting;
-            Server.initDataSource.SetResult(null);
+            // Invoking StartInitData and abandoning the completion source in case of an exception would mean a server
+            // restart is necessary to try and set init data again. Make sure the server is more graceful in that case.
+            completionSource.SetResult(initData != null ? ServerInitData.Deserialize(initData) : null);
         }
     }
 

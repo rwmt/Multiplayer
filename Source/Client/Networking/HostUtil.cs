@@ -74,10 +74,8 @@ namespace Multiplayer.Client
                 localServer.startingTimer = TickPatch.Timer;
             }
 
-            localServer.initDataSource = new TaskCompletionSource<ServerInitData>();
-            localServer.CompleteInitData(
-                ServerInitData.Deserialize(new ByteReader(ClientJoiningState.PackInitData(settings.syncConfigs)))
-            );
+            localServer.initData =
+                ServerInitData.Deserialize(new ByteReader(ClientJoiningState.PackInitData(settings.syncConfigs)));
         }
 
         private static void PrepareGame()

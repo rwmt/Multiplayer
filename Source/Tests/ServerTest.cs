@@ -38,7 +38,7 @@ public class ServerTest
         var timeoutWatch = Stopwatch.StartNew();
         while (true)
         {
-            if (server.initDataState == InitDataState.Complete && server.playerManager.Players.Count == 0)
+            if (server.InitDataState == InitDataState.Complete && server.playerManager.Players.Count == 0)
                 break; // Success
 
             if (timeoutWatch.ElapsedMilliseconds > 2000)
@@ -83,7 +83,6 @@ public class ServerTest
         })
         {
             running = true,
-            initDataState = InitDataState.Waiting
         };
 
         server.worldData.savedGame = Array.Empty<byte>();
