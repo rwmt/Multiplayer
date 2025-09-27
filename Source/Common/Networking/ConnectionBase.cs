@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Multiplayer.Common.Networking.Packet;
 
 namespace Multiplayer.Common
 {
@@ -34,14 +35,26 @@ namespace Multiplayer.Common
             StateObj?.StartState();
         }
 
-        public void Send(Packets id)
-        {
-            Send(id, Array.Empty<byte>());
-        }
+        public void Send(Packets id) => Send(id, Array.Empty<byte>());
 
-        public void Send(Packets id, params object[] msg)
+        public void Send(Packets id, params object[] msg) => Send(id, ByteWriter.GetBytes(msg));
+
+        public void Send(SerializedPacket packet, bool reliable = true) => Send(packet.id, packet.data, reliable);
+
+        public void Send<T>(T packet, bool reliable = true) where T : struct, IPacket
         {
-            Send(id, ByteWriter.GetBytes(msg));
+            var writer = new ByteWriter();
+            writer.WriteByte((byte)(Convert.ToByte(packet.GetId()) & 0x3F));
+            packet.Bind(new PacketWriter(writer));
+
+            if (State == ConnectionStateEnum.Disconnected)
+                return;
+
+            var dataLen = writer.Position - 1; // The first byte is metadata.
+            if (dataLen > MaxSinglePacketSize)
+                throw new PacketSendException($"Packet {packet.GetId()} too big for sending ({dataLen}>{MaxSinglePacketSize})");
+
+            SendRaw(writer.ToArray(), reliable);
         }
 
         public virtual void Send(Packets id, byte[] message, bool reliable = true)
@@ -132,10 +145,9 @@ namespace Multiplayer.Common
             }
         }
 
-        public void SendFragmented(Packets id, params object[] msg)
-        {
-            SendFragmented(id, ByteWriter.GetBytes(msg));
-        }
+        public void SendFragmented(SerializedPacket packet) => SendFragmented(packet.id, packet.data);
+
+        public void SendFragmented(Packets id, params object[] msg) => SendFragmented(id, ByteWriter.GetBytes(msg));
 
         protected abstract void SendRaw(byte[] raw, bool reliable = true);
 

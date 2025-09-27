@@ -14,6 +14,10 @@ namespace Multiplayer.Common
 
     [MeansImplicitUse]
     [AttributeUsage(AttributeTargets.Method)]
+    public class TypedPacketHandlerAttribute : Attribute;
+
+    [MeansImplicitUse]
+    [AttributeUsage(AttributeTargets.Method)]
     public class FragmentedPacketHandlerAttribute(Packets packet) : Attribute
     {
         public readonly Packets packet = packet;
