@@ -48,8 +48,13 @@ namespace Multiplayer.Common
         public ServerSettings settings;
 
         public ServerInitData? initData;
-        public TaskCompletionSource<ServerInitData?> initDataSource = new();
-        public InitDataState initDataState = InitDataState.Waiting;
+        private TaskCompletionSource<ServerInitData?> initDataSource = new();
+        public InitDataState InitDataState =>
+            initData != null ? InitDataState.Complete :
+            // started init data must've completed with null, meaning the client disconnected while waiting for the data,
+            // so we are waiting again
+            initDataSource.Task.IsCompleted ? InitDataState.Waiting :
+            InitDataState.Requested;
 
         public volatile bool running;
         public event Action<MultiplayerServer>? TickEvent;
@@ -245,16 +250,22 @@ namespace Multiplayer.Common
 
         public void HandleChatCmd(IChatSource source, string cmd) => chatCmdManager.Handle(source, cmd);
 
-        public Task<ServerInitData?> InitData()
-        {
-            return initDataSource.Task;
-        }
+        public Task<ServerInitData?> InitData() => initDataSource.Task;
 
-        public void CompleteInitData(ServerInitData data)
+        /// Can only start one init data at a time. A StartInitData is considered complete once
+        /// TaskCompletionResult.SetResult is called. Until that time no new calls to StartInitData will succeed.
+        public TaskCompletionSource<ServerInitData?> StartInitData()
         {
-            initData = data;
-            initDataState = InitDataState.Complete;
-            initDataSource.SetResult(data);
+            if (InitDataState != InitDataState.Waiting)
+                throw new InvalidOperationException($"Can't start init data in state {InitDataState}");
+            var currInitDataSource = initDataSource = new TaskCompletionSource<ServerInitData?>();
+            currInitDataSource.Task.ContinueWith(task =>
+            {
+                if (currInitDataSource != initDataSource)
+                    ServerLog.Error("InitDataSource changed during StartInitData");
+                initData = task.Result;
+            }, TaskContinuationOptions.ExecuteSynchronously);
+            return currInitDataSource;
         }
     }
 
