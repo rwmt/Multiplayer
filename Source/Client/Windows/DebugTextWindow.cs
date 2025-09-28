@@ -7,8 +7,7 @@ namespace Multiplayer.Client;
 
 public class DebugTextWindow : Window
 {
-    private Vector2 _initialSize;
-    public override Vector2 InitialSize => _initialSize;
+    public override Vector2 InitialSize { get; }
 
     private Vector2 scroll;
     private string text;
@@ -16,10 +15,10 @@ public class DebugTextWindow : Window
 
     private float fullHeight;
 
-    public DebugTextWindow(string text, float width=800, float height=450)
+    public DebugTextWindow(string text, float width = 800, float height = 450)
     {
         this.text = text;
-        this._initialSize = new Vector2(width, height);
+        InitialSize = new Vector2(width, height);
         absorbInputAroundWindow = false;
         doCloseX = true;
         draggable = true;
@@ -31,13 +30,6 @@ public class DebugTextWindow : Window
     {
         const float offsetY = -5f;
 
-        if (Event.current.type == EventType.Layout)
-        {
-            fullHeight = 0;
-            foreach (var str in lines)
-                fullHeight += Text.CalcHeight(str, inRect.width) + offsetY;
-        }
-
         Text.Font = GameFont.Tiny;
 
         if (Widgets.ButtonText(new Rect(0, 0, 55f, 20f), "Copy all"))
@@ -45,9 +37,9 @@ public class DebugTextWindow : Window
 
         Text.Font = GameFont.Small;
 
-        var viewRect = new Rect(0f, 0f, inRect.width - 16f, Mathf.Max(fullHeight + 10f, inRect.height));
-        inRect.y += 30f;
-        Widgets.BeginScrollView(inRect, ref scroll, viewRect, true);
+        var scrollRect = inRect.MarginTop(30f);
+        var viewRect = new Rect(0f, 0f, inRect.width - 16f, Mathf.Max(fullHeight, scrollRect.height));
+        Widgets.BeginScrollView(scrollRect, ref scroll, viewRect);
 
         foreach (var str in lines)
         {
@@ -55,6 +47,8 @@ public class DebugTextWindow : Window
             Widgets.TextArea(new Rect(viewRect.x, viewRect.y, viewRect.width, h), str, true);
             viewRect.y += h + offsetY;
         }
+
+        if (Event.current.type == EventType.Layout) fullHeight = viewRect.y;
 
         Widgets.EndScrollView();
     }
