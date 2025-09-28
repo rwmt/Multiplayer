@@ -21,7 +21,6 @@ namespace Multiplayer.Client
         public void HandleCommand(ByteReader data)
         {
             ScheduledCommand cmd = ScheduledCommand.Deserialize(data);
-            cmd.issuedBySelf = data.ReadBool();
             Session.ScheduleCommand(cmd);
 
             Multiplayer.session.receivedCmds++;

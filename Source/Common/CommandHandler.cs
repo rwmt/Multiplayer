@@ -33,7 +33,7 @@ namespace Multiplayer.Common
                     return;
             }
 
-            byte[] toSave = ScheduledCommand.Serialize(
+            byte[] serialized = ScheduledCommand.Serialize(
                 new ScheduledCommand(
                     cmd,
                     server.gameTimer,
@@ -43,19 +43,9 @@ namespace Multiplayer.Common
                     data));
 
             // todo cull target players if not global
-            server.worldData.mapCmds.GetOrAddNew(mapId).Add(toSave);
-            server.worldData.tmpMapCmds?.GetOrAddNew(mapId).Add(toSave);
-
-            byte[] toSend = toSave.Append(new byte[] { 0 });
-            byte[] toSendSource = toSave.Append(new byte[] { 1 });
-
-            foreach (var player in server.PlayingPlayers)
-            {
-                player.conn.Send(
-                    Packets.Server_Command,
-                    sourcePlayer == player ? toSendSource : toSend
-                );
-            }
+            server.worldData.mapCmds.GetOrAddNew(mapId).Add(serialized);
+            server.worldData.tmpMapCmds?.GetOrAddNew(mapId).Add(serialized);
+            server.SendToPlaying(Packets.Server_Command, serialized);
 
             SentCmds++;
         }

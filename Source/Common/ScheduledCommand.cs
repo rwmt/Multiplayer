@@ -15,9 +15,6 @@ namespace Multiplayer.Common
         public readonly int playerId;
         public readonly byte[] data;
 
-        // Client only, not serialized
-        public bool issuedBySelf;
-
         public ScheduledCommand(CommandType type, int ticks, int factionId, int mapId, int playerId, byte[] data)
         {
             this.type = type;
