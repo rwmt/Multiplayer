@@ -47,10 +47,10 @@ namespace Multiplayer.Common
         public ActionQueue queue = new();
         public ServerSettings settings;
 
-        public ServerInitData? initData;
+        public ServerInitData? InitData => initDataSource.Task.ResultNowOrNull();
         private TaskCompletionSource<ServerInitData?> initDataSource = new();
         public InitDataState InitDataState =>
-            initData != null ? InitDataState.Complete :
+            InitData != null ? InitDataState.Complete :
             // started init data must've completed with null, meaning the client disconnected while waiting for the data,
             // so we are waiting again
             initDataSource.Task.IsCompleted ? InitDataState.Waiting :
@@ -250,7 +250,7 @@ namespace Multiplayer.Common
 
         public void HandleChatCmd(IChatSource source, string cmd) => chatCmdManager.Handle(source, cmd);
 
-        public Task<ServerInitData?> InitData() => initDataSource.Task;
+        public Task<ServerInitData?> InitDataTask() => initDataSource.Task;
 
         /// Can only start one init data at a time. A StartInitData is considered complete once
         /// TaskCompletionResult.SetResult is called. Until that time no new calls to StartInitData will succeed.
@@ -258,14 +258,7 @@ namespace Multiplayer.Common
         {
             if (InitDataState != InitDataState.Waiting)
                 throw new InvalidOperationException($"Can't start init data in state {InitDataState}");
-            var currInitDataSource = initDataSource = new TaskCompletionSource<ServerInitData?>();
-            currInitDataSource.Task.ContinueWith(task =>
-            {
-                if (currInitDataSource != initDataSource)
-                    ServerLog.Error("InitDataSource changed during StartInitData");
-                initData = task.Result;
-            }, TaskContinuationOptions.ExecuteSynchronously);
-            return currInitDataSource;
+            return initDataSource = new TaskCompletionSource<ServerInitData?>();
         }
     }
 

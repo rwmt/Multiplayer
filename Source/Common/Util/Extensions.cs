@@ -7,6 +7,7 @@ using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace Multiplayer.Common
 {
@@ -128,6 +129,9 @@ namespace Multiplayer.Common
         {
             return items.Max(i => (float?)map(i)) ?? 0f;
         }
+
+        public static T? ResultNowOrNull<T>(this Task<T> task) where T : class? =>
+            task.Status == TaskStatus.RanToCompletion ? task.Result : null;
     }
 
     public static class Utils
