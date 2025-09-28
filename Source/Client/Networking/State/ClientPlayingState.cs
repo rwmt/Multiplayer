@@ -1,10 +1,10 @@
-using Ionic.Zlib;
-using Multiplayer.Common;
-using RimWorld;
-using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
+using Ionic.Zlib;
+using Multiplayer.Common;
 using Multiplayer.Common.Networking.Packet;
+using RimWorld;
+using RimWorld.Planet;
 using UnityEngine;
 using Verse;
 
@@ -103,44 +103,26 @@ namespace Multiplayer.Client
             Multiplayer.session.AddMsg(msg);
         }
 
-        [PacketHandler(Packets.Server_Cursor)]
-        public void HandleCursor(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleCursor(ServerCursorPacket packet)
         {
-            int playerId = data.ReadInt32();
-            var player = Multiplayer.session.GetPlayerInfo(playerId);
+            var player = Multiplayer.session.GetPlayerInfo(packet.playerId);
             if (player == null) return;
 
-            byte seq = data.ReadByte();
-            if (seq < player.cursorSeq && player.cursorSeq - seq < 128) return;
+            var data = packet.data;
+            if (data.seq < player.cursorSeq && player.cursorSeq - data.seq < 128) return;
 
-            byte map = data.ReadByte();
-            player.map = map;
+            player.map = data.map;
+            if (data.map == byte.MaxValue) return;
 
-            if (map == byte.MaxValue) return;
-
-            byte icon = data.ReadByte();
-            float x = data.ReadShort() / 10f;
-            float z = data.ReadShort() / 10f;
-
-            player.cursorSeq = seq;
+            player.cursorSeq = data.seq;
             player.lastCursor = player.cursor;
             player.lastDelta = Multiplayer.clock.ElapsedMillisDouble() - player.updatedAt;
-            player.cursor = new Vector3(x, 0, z);
+            player.cursor = new Vector3(data.x, 0, data.z);
             player.updatedAt = Multiplayer.clock.ElapsedMillisDouble();
-            player.cursorIcon = icon;
+            player.cursorIcon = data.icon;
 
-            short dragXRaw = data.ReadShort();
-            if (dragXRaw != -1)
-            {
-                float dragX = dragXRaw / 10f;
-                float dragZ = data.ReadShort() / 10f;
-
-                player.dragStart = new Vector3(dragX, 0, dragZ);
-            }
-            else
-            {
-                player.dragStart = PlayerInfo.Invalid;
-            }
+            player.dragStart = data.HasDrag ? new Vector3(data.dragX, 0, data.dragZ) : PlayerInfo.Invalid;
         }
 
         [PacketHandler(Packets.Server_Selected)]

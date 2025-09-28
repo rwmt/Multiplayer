@@ -221,6 +221,12 @@ namespace Multiplayer.Common
                     player.conn.Send(id, data, reliable);
         }
 
+        public void SendToIngame<T>(T packet, bool reliable = true, ServerPlayer? excluding = null) where T : IPacket
+        {
+            var serialized = packet.Serialize();
+            SendToIngame(serialized.id, serialized.data, reliable, excluding);
+        }
+
         public void SendToPlaying(Packets id, byte[] data, bool reliable = true, ServerPlayer? excluding = null)
         {
             foreach (ServerPlayer player in PlayingPlayers)

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Multiplayer.Common.Networking.Packet;
 
 namespace Multiplayer.Common
 {
@@ -110,43 +111,14 @@ namespace Multiplayer.Common
                 Server.worldData.EndJoinPointCreation();
         }
 
-        [PacketHandler(Packets.Client_Cursor)]
-        public void HandleCursor(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleCursor(ClientCursorPacket clientPacket)
         {
             if (Player.lastCursorTick == Server.NetTimer) return; // policy
-
-            var writer = new ByteWriter();
-
-            byte seq = data.ReadByte();
-            byte map = data.ReadByte();
-
-            writer.WriteInt32(Player.id);
-            writer.WriteByte(seq);
-            writer.WriteByte(map);
-
-            if (map < byte.MaxValue)
-            {
-                byte icon = data.ReadByte();
-                short x = data.ReadShort();
-                short z = data.ReadShort();
-
-                writer.WriteByte(icon);
-                writer.WriteShort(x);
-                writer.WriteShort(z);
-
-                short dragX = data.ReadShort();
-                writer.WriteShort(dragX);
-
-                if (dragX != -1)
-                {
-                    short dragZ = data.ReadShort();
-                    writer.WriteShort(dragZ);
-                }
-            }
-
             Player.lastCursorTick = Server.NetTimer;
 
-            Server.SendToIngame(Packets.Server_Cursor, writer.ToArray(), reliable: false, excluding: Player);
+            var serverPacket = new ServerCursorPacket(Player.id, clientPacket);
+            Server.SendToIngame(serverPacket, reliable: false, excluding: Player);
         }
 
         [PacketHandler(Packets.Client_Selected)]
