@@ -20,11 +20,11 @@ namespace Multiplayer.Common
             {
                 bool debugCmd =
                     cmd == CommandType.DebugTools ||
-                    cmd == CommandType.Sync && server.initData!.DebugOnlySyncCmds.Contains(BitConverter.ToInt32(data, 0));
+                    cmd == CommandType.Sync && server.InitData!.DebugOnlySyncCmds.Contains(BitConverter.ToInt32(data, 0));
                 if (debugCmd && !CanUseDevMode(sourcePlayer))
                     return;
 
-                bool hostOnly = cmd == CommandType.Sync && server.initData!.HostOnlySyncCmds.Contains(BitConverter.ToInt32(data, 0));
+                bool hostOnly = cmd == CommandType.Sync && server.InitData!.HostOnlySyncCmds.Contains(BitConverter.ToInt32(data, 0));
                 if (hostOnly && !sourcePlayer.IsHost)
                     return;
 

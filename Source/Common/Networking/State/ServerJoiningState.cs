@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 
 namespace Multiplayer.Common;
 
@@ -13,7 +14,7 @@ public class ServerJoiningState : AsyncConnectionState
         HandleProtocol(await Packet(Packets.Client_Protocol));
         HandleUsername(await Packet(Packets.Client_Username));
 
-        while (await Server.InitData() is null && await EndIfDead())
+        while (await Server.InitDataTask() is null && await EndIfDead())
             if (Server.InitDataState == InitDataState.Waiting)
                 await RequestInitData();
 
@@ -105,9 +106,11 @@ public class ServerJoiningState : AsyncConnectionState
         var modCtorRoundMode = data.ReadEnum<RoundModeEnum>();
         var staticCtorRoundMode = data.ReadEnum<RoundModeEnum>();
 
-        if ((modCtorRoundMode, staticCtorRoundMode) != Server.initData!.RoundModes)
+        var serverInitData = Server.InitData ??
+                             throw new Exception("Server init data is null during handling of client join data");
+        if ((modCtorRoundMode, staticCtorRoundMode) != serverInitData.RoundModes)
         {
-            Player.Disconnect($"FP round modes don't match: {(modCtorRoundMode, staticCtorRoundMode)} != {Server.initData!.RoundModes}");
+            Player.Disconnect($"FP round modes don't match: {(modCtorRoundMode, staticCtorRoundMode)} != {serverInitData.RoundModes}");
             return false;
         }
 
@@ -129,7 +132,7 @@ public class ServerJoiningState : AsyncConnectionState
 
             var status = DefCheckStatus.Ok;
 
-            if (!Server.initData!.DefInfos.TryGetValue(defType, out DefInfo info))
+            if (!serverInitData.DefInfos.TryGetValue(defType, out DefInfo info))
                 status = DefCheckStatus.Not_Found;
             else if (info.count != defCount)
                 status = DefCheckStatus.Count_Diff;
@@ -146,10 +149,10 @@ public class ServerJoiningState : AsyncConnectionState
             Packets.Server_JoinData,
             Server.settings.gameName,
             Player.id,
-            Server.initData!.RwVersion,
+            serverInitData.RwVersion,
             MpVersion.Version,
             defsResponse.ToArray(),
-            Server.initData.RawData
+            serverInitData.RawData
         );
 
         return defsMatch;
