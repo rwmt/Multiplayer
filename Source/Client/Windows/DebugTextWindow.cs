@@ -45,9 +45,9 @@ public class DebugTextWindow : Window
 
         Text.Font = GameFont.Small;
 
-        var viewRect = new Rect(0f, 0f, inRect.width - 16f, Mathf.Max(fullHeight + 10f, inRect.height));
-        inRect.y += 30f;
-        Widgets.BeginScrollView(inRect, ref scroll, viewRect, true);
+        var scrollRect = inRect.MarginTop(30f);
+        var viewRect = new Rect(0f, 0f, inRect.width - 16f, Mathf.Max(fullHeight, scrollRect.height));
+        Widgets.BeginScrollView(scrollRect, ref scroll, viewRect);
 
         foreach (var str in lines)
         {
