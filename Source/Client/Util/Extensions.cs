@@ -96,7 +96,7 @@ namespace Multiplayer.Client
             SendCommand(conn, type, mapId, ByteWriter.GetBytes(data));
         }
 
-        public static bool IsIssuedBySelf(this ScheduledCommand cmd) => cmd.playerId == Multiplayer.session.playerId;
+        public static bool IsIssuedBySelf(this ScheduledCommand cmd) => cmd.playerId == Multiplayer.session?.playerId;
 
         public static MpContext MpContext(this ByteReader data)
         {
