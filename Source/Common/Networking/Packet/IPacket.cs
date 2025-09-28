@@ -51,6 +51,12 @@ public interface IPacketBufferable
 
 public delegate void Binder<T>(PacketBuffer buf, ref T obj);
 
+public static class BinderOf
+{
+    public static Binder<T> Identity<T>() where T : struct, IPacketBufferable =>
+        (PacketBuffer buf, ref T obj) => { buf.Bind(ref obj); };
+}
+
 public abstract class PacketBuffer(bool isWriting)
 {
     public const int DefaultMaxLength = 32767;

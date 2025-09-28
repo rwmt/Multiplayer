@@ -1,6 +1,6 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Linq;
+using Multiplayer.Common.Networking.Packet;
 
 namespace Multiplayer.Common
 {
@@ -86,53 +86,41 @@ namespace Multiplayer.Common
             conn.Send(packet, data);
         }
 
-        public void SendPlayerList()
+        public void SendPlayerList() =>
+            conn.Send(ServerPlayerListPacket.List(Server.JoinedPlayers.Select(p => p.PlayerInfoPacket())));
+
+        public ServerPlayerListPacket.PlayerInfo PlayerInfoPacket() => new()
         {
-            var writer = new ByteWriter();
+            id = id,
+            username = Username ?? "",
+            latency = Latency,
+            type = type,
 
-            writer.WriteEnum(PlayerListAction.List);
-            writer.WriteInt32(Server.JoinedPlayers.Count());
+            status = status,
 
-            foreach (var player in Server.JoinedPlayers)
-                writer.WriteRaw(player.SerializePlayerInfo());
+            steamId = steamId,
+            steamPersonaName = steamPersonaName,
 
-            conn.Send(Packets.Server_PlayerList, writer.ToArray());
-        }
+            ticksBehind = ticksBehind,
+            simulating = simulating,
 
-        public byte[] SerializePlayerInfo()
+            r = color.r,
+            g = color.g,
+            b = color.b,
+
+            factionId = FactionId,
+        };
+
+        public ServerPlayerListPacket.PlayerLatency LatencyPacket() => new()
         {
-            var writer = new ByteWriter();
-
-            writer.WriteInt32(id);
-            writer.WriteString(Username);
-            writer.WriteInt32(Latency);
-            writer.WriteEnum(type);
-            writer.WriteEnum(status);
-            writer.WriteULong(steamId);
-            writer.WriteString(steamPersonaName);
-            writer.WriteInt32(ticksBehind);
-            writer.WriteBool(simulating);
-            writer.WriteByte(color.r);
-            writer.WriteByte(color.g);
-            writer.WriteByte(color.b);
-            writer.WriteInt32(FactionId);
-
-            return writer.ToArray();
-        }
-
-        public void WriteLatencyUpdate(ByteWriter writer)
-        {
-            writer.WriteInt32(Latency);
-            writer.WriteInt32(ticksBehind);
-            writer.WriteBool(simulating);
-            writer.WriteFloat(frameTime);
-        }
+            playerId = id, latency = Latency, ticksBehind = ticksBehind, simulating = simulating,frameTime = frameTime
+        };
 
         public void UpdateStatus(PlayerStatus newStatus)
         {
             if (status == newStatus) return;
             status = newStatus;
-            Server.SendToPlaying(Packets.Server_PlayerList, new object[] { PlayerListAction.Status, id, newStatus });
+            Server.SendToPlaying(ServerPlayerListPacket.Status(id, newStatus));
         }
 
         public void ResetTimeVotes()
