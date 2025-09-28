@@ -42,16 +42,12 @@ namespace Multiplayer.Common
             }
         }
 
-        [PacketHandler(Packets.Client_Command)]
-        public void HandleClientCommand(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleClientCommand(ClientCommandPacket packet)
         {
-            CommandType cmd = data.ReadEnum<CommandType>();
-            int mapId = data.ReadInt32();
-            byte[]? extra = data.ReadPrefixedBytes(65535);
-            if (extra == null) return;
-            if (cmd == CommandType.PlayerCount)
+            if (packet.type == CommandType.PlayerCount)
             {
-                ByteReader reader = new ByteReader(extra);
+                ByteReader reader = new ByteReader(packet.data);
                 var prevMapId = reader.ReadInt32();
                 var newMapId = reader.ReadInt32();
                 if (Player.currentMapId != prevMapId)
@@ -62,7 +58,7 @@ namespace Multiplayer.Common
 
             // todo check if map id is valid for the player
 
-            Server.commands.Send(cmd, Player.FactionId, mapId, extra, Player);
+            Server.commands.Send(packet.type, Player.FactionId, packet.mapId, packet.data, Player);
         }
 
         public const int MaxChatMsgLength = 128;

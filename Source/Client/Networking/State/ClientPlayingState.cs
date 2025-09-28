@@ -18,12 +18,10 @@ namespace Multiplayer.Client
         [PacketHandler(Packets.Server_TimeControl)]
         public new void HandleTimeControl(ByteReader data) => base.HandleTimeControl(data);
 
-        [PacketHandler(Packets.Server_Command)]
-        public void HandleCommand(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleCommand(ServerCommandPacket packet)
         {
-            ScheduledCommand cmd = ScheduledCommand.Deserialize(data);
-            Session.ScheduleCommand(cmd);
-
+            Session.ScheduleCommand(packet.ToCommand());
             Multiplayer.session.receivedCmds++;
             Multiplayer.session.ProcessTimeControl();
         }
