@@ -1,7 +1,3 @@
-using LiteNetLib;
-using Multiplayer.Common;
-using RimWorld;
-using Steamworks;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -9,13 +5,17 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading;
+using HarmonyLib;
+using LiteNetLib;
+using Multiplayer.Client.Util;
+using Multiplayer.Common;
+using Multiplayer.Common.Util;
+using RimWorld;
+using Steamworks;
 using UnityEngine;
 using Verse;
-using Verse.Steam;
-using HarmonyLib;
 using Verse.Sound;
-using Multiplayer.Client.Util;
-using Multiplayer.Common.Util;
+using Verse.Steam;
 
 namespace Multiplayer.Client
 {
@@ -598,20 +598,9 @@ namespace Multiplayer.Client
             for (int i = 0; i < friendCount; i++)
             {
                 CSteamID friend = SteamFriends.GetFriendByIndex(i, EFriendFlags.k_EFriendFlagImmediate);
-
-                SteamFriends.GetFriendGamePlayed(friend, out FriendGameInfo_t friendGame);
-                bool playingRimworld = friendGame.m_gameID.AppID() == SteamIntegration.RimWorldAppId;
-
-                if (!playingRimworld) continue;
-
-                friends.Add(new SteamPersona
-                {
-                    id = friend,
-                    avatar = SteamFriends.GetSmallFriendAvatar(friend),
-                    username = SteamFriends.GetFriendPersonaName(friend),
-                    playingRimworld = true,
-                    serverHost = SteamIntegration.GetConnectHostId(friend),
-                });
+                var persona = SteamPersona.Of(friend);
+                if (!persona.playingRimworld) continue;
+                friends.Add(persona);
             }
 
             friends.SortByDescending(f => f.serverHost != CSteamID.Nil);
@@ -652,6 +641,21 @@ namespace Multiplayer.Client
 
         public bool playingRimworld;
         public CSteamID serverHost = CSteamID.Nil;
+
+        public static SteamPersona Of(CSteamID user)
+        {
+            SteamFriends.GetFriendGamePlayed(user, out FriendGameInfo_t game);
+            bool playingRimworld = game.m_gameID.AppID() == SteamIntegration.RimWorldAppId;
+
+            return new SteamPersona
+            {
+                id = user,
+                avatar = SteamFriends.GetSmallFriendAvatar(user),
+                username = SteamFriends.GetFriendPersonaName(user),
+                playingRimworld = playingRimworld,
+                serverHost = SteamIntegration.GetConnectHostId(user),
+            };
+        }
     }
 
     public class LanListener : IDisposable
