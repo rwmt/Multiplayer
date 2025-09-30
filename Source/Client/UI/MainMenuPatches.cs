@@ -40,13 +40,18 @@ namespace Multiplayer.Client
                 if (newColony != -1)
                 {
                     var version = $"Multiplayer v{MpVersion.Version}";
-                    var tooltip = $"{version}\nShift-click to copy";
+                    var tooltip = $"{version}\n" + "MpMultiplayerButtonTooltip".Translate();
                     optList.Insert(newColony + 1, new ListableOptionWithMarker("MpMultiplayerButton".Translate(),
                         tooltip,
                         () =>
                         {
-                            if (MpVersion.IsDebug && Event.current.button == 1)
-                                ShowModDebugInfo();
+                            if (Event.current.button == 1 && Event.current.shift)
+                            {
+                                Find.WindowStack.Add(new FloatMenu([
+                                    new FloatMenuOption("MpGenerateDebugFile".Translate(),
+                                        () => DebugInfoFile.Generate())
+                                ]));
+                            }
                             else if (Event.current.button == 0 && Event.current.shift)
                                 GUIUtility.systemCopyBuffer = version;
                             else

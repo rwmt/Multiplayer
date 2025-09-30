@@ -1,12 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.IO.Compression;
 using System.Linq;
-using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
-using Multiplayer.Common.Util;
 using UnityEngine;
 using Verse;
 using Random = System.Random;
@@ -94,10 +90,9 @@ public static class MpSettingsUI
 
         if (listing.ButtonText("Generate debug info"))
         {
-            Log.Message($"Generating debug info at {DateTime.Now:u}");
             try
             {
-                GenerateDebugInfo();
+                DebugInfoFile.Generate();
             }
             catch(Exception e)
             {
@@ -140,20 +135,6 @@ public static class MpSettingsUI
                 var b = btn;
                 yield return new FloatMenuOption($"Mouse {b + 3}", () => { setter(KeyCode.Mouse2 + b); });
             }
-        }
-
-        void GenerateDebugInfo()
-        {
-            var logs = LogGenerator.PrepareLogData();
-            var metadata = MetadataGenerator.Generate();
-            var zipPath = Path.Combine(Multiplayer.LogsDir, "debug-info.zip");
-            if (File.Exists(zipPath)) File.Delete(zipPath);
-            using (var zip = MpZipFile.Open(zipPath, ZipArchiveMode.Create))
-            {
-                zip.AddEntry("logs.txt", logs);
-                zip.AddEntry("metadata.txt", metadata);
-            }
-            ShellOpenDirectory.Execute(Multiplayer.LogsDir);
         }
     }
 
