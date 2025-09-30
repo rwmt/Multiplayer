@@ -5,6 +5,7 @@ using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using UnityEngine;
 using Verse;
+using Random = System.Random;
 
 namespace Multiplayer.Client;
 
@@ -87,6 +88,18 @@ public static class MpSettingsUI
                 Find.WindowStack.Add(
                     new FloatMenu(new List<FloatMenuOption>(ButtonChooser(b => settings.jumpToPingButton = b))));
 
+        if (listing.ButtonText("Generate debug info"))
+        {
+            try
+            {
+                DebugInfoFile.Generate();
+            }
+            catch(Exception e)
+            {
+                Log.Error($"Failed to generate debug info {e}");
+            }
+        }
+
         if (Prefs.DevMode)
         {
             listing.CheckboxLabeled("Show debug info", ref settings.showDevInfo);
@@ -165,7 +178,7 @@ public static class MpSettingsUI
         rect = new Rect(402, settings.playerColors.Count * 32 + 118, 32, 32);
         if (Widgets.ButtonText(rect, "+"))
         {
-            var rand = new System.Random();
+            var rand = new Random();
             settings.playerColors.Add(new ColorRGBClient((byte)rand.Next(256), (byte)rand.Next(256), (byte)rand.Next(256)));
             PlayerManager.PlayerColors = settings.playerColors.Select(c => (ColorRGB)c).ToArray();
         }
