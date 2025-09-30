@@ -1,12 +1,12 @@
-using HarmonyLib;
-using Multiplayer.Common;
-using RimWorld;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using HarmonyLib;
 using Multiplayer.Client.Saving;
 using Multiplayer.Client.Util;
+using Multiplayer.Common;
+using RimWorld;
 using UnityEngine;
 using Verse;
 
@@ -39,16 +39,22 @@ namespace Multiplayer.Client
                 int newColony = optList.FindIndex(opt => opt.label == "NewColony".Translate());
                 if (newColony != -1)
                 {
-                    optList.Insert(newColony + 1, new ListableOptionWithMarker("MpMultiplayerButton".Translate(), () =>
-                    {
-                        if (MpVersion.IsDebug && Event.current.button == 1)
-                            ShowModDebugInfo();
-                        else
+                    var version = $"Multiplayer v{MpVersion.Version}";
+                    var tooltip = $"{version}\nShift-click to copy";
+                    optList.Insert(newColony + 1, new ListableOptionWithMarker("MpMultiplayerButton".Translate(),
+                        tooltip,
+                        () =>
                         {
-                            Find.WindowStack.Add(new ServerBrowser());
-                            VersionChecker.OpenNewVersionDialogIfApplicable();
-                        }
-                    }));
+                            if (MpVersion.IsDebug && Event.current.button == 1)
+                                ShowModDebugInfo();
+                            else if (Event.current.button == 0 && Event.current.shift)
+                                GUIUtility.systemCopyBuffer = version;
+                            else
+                            {
+                                Find.WindowStack.Add(new ServerBrowser());
+                                VersionChecker.OpenNewVersionDialogIfApplicable();
+                            }
+                        }));
                 }
             }
 
@@ -177,27 +183,23 @@ namespace Multiplayer.Client
         }
     }
 
-    class ListableOptionWithMarker : ListableOption
+    class ListableOptionWithMarker(string label, string tooltip, Action action, string uiHighlightTag = null)
+        : ListableOption(label, action, uiHighlightTag)
     {
-        public ListableOptionWithMarker(string label, Action action, string uiHighlightTag = null) : base(label, action, uiHighlightTag)
-        {
-        }
-
         public override float DrawOption(Vector2 pos, float width)
         {
-            var r = base.DrawOption(pos, width);
+            var height = base.DrawOption(pos, width);
+            var rect = new Rect(pos.x, pos.y, width, height);
 
+            TooltipHandler.TipRegion(rect, tooltip);
             if (Multiplayer.loadingErrors)
             {
-                float b = Text.CalcHeight(label, width);
-                float num = Mathf.Max(minHeight, b);
-                Rect rect = new Rect(pos.x, pos.y, width, num);
                 var markerRect = new Rect(rect.xMax - 36, rect.center.y - 12, 24, 24);
                 GUI.DrawTexture(markerRect, Widgets.CheckboxOffTex);
                 TooltipHandler.TipRegion(markerRect, MpUtil.TranslateWithDoubleNewLines("MpLoadingError", 5));
             }
 
-            return r;
+            return height;
         }
     }
 
