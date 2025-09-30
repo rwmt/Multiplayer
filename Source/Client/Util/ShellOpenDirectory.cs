@@ -39,9 +39,7 @@ namespace Multiplayer.Client.Util
         /// <summary>
         /// Adds double quotes to the start and end of a string.
         /// </summary>
-        private static string SurroundWithDoubleQuotes(this string text) {
-            return string.Format("\"{0}\"", text);
-        }
+        private static string SurroundWithDoubleQuotes(this string text) => $"\"{text}\"";
 
         private static PlatformType GetCurrentPlatform() {
             // Will need changing if another platform is supported by RimWorld in the future

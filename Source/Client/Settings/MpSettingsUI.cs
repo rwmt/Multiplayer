@@ -1,10 +1,15 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.IO.Compression;
 using System.Linq;
+using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
+using Multiplayer.Common.Util;
 using UnityEngine;
 using Verse;
+using Random = System.Random;
 
 namespace Multiplayer.Client;
 
@@ -87,6 +92,19 @@ public static class MpSettingsUI
                 Find.WindowStack.Add(
                     new FloatMenu(new List<FloatMenuOption>(ButtonChooser(b => settings.jumpToPingButton = b))));
 
+        if (listing.ButtonText("Generate debug info"))
+        {
+            Log.Message($"Generating debug info at {DateTime.Now:u}");
+            try
+            {
+                GenerateDebugInfo();
+            }
+            catch(Exception e)
+            {
+                Log.Error($"Failed to generate debug info {e}");
+            }
+        }
+
         if (Prefs.DevMode)
         {
             listing.CheckboxLabeled("Show debug info", ref settings.showDevInfo);
@@ -122,6 +140,20 @@ public static class MpSettingsUI
                 var b = btn;
                 yield return new FloatMenuOption($"Mouse {b + 3}", () => { setter(KeyCode.Mouse2 + b); });
             }
+        }
+
+        void GenerateDebugInfo()
+        {
+            var logs = LogGenerator.PrepareLogData();
+            var metadata = MetadataGenerator.Generate();
+            var zipPath = Path.Combine(Multiplayer.LogsDir, "debug-info.zip");
+            if (File.Exists(zipPath)) File.Delete(zipPath);
+            using (var zip = MpZipFile.Open(zipPath, ZipArchiveMode.Create))
+            {
+                zip.AddEntry("logs.txt", logs);
+                zip.AddEntry("metadata.txt", metadata);
+            }
+            ShellOpenDirectory.Execute(Multiplayer.LogsDir);
         }
     }
 
@@ -165,7 +197,7 @@ public static class MpSettingsUI
         rect = new Rect(402, settings.playerColors.Count * 32 + 118, 32, 32);
         if (Widgets.ButtonText(rect, "+"))
         {
-            var rand = new System.Random();
+            var rand = new Random();
             settings.playerColors.Add(new ColorRGBClient((byte)rand.Next(256), (byte)rand.Next(256), (byte)rand.Next(256)));
             PlayerManager.PlayerColors = settings.playerColors.Select(c => (ColorRGB)c).ToArray();
         }
