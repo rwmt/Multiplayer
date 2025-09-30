@@ -221,10 +221,12 @@ public class SessionManager : IHasSessionData, ISessionManager
             for (int i = exposableSessions.Count - 1; i >= 0; i--)
             {
                 var session = exposableSessions[i];
-                if (!session.IsSessionValid)
+                if (session is { IsSessionValid: true }) continue;
+
+                // Removal from allSessions handled lower
+                exposableSessions.RemoveAt(i);
+                if (session != null)
                 {
-                    // Removal from allSessions handled lower
-                    exposableSessions.RemoveAt(i);
                     session.PostRemoveSession();
                     var sessionType = session.GetType();
                     if (!tempCleanupLoggingTypes.Add(sessionType))
