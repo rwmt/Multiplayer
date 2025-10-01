@@ -59,7 +59,7 @@ public static class FileAssoc
 
         using (var command = CreateSubKeyOrThrow(progIdKey, @"shell\open\command"))
         {
-            command.SetValue("", $"\"{appPath}\" -{MultiplayerStatic.MpHostReplayCmdLineArg}=\"%1\"",
+            command.SetValue("", $"\"{appPath}\" -{MultiplayerStatic.MpHostReplayCmdLineArgName}=\"%1\"",
                 RegistryValueKind.ExpandString);
         }
     }

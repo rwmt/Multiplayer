@@ -1,6 +1,4 @@
 #nullable enable
-using Multiplayer.Common;
-using RimWorld;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -8,6 +6,8 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Xml;
+using Multiplayer.Common;
+using RimWorld;
 using UnityEngine;
 using Verse;
 
@@ -28,6 +28,11 @@ namespace Multiplayer.Client
             var replaysDir = new DirectoryInfo(Multiplayer.ReplaysDir);
             var toRead = replaysDir.GetFiles("*.zip", MpVersion.IsDebug ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
             MpSaves = toRead.OrderByDescending(f => f.LastWriteTime).ToList();
+            if (MultiplayerStatic.MpHostReplayCmdLineArgValue is { } cmdLineSave)
+            {
+                var fileInfo = new FileInfo(cmdLineSave);
+                if (fileInfo.Exists) MpSaves.Insert(0, fileInfo);
+            }
 
             spTask = Task.Run(() => SpSaves.ForEach(ReadSpSave));
 
@@ -130,7 +135,12 @@ namespace Multiplayer.Client
 
         public static SaveFile? ReadMpSave(FileInfo file)
         {
-            var displayName = Path.ChangeExtension(Path.GetRelativePath(Multiplayer.ReplaysDir, file.FullName), null);
+            // Used to normalize the path. ReplaysDir can contain mixed path separators.
+            var replaysDir = Path.GetFullPath(Multiplayer.ReplaysDir);
+            var relPath = file.FullName.Contains(replaysDir)
+                ? Path.GetRelativePath(replaysDir, file.FullName)
+                : file.Name;
+            var displayName = Path.ChangeExtension(relPath, null);
             var saveFile = new SaveFile(displayName, true, file);
 
             var replay = Replay.ForLoading(file);
