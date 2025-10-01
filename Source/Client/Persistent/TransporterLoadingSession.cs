@@ -20,6 +20,14 @@ namespace Multiplayer.Client
 
         public bool uiDirty;
 
+        public override bool IsSessionValid => map != null && faction != null;
+
+        // Used when saving and loading
+        public TransporterLoading(Map map) : base(map)
+        {
+            this.map = map;
+        }
+
         public TransporterLoading(Faction faction, Map map) : base(map)
         {
             this.map = map;
@@ -95,6 +103,7 @@ namespace Multiplayer.Client
         {
             base.ExposeData();
 
+            Scribe_References.Look(ref faction, "faction");
             Scribe_Collections.Look(ref transferables, "transferables", LookMode.Deep);
             Scribe_Collections.Look(ref pods, "transporters", LookMode.Reference);
 
