@@ -260,7 +260,7 @@ namespace Multiplayer.Client
             Current.Game.currentMapIndex = (sbyte)map.Index;
 
             executingCmdMap = map;
-            TickPatch.currentExecutingCmdIssuedBySelf = cmd.issuedBySelf && !TickPatch.Simulating;
+            TickPatch.currentExecutingCmdIssuedBySelf = cmd.IsIssuedBySelf() && !TickPatch.Simulating;
             TickPatch.currentExecutingCmdType = cmdType;
 
             PreContext();

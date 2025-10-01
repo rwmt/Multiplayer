@@ -171,7 +171,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         LoggingByteReader data = new LoggingByteReader(cmd.data);
         data.Log.Node($"{cmdType} Global");
 
-        TickPatch.currentExecutingCmdIssuedBySelf = cmd.issuedBySelf && !TickPatch.Simulating;
+        TickPatch.currentExecutingCmdIssuedBySelf = cmd.IsIssuedBySelf() && !TickPatch.Simulating;
         TickPatch.currentExecutingCmdType = cmdType;
 
         PreContext();
@@ -289,7 +289,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         {
             SetTimeEverywhere(speed);
 
-            if (!cmd.issuedBySelf)
+            if (!cmd.IsIssuedBySelf())
                 lastSpeedChange = Time.realtimeSinceStartup;
         }
 

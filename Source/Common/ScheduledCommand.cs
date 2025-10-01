@@ -2,31 +2,21 @@
 
 namespace Multiplayer.Common
 {
-    public class ScheduledCommand
+    public class ScheduledCommand(CommandType type, int ticks, int factionId, int mapId, int playerId, byte[] data)
     {
         public const int NoFaction = -1;
         public const int Global = -1;
         public const int NoPlayer = -1;
 
-        public readonly CommandType type;
-        public readonly int ticks;
-        public readonly int factionId;
-        public readonly int mapId;
-        public readonly int playerId;
-        public readonly byte[] data;
+        public readonly CommandType type = type;
+        public readonly int ticks = ticks;
+        public readonly int factionId = factionId;
+        public readonly int mapId = mapId;
+        public readonly int playerId = playerId;
+        public readonly byte[] data = data;
 
-        // Client only, not serialized
-        public bool issuedBySelf;
-
-        public ScheduledCommand(CommandType type, int ticks, int factionId, int mapId, int playerId, byte[] data)
-        {
-            this.type = type;
-            this.ticks = ticks;
-            this.factionId = factionId;
-            this.mapId = mapId;
-            this.playerId = playerId;
-            this.data = data;
-        }
+        public override string ToString() =>
+            $"Cmd: {type}, faction: {factionId}, map: {mapId}, ticks: {ticks}, player: {playerId}";
 
         public static byte[] Serialize(ScheduledCommand cmd)
         {
@@ -51,11 +41,6 @@ namespace Multiplayer.Common
             byte[] extraBytes = data.ReadPrefixedBytes()!;
 
             return new ScheduledCommand(cmd, ticks, factionId, mapId, playerId, extraBytes);
-        }
-
-        public override string ToString()
-        {
-            return $"Cmd: {type}, faction: {factionId}, map: {mapId}, ticks: {ticks}, player: {playerId}";
         }
 
         public static List<ScheduledCommand> DeserializeCmds(byte[] data)

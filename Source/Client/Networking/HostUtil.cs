@@ -196,6 +196,8 @@ namespace Multiplayer.Client
             var server = Multiplayer.LocalServer;
             var player = server.playerManager.OnConnected(serverConnection);
             server.playerManager.MakeHost(player);
+            // Normally set during ClientJoiningState, but when hosting we skip straight through to the playing state.
+            Multiplayer.session.playerId = player.id;
         }
 
         private static void StartLocalServer()
