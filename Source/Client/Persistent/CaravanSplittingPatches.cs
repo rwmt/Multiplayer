@@ -1,7 +1,7 @@
-using Verse;
-using RimWorld.Planet;
 using HarmonyLib;
 using Multiplayer.API;
+using RimWorld.Planet;
+using Verse;
 
 namespace Multiplayer.Client.Persistent
 {
@@ -64,8 +64,7 @@ namespace Multiplayer.Client.Persistent
         [SyncMethod]
         public static void CreateSplittingSession(Caravan caravan)
         {
-            //Start caravan splitting session here by calling new session constructor
-            Multiplayer.WorldComp.sessionManager.AddSession(new CaravanSplittingSession(caravan));
+            Multiplayer.WorldComp.sessionManager.AddSession(CaravanSplittingSession.Of(caravan));
         }
     }
 }

@@ -13,16 +13,19 @@ public class MapPortalSession : ExposableSession, ISessionWithTransferables, ISe
 
     public override Map Map => portal.Map;
 
+    public override bool IsSessionValid => portal != null;
+
     public MapPortalSession(Map _) : base(null)
     {
         // Mandatory constructor
     }
 
-    public MapPortalSession(MapPortal portal) : base(null)
+    public static MapPortalSession Of(MapPortal portal)
     {
-        this.portal = portal;
-
-        AddItems();
+        var session = new MapPortalSession(null);
+        session.portal = portal;
+        session.AddItems();
+        return session;
     }
 
     private void AddItems()
@@ -65,7 +68,7 @@ public class MapPortalSession : ExposableSession, ISessionWithTransferables, ISe
     {
         var map = portal.Map;
         var manager = map.MpComp().sessionManager;
-        var session = manager.GetOrAddSession(new MapPortalSession(portal));
+        var session = manager.GetOrAddSession(Of(portal));
 
         // Shouldn't happen and is here for safety.
         if (session == null)

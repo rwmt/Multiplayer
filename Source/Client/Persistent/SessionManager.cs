@@ -188,6 +188,11 @@ public class SessionManager : IHasSessionData, ISessionManager
             }
 
             var objType = ApiSerialization.sessions[typeIndex];
+            if (!typeof(SemiPersistentSession).IsAssignableFrom(objType))
+            {
+                Log.Error($"Received data for ISession type {objType} (index {typeIndex}) that is not a semi persistent session");
+                continue;
+            }
 
             try
             {

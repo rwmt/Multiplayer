@@ -1,8 +1,8 @@
+using System;
+using System.Collections.Generic;
 using Multiplayer.API;
 using RimWorld;
 using RimWorld.Planet;
-using System;
-using System.Collections.Generic;
 using Verse;
 
 namespace Multiplayer.Client
@@ -25,6 +25,14 @@ namespace Multiplayer.Client
         public bool uiDirty;
 
         public override Map Map => map;
+
+        public override bool IsSessionValid => map != null && faction != null;
+
+        // Used when saving and loading
+        private CaravanFormingSession(Map map) : base(map)
+        {
+            this.map = map;
+        }
 
         public CaravanFormingSession(Faction faction, Map map) : base(map)
         {
@@ -165,6 +173,7 @@ namespace Multiplayer.Client
         {
             base.ExposeData();
 
+            Scribe_References.Look(ref faction, "faction");
             Scribe_Values.Look(ref reform, "reform");
             Scribe_Values.Look(ref onClosed, "onClosed");
             Scribe_Values.Look(ref mapAboutToBeRemoved, "mapAboutToBeRemoved");

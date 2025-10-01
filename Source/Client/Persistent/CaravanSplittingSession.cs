@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using Verse;
+using Multiplayer.API;
 using RimWorld;
 using RimWorld.Planet;
-using Multiplayer.API;
+using Verse;
 using Verse.Sound;
 
 namespace Multiplayer.Client.Persistent
@@ -12,6 +12,7 @@ namespace Multiplayer.Client.Persistent
     /// </summary>
     public class CaravanSplittingSession : ExposableSession, ISessionWithTransferables, ISessionWithCreationRestrictions
     {
+        // This session is only possible on the world, so the map is always null.
         public override Map Map => null;
 
         /// <summary>
@@ -27,13 +28,21 @@ namespace Multiplayer.Client.Persistent
         /// <summary>
         /// The caravan being split.
         /// </summary>
-        public Caravan Caravan { get; private set; }
+        public Caravan Caravan
+        {
+            get => caravan;
+            private set => caravan = value;
+        }
+        private Caravan caravan;
 
         /// <summary>
         /// Reference to the dialog that is being displayed.
         /// </summary>
         public CaravanSplittingProxy dialog;
 
+        public override bool IsSessionValid => Caravan != null;
+
+        // Used when saving and loading
         public CaravanSplittingSession(Map map) : base(null)
         {
         }
@@ -42,11 +51,12 @@ namespace Multiplayer.Client.Persistent
         /// Handles creation of new CaravanSplittingSession.
         /// </summary>
         /// <param name="caravan"></param>
-        public CaravanSplittingSession(Caravan caravan) : base(null)
+        public static CaravanSplittingSession Of(Caravan caravan)
         {
-            Caravan = caravan;
-
-            AddItems();
+            var session = new CaravanSplittingSession(null);
+            session.Caravan = caravan;
+            session.AddItems();
+            return session;
         }
 
         private void AddItems()
@@ -106,6 +116,7 @@ namespace Multiplayer.Client.Persistent
         public override void ExposeData()
         {
             base.ExposeData();
+            Scribe_References.Look(ref caravan, "caravan");
             Scribe_Collections.Look(ref transferables, "transferables", LookMode.Deep);
         }
 
