@@ -4,7 +4,6 @@ using Ionic.Zlib;
 using Multiplayer.Common;
 using Multiplayer.Common.Networking.Packet;
 using RimWorld;
-using RimWorld.Planet;
 using UnityEngine;
 using Verse;
 
@@ -144,16 +143,8 @@ namespace Multiplayer.Client
                 player.selectedThings.Remove(remove[i]);
         }
 
-        [PacketHandler(Packets.Server_PingLocation)]
-        public void HandlePing(ByteReader data)
-        {
-            int player = data.ReadInt32();
-            int map = data.ReadInt32();
-            PlanetTile planetTile = new(data.ReadInt32(), data.ReadInt32());
-            var loc = new Vector3(data.ReadFloat(), data.ReadFloat(), data.ReadFloat());
-
-            Session.locationPings.ReceivePing(player, map, planetTile, loc);
-        }
+        [TypedPacketHandler]
+        public void HandlePing(ServerPingLocPacket packet) => Session.locationPings.ReceivePing(packet);
 
         [PacketHandler(Packets.Server_MapResponse)]
         public void HandleMapResponse(ByteReader data)

@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using Multiplayer.Client.Util;
-using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
 using RimWorld;
 using RimWorld.Planet;
 using UnityEngine;
@@ -60,27 +60,25 @@ public class LocationPings
 
     private void PingLocation(int map, PlanetTile tile, Vector3 loc)
     {
-        var writer = new ByteWriter();
-        writer.WriteInt32(map);
-        writer.WriteInt32(tile.tileId);
-        writer.WriteInt32(tile.layerId);
-        writer.WriteFloat(loc.x);
-        writer.WriteFloat(loc.y);
-        writer.WriteFloat(loc.z);
-        Multiplayer.Client.Send(Packets.Client_PingLocation, writer.ToArray());
-
+        Multiplayer.Client.Send(new ClientPingLocPacket(map, tile.tileId, tile.layerId, loc.x, loc.y, loc.z));
         SoundDefOf.TinyBell.PlayOneShotOnCamera();
     }
 
-    public void ReceivePing(int player, int map, PlanetTile tile, Vector3 loc)
+    public void ReceivePing(ServerPingLocPacket packet)
     {
         if (!Multiplayer.settings.enablePings) return;
 
-        pings.RemoveAll(p => p.player == player);
-        pings.Add(new PingInfo { player = player, mapId = map, planetTile = tile, mapLoc = loc });
+        var data = packet.data;
+        pings.RemoveAll(p => p.player == packet.playerId);
+        pings.Add(new PingInfo {
+            player = packet.playerId,
+            mapId = data.mapId,
+            planetTile = new PlanetTile(data.planetTileId, data.planetTileLayer),
+            mapLoc = new Vector3(data.x, data.y, data.z)
+        });
         alertHidden = false;
 
-        if (player != Multiplayer.session.playerId)
+        if (packet.playerId != Multiplayer.session.playerId)
             SoundDefOf.TinyBell.PlayOneShotOnCamera();
     }
 }

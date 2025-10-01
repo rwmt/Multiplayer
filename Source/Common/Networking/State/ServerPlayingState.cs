@@ -132,22 +132,9 @@ namespace Multiplayer.Common
             Server.SendToPlaying(Packets.Server_Selected, writer.ToArray(), excluding: Player);
         }
 
-        [PacketHandler(Packets.Client_PingLocation)]
-        public void HandlePing(ByteReader data)
-        {
-            var writer = new ByteWriter();
-
-            writer.WriteInt32(Player.id);
-
-            writer.WriteInt32(data.ReadInt32()); // Map id
-            writer.WriteInt32(data.ReadInt32()); // Planet tile id
-            writer.WriteInt32(data.ReadInt32()); // Planet tile layer
-            writer.WriteFloat(data.ReadFloat()); // X
-            writer.WriteFloat(data.ReadFloat()); // Y
-            writer.WriteFloat(data.ReadFloat()); // Z
-
-            Server.SendToPlaying(Packets.Server_PingLocation, writer.ToArray());
-        }
+        [TypedPacketHandler]
+        public void HandlePing(ClientPingLocPacket packet) =>
+            Server.SendToPlaying(new ServerPingLocPacket(Player.id, packet));
 
         [PacketHandler(Packets.Client_KeepAlive)]
         public void HandleClientKeepAlive(ByteReader data)
