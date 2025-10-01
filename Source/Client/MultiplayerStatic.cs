@@ -19,6 +19,7 @@ using Verse;
 using Verse.Sound;
 using Verse.Steam;
 using Debug = UnityEngine.Debug;
+using Object = UnityEngine.Object;
 
 namespace Multiplayer.Client
 {
@@ -42,7 +43,8 @@ namespace Multiplayer.Client
         public static readonly Texture2D GiftModeIcon = ContentFinder<Texture2D>.Get("UI/Buttons/GiftMode");
         public static readonly Texture2D TradeModeIcon = ContentFinder<Texture2D>.Get("UI/Buttons/TradeMode");
 
-        public const string MpHostReplayCmdLineArg = "mphostreplay";
+        public const string MpHostReplayCmdLineArgName = "mphostreplay";
+        public static string MpHostReplayCmdLineArgValue;
 
         static MultiplayerStatic()
         {
@@ -77,7 +79,7 @@ namespace Multiplayer.Client
 
             var persistentObj = new GameObject();
             persistentObj.AddComponent<OnMainThread>();
-            UnityEngine.Object.DontDestroyOnLoad(persistentObj);
+            Object.DontDestroyOnLoad(persistentObj);
 
             MpConnectionState.SetImplementation(ConnectionStateEnum.ClientSteam, typeof(ClientSteamState));
             MpConnectionState.SetImplementation(ConnectionStateEnum.ClientJoining, typeof(ClientJoiningState));
@@ -266,8 +268,9 @@ namespace Multiplayer.Client
                 ExtendDirectXmlSaver.extend = false;
             }
 
-            if (GenCommandLine.TryGetCommandLineArg(MpHostReplayCmdLineArg, out var path))
+            if (GenCommandLine.TryGetCommandLineArg(MpHostReplayCmdLineArgName, out var path))
             {
+                MpHostReplayCmdLineArgValue = path;
                 DoubleLongEvent(() => HostWindow.VerifyAndOpen(path), "Loading");
             }
         }
