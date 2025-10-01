@@ -39,12 +39,17 @@ public static class Autosaving
 
         try
         {
-            new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{fileNameNoExtension}.zip")).Delete();
-            Replay.ForSaving(fileNameNoExtension).WriteData(
+            var tmp = new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{fileNameNoExtension}.tmp.zip"));
+            Replay.ForSaving(tmp).WriteData(
                 currentReplay ?
                     Multiplayer.session.dataSnapshot :
                     SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveGameData(), false)
             );
+
+            var dst = new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{fileNameNoExtension}.zip"));
+            if (!dst.Exists) dst.Open(FileMode.Create).Close();
+            tmp.Replace(dst.FullName, null);
+
             Messages.Message("MpGameSaved".Translate(fileNameNoExtension), MessageTypeDefOf.SilentInput, false);
             Multiplayer.session.lastSaveAt = Time.realtimeSinceStartup;
         }
