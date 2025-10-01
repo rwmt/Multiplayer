@@ -1,5 +1,8 @@
 using System;
 using System.Runtime.CompilerServices;
+using System.Text;
+using HarmonyLib;
+using Multiplayer.Common;
 
 namespace Multiplayer.Client.Desyncs;
 
@@ -184,7 +187,7 @@ public static class DeferredStackTracingImpl
             StableStringHash(normalizedMethodNameBetweenOS);
     }
 
-    static unsafe long GetStackUsage(long addr)
+    private static unsafe long GetStackUsage(long addr)
     {
         var ji = Native.mono_jit_info_table_find(Native.DomainPtr, (IntPtr)addr);
 
@@ -194,11 +197,16 @@ public static class DeferredStackTracingImpl
         var start = (uint*)Native.mono_jit_info_get_code_start(ji);
         long usage = 0;
 
+        // Emitted at: https://github.com/Unity-Technologies/mono/blob/2022.3.35f1/mono/mini/mini-amd64.c#L7652
+        // - diverges into: https://github.com/Unity-Technologies/mono/blob/2022.3.35f1/mono/arch/amd64/amd64-codegen.h#L190-L193
         if ((*start & 0xFFFFFF) == 0xEC8348) // sub rsp,XX (4883EC XX)
         {
             usage = *start >> 24;
             start += 1;
-        } else if ((*start & 0xFFFFFF) == 0xEC8148) // sub rsp,XXXXXXXX (4881EC XXXXXXXX)
+        }
+        // - diverges into: https://github.com/Unity-Technologies/mono/blob/2022.3.35f1/mono/arch/amd64/amd64-codegen.h#L199-L202
+        //   basically just a long form of the above branch.
+        else if ((*start & 0xFFFFFF) == 0xEC8148) // sub rsp,XXXXXXXX (4881EC XXXXXXXX)
         {
             usage = *(uint*)((long)start + 3);
             start = (uint*)((long)start + 7);
@@ -210,6 +218,7 @@ public static class DeferredStackTracingImpl
             return usage;
         }
 
+        // https://github.com/Unity-Technologies/mono/blob/2022.3.35f1/mono/mini/mini-amd64.c#L7559
         // push rbp (55)
         if (*(byte*)start == 0x55)
             return RbpBased;
@@ -224,7 +233,7 @@ public static class DeferredStackTracingImpl
         // or:
         // mov [rsp],rbx   (48891C24)
         // mov [rsp+8],rbp (48896C2408)
-        // (The calle saved registers are always in the same order
+        // (The callee saved registers are always in the same order
         // and are saved at the bottom of the frame)
 
         if (*at == 0x242C8948)
@@ -238,12 +247,89 @@ public static class DeferredStackTracingImpl
         }
     }
 
-    [MethodImpl(MethodImplOptions.NoInlining)]
+    static DeferredStackTracingImpl()
+    {
+        // All of this code assumes that the rbp pointer offset stays the same throughout the method invocations.
+        // Mono is generally allowed to recompile code, which could cause issues for us, but GetRpb is annotated as
+        // NoInline and NoOptimization to heavily discourage any changes and avoid breaking.
+
+        var method = AccessTools.DeclaredMethod(typeof(DeferredStackTracingImpl), nameof(GetRbp))!;
+        var rbpCodeStart = Native.mono_compile_method(method.MethodHandle.Value);
+        // Add 1 byte because Mono recognizes the jit_info to be just after the code start address returned by
+        // the compile method.
+        var jitInfo = Native.mono_jit_info_table_find(Native.DomainPtr, rbpCodeStart + 1);
+        var instStart = Native.mono_jit_info_get_code_start(jitInfo);
+        var instLen = Native.mono_jit_info_get_code_size(jitInfo);
+        // Search for the following instruction:
+        // mov rax, imm<MagicNumber> (48b8 <MagicNumber>)
+        // It should directly precede:
+        // mov [rbp-XX], rax
+        // From which we can extract the offset from rbp.
+        byte[] magicBytes = [0x48, 0xb8, ..BitConverter.GetBytes(MagicNumber)];
+        unsafe
+        {
+            // Make sure we don't access out-of-bounds memory.
+            // magicBytes.Length -- mov rax, <MagicNumber>
+            // sizeof(uint)      -- mov [rbp-XX], rax
+            var maxLen = instLen - magicBytes.Length - sizeof(uint);
+            for (int i = 0; i < maxLen; i++)
+            {
+                byte* at = (byte*)instStart + i;
+                var matches = new ReadOnlySpan<byte>(at, magicBytes.Length).SequenceEqual(magicBytes);
+                if (!matches) continue;
+
+                uint* match = (uint*)(at + magicBytes.Length);
+                // mov [rbp-XX], rax    (488945XX)
+                if ((*match & 0xFFFFFF) == 0x458948)
+                {
+                    offsetFromRbp = (sbyte)(*match >> 24);
+                    return;
+                }
+            }
+
+            // To analyze the assembly dump, remove the offset prefixes at the start of each line and paste the hex to
+            // a site like https://defuse.ca/online-x86-assembler.htm#disassembly2. Choose x64. Search for the
+            // magic number and compare the code with the loop above.
+            var asm = HexDump(new ReadOnlySpan<byte>((void*)instStart, instLen));
+            ServerLog.Error(
+                $"Unexpected GetRpb asm structure. Couldn't find a magic bytes match. " +
+                $"Using fallback offset ({offsetFromRbp}). " +
+                $"Asm dump for the method: \n{asm}");
+        }
+    }
+
+    private static string HexDump(ReadOnlySpan<byte> data, int bytesPerLine = 16)
+    {
+        var sb = new StringBuilder();
+
+        for (int i = 0; i < data.Length; i += bytesPerLine)
+        {
+            sb.Append($"{i:X4}: ");
+
+            for (int j = 0; j < bytesPerLine && i + j < data.Length; j++) sb.Append($"{data[i + j]:X2} ");
+
+            sb.AppendLine();
+        }
+
+        return sb.ToString();
+    }
+
+    // Magic number is used to locate the relevant method code.
+    private const long MagicNumber = 0x0123456789ABCDEF;
+    private static sbyte offsetFromRbp = -8;
+
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
     private static unsafe long GetRbp()
     {
-        long rbp = 0;
+        // This variable declaration compiles down to the following IL:
+        // ldc.i8 <MagicNumber>
+        // stloc.0
+        // In turn, the second IL instruction compiles to amd64 as:
+        // mov qword ptr [rbp-XX], rax
+        // From which we can extract the offset (XX) to reliably calculate the rbp address
+        long register = MagicNumber;
 
-        return *(&rbp + 1);
+        return *(long*)((byte*)&register - offsetFromRbp);
     }
 
     private static int HashCombineInt(int seed, int value) =>
