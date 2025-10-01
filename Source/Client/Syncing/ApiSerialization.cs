@@ -2,7 +2,6 @@
 using System.Reflection;
 using Multiplayer.API;
 using Multiplayer.Client.Util;
-using Multiplayer.Common;
 using Verse;
 
 namespace Multiplayer.Client;
@@ -17,8 +16,6 @@ public static class ApiSerialization
         syncSimples = TypeCache.AllInterfaceImplementationsOrdered(typeof(ISyncSimple));
         sessions = TypeCache.AllSubclassesNonAbstractOrdered(typeof(Session));
 
-        // TODO enable once all the built-in session types are fixed. Disabled for releases to avoid worrying players
-        if (!MpVersion.IsDebug) return;
         foreach (var sessionType in sessions)
         {
             // The docs don't require the Session's ctor(Map) to be public, and it's not required for an ExposableSession.
