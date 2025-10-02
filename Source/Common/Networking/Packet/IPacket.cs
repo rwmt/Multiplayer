@@ -57,6 +57,23 @@ public static class BinderOf
         (PacketBuffer buf, ref T obj) => { buf.Bind(ref obj); };
 }
 
+public static class BinderExtensions
+{
+    public static byte[] Serialize<T>(this Binder<T> binder, T value)
+    {
+        var writer = new ByteWriter();
+        binder(new PacketWriter(writer), ref value);
+        return writer.ToArray();
+    }
+
+    public static T Deserialize<T>(this Binder<T> binder, byte[] src)
+    {
+        var obj = default(T);
+        binder(new PacketReader(new ByteReader(src)), ref obj);
+        return obj;
+    }
+}
+
 public abstract class PacketBuffer(bool isWriting)
 {
     public const int DefaultMaxLength = 32767;
