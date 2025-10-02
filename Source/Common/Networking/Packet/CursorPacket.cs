@@ -35,9 +35,11 @@ public record struct ClientCursorPacket(byte seq) : IPacket
             buf.BindWith(ref x, FloatAsShortBinder);
             buf.BindWith(ref z, FloatAsShortBinder);
 
-            buf.BindWith(ref dragX, FloatAsShortBinder);
-            if (dragX != 0)
+            if (/* reading */ buf.DataRemaining || /* writing */ HasDrag)
+            {
+                buf.BindWith(ref dragX, FloatAsShortBinder);
                 buf.BindWith(ref dragZ, FloatAsShortBinder);
+            }
         }
     }
 

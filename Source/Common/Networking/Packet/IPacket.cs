@@ -82,6 +82,8 @@ public abstract class PacketBuffer(bool isWriting)
     public virtual ByteReader Reader => throw new Exception();
     public virtual ByteWriter Writer => throw new Exception();
 
+    public abstract bool DataRemaining { get; }
+
     public abstract void Bind(ref byte obj);
 
     public abstract void Bind(ref sbyte obj);
@@ -132,6 +134,7 @@ public abstract class PacketBuffer(bool isWriting)
 public sealed class PacketReader(ByteReader reader) : PacketBuffer(false)
 {
     public override ByteReader Reader => reader;
+    public override bool DataRemaining => reader.Left > 0;
 
     public override void Bind(ref byte obj) => obj = reader.ReadByte();
 
@@ -223,6 +226,7 @@ public sealed class PacketReader(ByteReader reader) : PacketBuffer(false)
 public sealed class PacketWriter(ByteWriter writer) : PacketBuffer(true)
 {
     public override ByteWriter Writer => writer;
+    public override bool DataRemaining => false;
 
     public override void Bind(ref byte obj) => writer.WriteByte(obj);
 
