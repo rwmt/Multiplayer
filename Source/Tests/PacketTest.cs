@@ -1,3 +1,4 @@
+using System.Text;
 using Multiplayer.Common;
 using Multiplayer.Common.Networking.Packet;
 
@@ -159,11 +160,31 @@ public class PacketTest
         }
     }
 
-    private static Binder<IPacket> RuntimeBinderOf(IPacket p) => (PacketBuffer buf, ref IPacket? packet) =>
+    [Test]
+    public async Task SnapshotBinaryRepresentation()
+    {
+        var packetsByType = RoundtripPackets().GroupBy(p => p.GetType());
+        foreach (var packetsOfType in packetsByType)
+        {
+            var binder = RuntimeBinderOf(packetsOfType.Key);
+            var text = new StringBuilder();
+            foreach (var packet in packetsOfType)
+            {
+                var serialized = binder.Serialize(packet);
+                text.AppendLine(BitConverter.ToString(serialized));
+            }
+
+            await Verify(text).UseDirectory("packet-serializations").UseFileName(packetsOfType.Key.Name).DisableDiff()
+                .AutoVerify(includeBuildServer: false);
+        }
+    }
+
+    private static Binder<IPacket> RuntimeBinderOf(IPacket p) => RuntimeBinderOf(p.GetType());
+    private static Binder<IPacket> RuntimeBinderOf(Type type) => (PacketBuffer buf, ref IPacket? packet) =>
     {
         // Normally packets are structs, so they can't be null, but here we are using them dynamically, so we need to
         // initialize them.
-        packet ??= (IPacket)Activator.CreateInstance(p.GetType())!;
+        packet ??= (IPacket)Activator.CreateInstance(type)!;
         packet.Bind(buf);
     };
 }
