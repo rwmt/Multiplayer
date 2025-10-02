@@ -303,6 +303,9 @@ namespace Multiplayer.Client
             // CompProximityLetter.letterSent is set to true to prevent a desync.
             SyncDelegate.Lambda(typeof(Building_VoidMonolith), nameof(Building_VoidMonolith.GetFloatMenuOptions), 0);
 
+            // Colonist bar reordering
+            SyncDelegate.Lambda(typeof(ColonistBar.Entry), null, lambdaOrdinal: 0, parentMethodType: MethodType.Constructor, parentArgs: [typeof(Pawn), typeof(Map), typeof(int)]);
+
             InitRituals();
             InitChoiceLetters();
             InitDevTools();
