@@ -144,6 +144,7 @@ public class SessionManager : IHasSessionData, ISessionManager
             {
                 semiPersistentSessions.RemoveAt(i);
                 allSessions.Remove(session);
+                if (session is ITickingSession tickingSession) tickingSessions.Remove(tickingSession);
                 var sessionType = session.GetType();
                 if (!tempCleanupLoggingTypes.Add(sessionType))
                     Log.Message($"Multiplayer session not valid after writing semi persistent data: {sessionType}");
@@ -175,6 +176,7 @@ public class SessionManager : IHasSessionData, ISessionManager
         var sessionsCount = data.ReadInt32();
         semiPersistentSessions.Clear();
         allSessions.RemoveAll(s => s is SemiPersistentSession);
+        tickingSessions.RemoveAll(s => s is SemiPersistentSession);
 
         for (int i = 0; i < sessionsCount; i++)
         {
@@ -202,6 +204,7 @@ public class SessionManager : IHasSessionData, ISessionManager
                     session.Sync(new ReadingSyncWorker(data, Multiplayer.serialization));
                     semiPersistentSessions.Add(session);
                     allSessions.Add(session);
+                    if (session is ITickingSession tickingSession) tickingSessions.Add(tickingSession);
                 }
             }
             catch (Exception e)
@@ -220,6 +223,7 @@ public class SessionManager : IHasSessionData, ISessionManager
             allSessions ??= new();
             exposableSessions ??= new();
             semiPersistentSessions ??= new();
+            tickingSessions ??= new();
 
             // Clear the set to make sure it's empty
             tempCleanupLoggingTypes.Clear();
@@ -242,8 +246,12 @@ public class SessionManager : IHasSessionData, ISessionManager
             tempCleanupLoggingTypes.Clear();
 
             // Just in case something went wrong when exposing data, clear the all session from exposable ones and fill them again
+            // SemiPersistent sessions are not considered here, as a session can only be either semi-persistent or
+            // exposable. It's not possible to have a session be both (because a class can't have two base classes).
             allSessions.RemoveAll(s => s is ExposableSession);
             allSessions.AddRange(exposableSessions);
+            tickingSessions.RemoveAll(s => s is ExposableSession);
+            tickingSessions.AddRange(exposableSessions.OfType<ITickingSession>());
         }
     }
 
