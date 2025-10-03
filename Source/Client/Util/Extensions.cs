@@ -1,7 +1,3 @@
-using HarmonyLib;
-using Ionic.Crc;
-using Multiplayer.Common;
-using RimWorld;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -13,6 +9,10 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
+using HarmonyLib;
+using Ionic.Crc;
+using Multiplayer.Common;
+using RimWorld;
 using UnityEngine;
 using Verse;
 using Random = System.Random;
@@ -35,25 +35,11 @@ namespace Multiplayer.Client
             return Find.FactionManager.GetById(cmd.factionId);
         }
 
-        public static AsyncTimeComp AsyncTime(this Map map)
-        {
-            var list = Multiplayer.game?.asyncTimeComps;
-            if (list == null) return null;
-            for (int i = 0; i < list.Count; i++)
-                if (list[i].map == map)
-                    return list[i];
-            return null;
-        }
+        public static AsyncTimeComp AsyncTime(this Map map) =>
+            Multiplayer.game?.asyncTimeComps?.FirstOrDefault(t => t.map == map);
 
-        public static MultiplayerMapComp MpComp(this Map map)
-        {
-            var list = Multiplayer.game?.mapComps;
-            if (list == null) return null;
-            for (int i = 0; i < list.Count; i++)
-                if (list[i].map == map)
-                    return list[i];
-            return null;
-        }
+        public static MultiplayerMapComp MpComp(this Map map) =>
+            Multiplayer.game?.mapComps?.FirstOrDefault(t => t.map == map);
 
         public static T ThingReplacement<T>(this Map map, T thing) where T : Thing
         {
