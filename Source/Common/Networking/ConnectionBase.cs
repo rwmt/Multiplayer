@@ -163,7 +163,10 @@ namespace Multiplayer.Common
             byte msgId = (byte)(info & 0x3F);
             byte fragState = (byte)(info & 0xC0);
 
+            int msgLen = data.Left;
             HandleReceiveMsg(msgId, fragState, data, reliable);
+            if (data.Left > 0)
+                ServerLog.Error($"Packet was not fully consumed: {msgId}, msg len: {msgLen}");
         }
 
         private const int MaxFragmentedPackets = 1;
@@ -227,6 +230,7 @@ namespace Multiplayer.Common
             fragPacket.Data.Write(reader.GetBuffer(), reader.Position, reader.Left);
             fragPacket.ReceivedSize += Convert.ToUInt32(reader.Left);
             fragPacket.ReceivedPartsCount++;
+            reader.Seek(reader.Position + reader.Left);
 
             if (fragPacket.ReceivedPartsCount < fragPacket.ExpectedPartsCount)
             {
