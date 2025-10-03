@@ -1,11 +1,11 @@
-using HarmonyLib;
-using Multiplayer.API;
-using RimWorld;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using HarmonyLib;
+using Multiplayer.API;
 using Multiplayer.Client.Util;
+using RimWorld;
 using UnityEngine;
 using Verse;
 using Verse.AI.Group;
@@ -96,8 +96,7 @@ namespace Multiplayer.Client
 
                 GUI.BeginGroup(inRect);
                 {
-                    Rect groupRect = new Rect(0, 0, inRect.width, inRect.height);
-                    dialog.DoWindowContents(groupRect);
+                    dialog.DoWindowContents(inRect.AtZero());
                 }
                 GUI.EndGroup();
 

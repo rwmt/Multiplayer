@@ -53,8 +53,6 @@ namespace Multiplayer.Client
 
         public override void DoWindowContents(Rect rect)
         {
-            GUI.BeginGroup(rect);
-
             Text.Font = GameFont.Tiny;
             Rect outRect = new Rect(0f, 0f, rect.width, rect.height - 30f);
             Rect viewRect = new Rect(0f, 0f, rect.width - 16f, logHeight + 10f);
@@ -69,8 +67,6 @@ namespace Multiplayer.Client
                 logHeight = (int)nodeRect.y;
 
             Widgets.EndScrollView();
-
-            GUI.EndGroup();
         }
 
         private void Draw(UINode node, int depth, ref Rect rect)
