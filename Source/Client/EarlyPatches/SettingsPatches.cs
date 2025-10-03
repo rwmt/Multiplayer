@@ -1,8 +1,8 @@
-using HarmonyLib;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using HarmonyLib;
 using Multiplayer.Client.Patches;
 using Verse;
 
@@ -36,6 +36,25 @@ namespace Multiplayer.Client.EarlyPatches
         }
 
         static bool Prefix() => Multiplayer.Client == null;
+    }
+
+    [EarlyPatch]
+    [HarmonyPatch(typeof(PrefsData), nameof(PrefsData.Apply))]
+    static class PrefsApplyInMultiplayer
+    {
+        static void Prefix(PrefsData __instance, out (bool, bool) __state)
+        {
+            __state.Item1 = Multiplayer.Client != null;
+            __state.Item2 = __instance.runInBackground;
+            if (!__state.Item1) return;
+            __instance.runInBackground = true;
+        }
+
+        static void Postfix(PrefsData __instance, (bool, bool) __state)
+        {
+            if (!__state.Item1) return;
+            __instance.runInBackground = __state.Item2;
+        }
     }
 
     [EarlyPatch]
