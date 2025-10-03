@@ -1,11 +1,11 @@
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 using Multiplayer.Client.Factions;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
@@ -45,7 +45,7 @@ namespace Multiplayer.Client
 
             GUI.BeginGroup(new Rect(0, inRect.yMin, inRect.width, inRect.height));
             {
-                Rect groupRect = new Rect(0, 0, inRect.width, inRect.height);
+                Rect groupRect = inRect.AtZero();
                 switch (currentTab)
                 {
                     case SidebarTabs.CreateFaction:
@@ -163,8 +163,8 @@ namespace Multiplayer.Client
             // END Create Faction Headline
 
             // Line
-            float lineX = inRect.x + 16f; 
-            float lineY = inRect.yMin;    
+            float lineX = inRect.x + 16f;
+            float lineY = inRect.yMin;
             float lineWidth = inRect.width - 32f;
             Widgets.DrawLineHorizontal(lineX, lineY, lineWidth);
             inRect.yMin += 5f;
@@ -184,7 +184,7 @@ namespace Multiplayer.Client
             viewRect.yMin += 5f;
             Vector2 labelSize = Text.CalcSize("MpFactionName".Translate());
             float labelWidth = labelSize.x;
-           
+
             Rect factionNameRowRect = new Rect(
                 viewRect.x,
                 viewRect.y,
@@ -247,7 +247,7 @@ namespace Multiplayer.Client
                 },factionColor));
             }
             viewRect.yMin += rowHeight + spacing;
-            // END Faction Color Picker 
+            // END Faction Color Picker
 
             // Default Map Time Row
             float checkSize = 24f;
@@ -263,7 +263,7 @@ namespace Multiplayer.Client
             sb.AppendLine("MpDefaultMapTimeDesc3".Translate());
 
             Rect defaultMapTimeRowRect = new Rect(viewRect.x, viewRect.y, viewRect.width, rowHeight);
-          
+
             Rect checkRect = new Rect(
                 defaultMapTimeRowRect.xMax - checkSize,
                 defaultMapTimeRowRect.y + (rowHeight - checkSize) / 2f,
@@ -303,11 +303,11 @@ namespace Multiplayer.Client
                 rowHeight
             );
 
-            if (Mouse.IsOver(scenarioRect))            
-                Widgets.DrawMenuSection(scenarioRect);          
-            else           
+            if (Mouse.IsOver(scenarioRect))
+                Widgets.DrawMenuSection(scenarioRect);
+            else
                 Widgets.DrawHighlight(scenarioRect);
-            
+
             if (Widgets.ButtonInvisible(scenarioRect))
                 OpenScenarioChooser();
 
@@ -348,7 +348,7 @@ namespace Multiplayer.Client
                 else
                 {
                     Find.WorldInterface.SelectedTile = TileFinder.RandomStartingTile();
-                }                
+                }
                 CameraJumper.TryJumpAndSelect(new GlobalTargetInfo(Find.WorldInterface.SelectedTile), CameraJumper.MovementMode.Pan);
             }
 

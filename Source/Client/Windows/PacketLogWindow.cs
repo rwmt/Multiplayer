@@ -51,17 +51,15 @@ namespace Multiplayer.Client
             this.storeStackTrace = storeStackTrace;
         }
 
-        public override void DoWindowContents(Rect rect)
+        public override void DoWindowContents(Rect inRect)
         {
-            GUI.BeginGroup(rect);
-
             Text.Font = GameFont.Tiny;
-            Rect outRect = new Rect(0f, 0f, rect.width, rect.height - 30f);
-            Rect viewRect = new Rect(0f, 0f, rect.width - 16f, logHeight + 10f);
+            Rect outRect = new Rect(0f, 16f, inRect.width, inRect.height - 20f);
+            Rect viewRect = new Rect(0f, 0f, outRect.width - 16f, logHeight + 10f);
 
             Widgets.BeginScrollView(outRect, ref scrollPos, viewRect);
 
-            Rect nodeRect = new Rect(0f, 0f, viewRect.width, 20f);
+            Rect nodeRect = new Rect(0f, 0f, viewRect.width - 16f, 20f);
             foreach (var node in nodes)
                 Draw(node, 0, ref nodeRect);
 
@@ -69,8 +67,6 @@ namespace Multiplayer.Client
                 logHeight = (int)nodeRect.y;
 
             Widgets.EndScrollView();
-
-            GUI.EndGroup();
         }
 
         private void Draw(UINode node, int depth, ref Rect rect)
