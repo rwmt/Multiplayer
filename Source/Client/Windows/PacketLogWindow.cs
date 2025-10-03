@@ -61,7 +61,7 @@ namespace Multiplayer.Client
 
             Widgets.BeginScrollView(outRect, ref scrollPos, viewRect);
 
-            Rect nodeRect = new Rect(0f, 0f, viewRect.width, 20f);
+            Rect nodeRect = new Rect(0f, 0f, viewRect.width - 16f, 20f);
             foreach (var node in nodes)
                 Draw(node, 0, ref nodeRect);
 
