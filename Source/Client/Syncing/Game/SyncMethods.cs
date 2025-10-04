@@ -1,13 +1,13 @@
 using System;
-using HarmonyLib;
-using Multiplayer.API;
-using RimWorld;
-using RimWorld.Planet;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using HarmonyLib;
+using Multiplayer.API;
 using Multiplayer.Client.Util;
+using RimWorld;
+using RimWorld.Planet;
 using Verse;
 using Verse.AI;
 
@@ -419,6 +419,7 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(HarbingerTree), nameof(HarbingerTree.AddNutrition)).SetDebugOnly();
             SyncMethod.Register(typeof(HarbingerTree), nameof(HarbingerTree.SpawnNewTree)).SetDebugOnly();
             SyncMethod.LocalFunc(typeof(HarbingerTree), nameof(HarbingerTree.GetGizmos), "DelayedSplatter").SetDebugOnly(); // Set blood splatters delay
+            SyncMethod.Lambda(typeof(CompPlantPreventCutting), nameof(CompPlantPreventCutting.CompGetGizmosExtra), 0);
 
             // Pawn creep joiner tracker
             SyncMethod.Lambda(typeof(Pawn_CreepJoinerTracker), nameof(Pawn_CreepJoinerTracker.GetGizmos), 0).SetDebugOnly(); // Unlock downside trigger
