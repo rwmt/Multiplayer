@@ -303,6 +303,8 @@ namespace Multiplayer.Client
 
             #region Anomaly
 
+            (SyncWorker data, ref EntityCodex db) => db = Current.Game.entityCodex,
+
             {
                 (ByteWriter data, ActivityGizmo gizmo) => WriteSync(data, gizmo.Comp),
                 (ByteReader data) =>

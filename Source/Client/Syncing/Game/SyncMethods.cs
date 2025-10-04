@@ -422,6 +422,12 @@ namespace Multiplayer.Client
             SyncMethod.LocalFunc(typeof(HarbingerTree), nameof(HarbingerTree.GetGizmos), "DelayedSplatter").SetDebugOnly(); // Set blood splatters delay
             SyncMethod.Lambda(typeof(CompPlantPreventCutting), nameof(CompPlantPreventCutting.CompGetGizmosExtra), 0);
 
+            // Entity codex
+            SyncMethod.Register(typeof(EntityCodex), nameof(EntityCodex.SetDiscovered), [typeof(EntityCodexEntryDef), typeof(ThingDef), typeof(Thing)]);
+            SyncMethod.Register(typeof(EntityCodex), nameof(EntityCodex.SetDiscovered), [typeof(List<EntityCodexEntryDef>), typeof(ThingDef), typeof(Thing)]);
+            SyncMethod.Register(typeof(EntityCodex), nameof(EntityCodex.Debug_DiscoverAll)).SetDebugOnly();
+            SyncMethod.Register(typeof(EntityCodex), nameof(EntityCodex.Reset));
+
             // Pawn creep joiner tracker
             SyncMethod.Lambda(typeof(Pawn_CreepJoinerTracker), nameof(Pawn_CreepJoinerTracker.GetGizmos), 0).SetDebugOnly(); // Unlock downside trigger
             SyncMethod.Register(typeof(Pawn_CreepJoinerTracker), nameof(Pawn_CreepJoinerTracker.DoDownside)).SetDebugOnly(); // Trigger timed downside
