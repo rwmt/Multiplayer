@@ -68,12 +68,16 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(ResearchManager), nameof(ResearchManager.ApplyTechprint)).SetDebugOnly();
 
             SyncMethod.Register(typeof(DrugPolicyDatabase), nameof(DrugPolicyDatabase.MakeNewDrugPolicy));
+            SyncMethod.Register(typeof(DrugPolicyDatabase), nameof(DrugPolicyDatabase.SetDefault));
             SyncMethod.Register(typeof(DrugPolicyDatabase), nameof(DrugPolicyDatabase.TryDelete)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(OutfitDatabase), nameof(OutfitDatabase.MakeNewOutfit));
+            SyncMethod.Register(typeof(OutfitDatabase), nameof(OutfitDatabase.SetDefault));
             SyncMethod.Register(typeof(OutfitDatabase), nameof(OutfitDatabase.TryDelete)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(FoodRestrictionDatabase), nameof(FoodRestrictionDatabase.MakeNewFoodRestriction));
+            SyncMethod.Register(typeof(FoodRestrictionDatabase), nameof(FoodRestrictionDatabase.SetDefault));
             SyncMethod.Register(typeof(FoodRestrictionDatabase), nameof(FoodRestrictionDatabase.TryDelete)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(ReadingPolicyDatabase), nameof(ReadingPolicyDatabase.MakeNewReadingPolicy));
+            SyncMethod.Register(typeof(ReadingPolicyDatabase), nameof(ReadingPolicyDatabase.SetDefault));
             SyncMethod.Register(typeof(ReadingPolicyDatabase), nameof(ReadingPolicyDatabase.TryDelete)).CancelIfAnyArgNull();
 
             SyncMethod.Register(typeof(Building_Bed), nameof(Building_Bed.Medical));
