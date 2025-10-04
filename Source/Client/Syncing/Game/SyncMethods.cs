@@ -154,6 +154,7 @@ namespace Multiplayer.Client
                 var methods = typeof(ITargetingSource).AllImplementing()
                     .Where(t => t.Assembly == typeof(Game).Assembly)
                     .Except(typeof(CompInteractableRocketswarmLauncher)) // Skip it, as all it does is open another targeter
+                    .Except(typeof(CompNociosphere)) // Skip it, as all it does is open another targeter
                     .Select(t => t.GetMethod(nameof(ITargetingSource.OrderForceTarget), AccessTools.allDeclared))
                     .AllNotNull();
 

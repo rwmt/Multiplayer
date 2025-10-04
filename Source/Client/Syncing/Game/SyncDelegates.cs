@@ -1,13 +1,13 @@
-using Multiplayer.API;
-using RimWorld;
-using RimWorld.Planet;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
+using Multiplayer.API;
 using Multiplayer.Client.Patches;
 using MultiplayerLoader;
+using RimWorld;
+using RimWorld.Planet;
 using Verse;
 using Verse.AI.Group;
 
@@ -302,6 +302,8 @@ namespace Multiplayer.Client
             // TryTakeOrderedJob call is already synced, but we also need to make sure that
             // CompProximityLetter.letterSent is set to true to prevent a desync.
             SyncDelegate.Lambda(typeof(Building_VoidMonolith), nameof(Building_VoidMonolith.GetFloatMenuOptions), 0);
+
+            SyncDelegate.Lambda(typeof(CompNociosphere), nameof(CompNociosphere.TargetLocation), 1);
 
             InitRituals();
             InitChoiceLetters();
