@@ -1,12 +1,13 @@
-using LiteNetLib;
-using Multiplayer.Client.Networking;
-using Multiplayer.Common;
-using RimWorld;
-using Steamworks;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using LiteNetLib;
+using LudeonTK;
+using Multiplayer.Client.Networking;
 using Multiplayer.Client.Util;
+using Multiplayer.Common;
+using RimWorld;
+using Steamworks;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
@@ -204,6 +205,7 @@ namespace Multiplayer.Client
                 TickPatch.tickUntil = remoteTickUntil;
         }
 
+        [TweakValue("Multiplayer")] public static bool consistentCommandOrder = true;
         public void ScheduleCommand(ScheduledCommand cmd)
         {
             MpLog.Debug(cmd.ToString());
@@ -211,10 +213,12 @@ namespace Multiplayer.Client
 
             if (Current.ProgramState != ProgramState.Playing) return;
 
-            if (cmd.mapId == ScheduledCommand.Global)
-                Multiplayer.AsyncWorldTime.cmds.Enqueue(cmd);
+            // Minimal code impact fix for #733. Having all the commands be added to a single queue gets rid of the
+            // out-of-order execution problem.
+            if (cmd.mapId == ScheduledCommand.Global || consistentCommandOrder)
+                Multiplayer.AsyncWorldTime.Cmds.Enqueue(cmd);
             else
-                cmd.GetMap()?.AsyncTime().cmds.Enqueue(cmd);
+                cmd.GetMap()?.AsyncTime().Cmds.Enqueue(cmd);
         }
 
         public void Update()

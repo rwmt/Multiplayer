@@ -1,12 +1,12 @@
-using HarmonyLib;
-using Multiplayer.Common;
-using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using HarmonyLib;
 using LudeonTK;
 using Multiplayer.Client.AsyncTime;
+using Multiplayer.Common;
+using RimWorld.Planet;
 using UnityEngine;
 using Verse;
 
@@ -173,7 +173,9 @@ namespace Multiplayer.Client
                 while (tickable.Cmds.Count > 0 && tickable.Cmds.Peek().ticks == curTimer)
                 {
                     ScheduledCommand cmd = tickable.Cmds.Dequeue();
-                    tickable.ExecuteCmd(cmd);
+                    // Minimal code impact fix for #733. Having all the commands be added to a single queue gets rid of
+                    // the out-of-order execution problem. With a proper fix, this can be reverted to tickable.ExecuteCmd
+                    TickableById(cmd.mapId).ExecuteCmd(cmd);
 
                     if (LongEventHandler.eventQueue.Count > 0) return true; // Yield to e.g. join-point creation
                 }
