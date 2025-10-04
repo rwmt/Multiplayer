@@ -129,6 +129,8 @@ public class SessionManager : IHasSessionData, ISessionManager
 
     public T GetFirstOfType<T>() where T : Session => allSessions.OfType<T>().FirstOrDefault();
 
+    public T GetFirstOfType<T>(Func<T, bool> predicate) where T : Session => allSessions.OfType<T>().FirstOrDefault(predicate);
+
     public T GetFirstWithId<T>(int id) where T : Session => allSessions.OfType<T>().FirstOrDefault(s => s.SessionId == id);
 
     public Session GetFirstWithId(int id) => allSessions.FirstOrDefault(s => s.SessionId == id);

@@ -393,7 +393,7 @@ public static class ColonistBarTimeControl
     {
         return Multiplayer.WorldComp.sessionManager.AllSessions
             .ConcatIfNotNull(entry.map?.MpComp().sessionManager.AllSessions)
-            .Select(s => s.GetBlockingWindowOptions(entry)).Where(fmo => fmo != null).ToList();
+            .Select(s => s.GetBlockingWindowOptions(entry)).AllNotNull().ToList();
     }
 
     static void SwitchToMapOrWorld(Map map)
