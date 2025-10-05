@@ -200,8 +200,9 @@ namespace Multiplayer.Client
                 nameof(AutoSlaughterConfig.maxMalesYoung),
                 nameof(AutoSlaughterConfig.maxFemales),
                 nameof(AutoSlaughterConfig.maxFemalesYoung),
-                nameof(AutoSlaughterConfig.allowSlaughterPregnant)
-            ).PostApply(Autoslaughter_PostApply);
+                nameof(AutoSlaughterConfig.allowSlaughterPregnant),
+                nameof(AutoSlaughterConfig.allowSlaughterBonded)
+            ).SetBufferChanges().PostApply(Autoslaughter_PostApply);
 
             SyncTradeableCount = Sync.Field(typeof(MpTransferableReference), nameof(MpTransferableReference.CountToTransfer)).SetBufferChanges().PostApply(TransferableCount_PostApply);
 
