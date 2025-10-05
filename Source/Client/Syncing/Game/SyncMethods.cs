@@ -158,6 +158,7 @@ namespace Multiplayer.Client
                 var methods = typeof(ITargetingSource).AllImplementing()
                     .Where(t => t.Assembly == typeof(Game).Assembly)
                     .Except(typeof(CompInteractableRocketswarmLauncher)) // Skip it, as all it does is open another targeter
+                    .Except(typeof(CompNociosphere)) // Skip it, as all it does is open another targeter
                     .Select(t => t.GetMethod(nameof(ITargetingSource.OrderForceTarget), AccessTools.allDeclared))
                     .AllNotNull();
 
@@ -424,6 +425,12 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(HarbingerTree), nameof(HarbingerTree.SpawnNewTree)).SetDebugOnly();
             SyncMethod.LocalFunc(typeof(HarbingerTree), nameof(HarbingerTree.GetGizmos), "DelayedSplatter").SetDebugOnly(); // Set blood splatters delay
             SyncMethod.Lambda(typeof(CompPlantPreventCutting), nameof(CompPlantPreventCutting.CompGetGizmosExtra), 0);
+
+            // Entity codex
+            SyncMethod.Register(typeof(EntityCodex), nameof(EntityCodex.SetDiscovered), [typeof(EntityCodexEntryDef), typeof(ThingDef), typeof(Thing)]);
+            SyncMethod.Register(typeof(EntityCodex), nameof(EntityCodex.SetDiscovered), [typeof(List<EntityCodexEntryDef>), typeof(ThingDef), typeof(Thing)]);
+            SyncMethod.Register(typeof(EntityCodex), nameof(EntityCodex.Debug_DiscoverAll)).SetDebugOnly();
+            SyncMethod.Register(typeof(EntityCodex), nameof(EntityCodex.Reset));
 
             // Pawn creep joiner tracker
             SyncMethod.Lambda(typeof(Pawn_CreepJoinerTracker), nameof(Pawn_CreepJoinerTracker.GetGizmos), 0).SetDebugOnly(); // Unlock downside trigger
