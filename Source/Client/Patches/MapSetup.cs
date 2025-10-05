@@ -26,7 +26,7 @@ public static class MapSetup
     {
         Log.Message("MP: Setting up map " + map.uniqueID);
 
-        // Initialize and store Multiplayer 
+        // Initialize and store Multiplayer
 
         var mapComp = new MultiplayerMapComp(map);
         Multiplayer.game.mapComps.Add(mapComp);
@@ -40,7 +40,7 @@ public static class MapSetup
         // Add all other (non Faction.OfPlayer) factions to the map
         foreach (var faction in Find.FactionManager.AllFactions.Where(f => f.IsPlayer))
             if (faction != Faction.OfPlayer)
-                InitNewFactionData(map, faction);       
+                InitNewFactionData(map, faction);
     }
 
     private static AsyncTimeComp CreateAsyncTimeCompForMap(Map map, bool usingMapTimeFromSingleplayer)
@@ -79,10 +79,7 @@ public static class MapSetup
 
         asyncTimeCompForMap = new AsyncTimeComp(map, gameStartAbsTick);
         asyncTimeCompForMap.mapTicks = startingMapTicks;
-        asyncTimeCompForMap.SetDesiredTimeSpeed(startingTimeSpeed);
-
-        asyncTimeCompForMap.storyteller = new Storyteller(Find.Storyteller.def, Find.Storyteller.difficultyDef, Find.Storyteller.difficulty);
-        asyncTimeCompForMap.storyWatcher = new StoryWatcher();
+        asyncTimeCompForMap.DesiredTimeSpeed = startingTimeSpeed;
 
         SetupNextMapFromTickZero = false;
 

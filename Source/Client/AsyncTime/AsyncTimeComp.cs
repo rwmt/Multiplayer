@@ -1,16 +1,15 @@
-using HarmonyLib;
-using Multiplayer.Common;
-using RimWorld;
-using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
-using Verse;
+using HarmonyLib;
 using Multiplayer.Client.Comp;
 using Multiplayer.Client.Factions;
 using Multiplayer.Client.Patches;
 using Multiplayer.Client.Saving;
 using Multiplayer.Client.Util;
-using System.Linq;
+using Multiplayer.Common;
+using RimWorld;
+using RimWorld.Planet;
+using Verse;
 
 namespace Multiplayer.Client
 {
@@ -86,8 +85,6 @@ namespace Multiplayer.Client
         public bool forcedNormalSpeed;
         public int eventCount;
 
-        public Storyteller storyteller;
-        public StoryWatcher storyWatcher;
         public TimeSlower slower = new();
 
         public TickList tickListNormal = new(TickerType.Normal);
@@ -131,8 +128,8 @@ namespace Multiplayer.Client
 
                 TickMapSessions();
 
-                storyteller.StorytellerTick();
-                storyWatcher.StoryWatcherTick();
+                Find.Storyteller.StorytellerTick();
+                Find.StoryWatcher.StoryWatcherTick();
 
                 QuestManagerTickAsyncTime();
 
@@ -173,27 +170,16 @@ namespace Multiplayer.Client
         }
 
         private TimeSnapshot? prevTime;
-        private Storyteller prevStoryteller;
-        private StoryWatcher prevStoryWatcher;
 
         public void PreContext()
         {
-            if (Multiplayer.GameComp.multifaction)
-            {
-                map.PushFaction(
-                    map.ParentFaction is { IsPlayer: true }
-                    ? map.ParentFaction
-                    : Multiplayer.WorldComp.spectatorFaction,
-                    force: true);
-            }
+            map.PushFaction(
+                map.ParentFaction is { IsPlayer: true }
+                ? map.ParentFaction
+                : Multiplayer.WorldComp.spectatorFaction,
+                force: true);
 
             prevTime = TimeSnapshot.GetAndSetFromMap(map);
-
-            prevStoryteller = Current.Game.storyteller;
-            prevStoryWatcher = Current.Game.storyWatcher;
-
-            Current.Game.storyteller = storyteller;
-            Current.Game.storyWatcher = storyWatcher;
 
             Rand.PushState();
             Rand.StateCompressed = randState;
@@ -204,16 +190,12 @@ namespace Multiplayer.Client
 
         public void PostContext()
         {
-            Current.Game.storyteller = prevStoryteller;
-            Current.Game.storyWatcher = prevStoryWatcher;
-
             prevTime?.Set();
 
             randState = Rand.StateCompressed;
             Rand.PopState();
 
-            if (Multiplayer.GameComp.multifaction)
-                map.PopFaction();
+            map.PopFaction();
         }
 
         public void ExposeData()
@@ -222,12 +204,6 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref timeSpeedInt, "timeSpeed");
 
             Scribe_Values.Look(ref gameStartAbsTickMap, "gameStartAbsTickMap");
-
-            Scribe_Deep.Look(ref storyteller, "storyteller");
-
-            Scribe_Deep.Look(ref storyWatcher, "storyWatcher");
-            if (Scribe.mode == LoadSaveMode.LoadingVars && storyWatcher == null)
-                storyWatcher = new StoryWatcher();
 
             Scribe_Custom.LookULong(ref randState, "randState", 1);
         }
@@ -264,7 +240,7 @@ namespace Multiplayer.Client
             TickPatch.currentExecutingCmdType = cmdType;
 
             PreContext();
-            map.PushFaction(cmd.GetFaction());
+            map.PushFaction(cmd.GetFaction(), force: true);
 
             context.map = map;
 
