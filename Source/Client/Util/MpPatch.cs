@@ -1,11 +1,11 @@
-using HarmonyLib;
-using Multiplayer.Common;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using HarmonyLib;
 using JetBrains.Annotations;
 using Multiplayer.Client.Util;
+using Multiplayer.Common;
 using Verse;
 
 namespace Multiplayer.Client
@@ -177,6 +177,10 @@ namespace Multiplayer.Client
         }
 
         public MpPostfix(Type type, string innerType, string method) : base(type, innerType, method)
+        {
+        }
+
+        public MpPostfix(Type type, MethodType methodType, Type[] argTypes = null) : base(type, methodType, argTypes)
         {
         }
 

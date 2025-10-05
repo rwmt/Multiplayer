@@ -1,7 +1,7 @@
-using Multiplayer.API;
-using Multiplayer.Common;
 using System;
+using Multiplayer.API;
 using Multiplayer.Client.Util;
+using Multiplayer.Common;
 using Verse;
 
 namespace Multiplayer.Client
@@ -19,7 +19,7 @@ namespace Multiplayer.Client
         private bool cancelIfValueNull;
 
         private Action<object, object> preApply;
-        private Action<object, object> postApply;
+        private Action<object, object, object> postApply;
 
         public SyncField(Type targetType, string memberPath)
         {
@@ -100,7 +100,7 @@ namespace Multiplayer.Client
             MpLog.Debug($"Set {memberPath} in {target} to {value}, map {data.MpContext().map}, index {index}");
             MpReflection.SetValue(target, memberPath, value, index);
 
-            postApply?.Invoke(target, value);
+            postApply?.Invoke(target, value, index);
         }
 
         public void Watch(object target = null, object index = null)
@@ -136,6 +136,12 @@ namespace Multiplayer.Client
         }
 
         public ISyncField PostApply(Action<object, object> action)
+        {
+            postApply = (target, value, _) => action(target, value);
+            return this;
+        }
+
+        public ISyncField PostApply(Action<object, object, object> action)
         {
             postApply = action;
             return this;

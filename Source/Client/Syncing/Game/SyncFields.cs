@@ -1,12 +1,13 @@
-using HarmonyLib;
-using Multiplayer.API;
-using Multiplayer.Client.Persistent;
-using RimWorld;
-using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
+using HarmonyLib;
+using LudeonTK;
+using Multiplayer.API;
+using Multiplayer.Client.Persistent;
+using RimWorld;
+using RimWorld.Planet;
 using UnityEngine;
 using Verse;
 using static Verse.Widgets;
@@ -202,7 +203,7 @@ namespace Multiplayer.Client
                 nameof(AutoSlaughterConfig.maxFemalesYoung),
                 nameof(AutoSlaughterConfig.allowSlaughterPregnant),
                 nameof(AutoSlaughterConfig.allowSlaughterBonded)
-            ).SetBufferChanges().PostApply(Autoslaughter_PostApply);
+            ).SetBufferChanges().PostApply(AutoSlaughter_PostApply);
 
             SyncTradeableCount = Sync.Field(typeof(MpTransferableReference), nameof(MpTransferableReference.CountToTransfer)).SetBufferChanges().PostApply(TransferableCount_PostApply);
 
@@ -564,9 +565,27 @@ namespace Multiplayer.Client
             SyncDryadCaste.Watch(__instance.treeConnection);
         }
 
-        static void Autoslaughter_PostApply(object target, object value)
+        static void AutoSlaughter_PostApply(object target, object value, object index)
         {
-            Multiplayer.MapContext.autoSlaughterManager.Notify_ConfigChanged();
+            var manager = (AutoSlaughterManager)target;
+            manager.Notify_ConfigChanged();
+            UpdateAutoSlaughterUiBuffer(manager.configs[(int) index]);
+        }
+
+        [MpPostfix(typeof(Dialog_AutoSlaughter), MethodType.Constructor, [typeof(Map)])]
+        static void DialogAutoSlaughterUpdateUiBuffers(Map map) =>
+            map.autoSlaughterManager.configs.ForEach(UpdateAutoSlaughterUiBuffer);
+
+        private static void UpdateAutoSlaughterUiBuffer(AutoSlaughterConfig config)
+        {
+            // The UI buffers are updated because otherwise the player receiving an update will never actually see
+            // the new value. It'll still work, but the player will have no information what's the actual limit as the
+            // game never updates the buffered values from the int values.
+            config.uiMaxTotalBuffer = Math.Max(0, config.maxTotal).ToString();
+            config.uiMaxMalesBuffer = Math.Max(0, config.maxMales).ToString();
+            config.uiMaxMalesYoungBuffer = Math.Max(0, config.maxMalesYoung).ToString();
+            config.uiMaxFemalesBuffer = Math.Max(0, config.maxFemales).ToString();
+            config.uiMaxFemalesYoungBuffer = Math.Max(0, config.maxFemalesYoung).ToString();
         }
 
         // Neural supercharger auto use mode syncing

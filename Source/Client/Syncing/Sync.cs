@@ -1,11 +1,11 @@
-using HarmonyLib;
-using Multiplayer.API;
-using Multiplayer.Common;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using HarmonyLib;
+using Multiplayer.API;
 using Multiplayer.Client.Persistent;
+using Multiplayer.Common;
 using Verse;
 
 namespace Multiplayer.Client
@@ -409,6 +409,13 @@ namespace Multiplayer.Client
         }
 
         public static SyncField[] PostApply(this SyncField[] group, Action<object, object> func)
+        {
+            foreach (SyncField field in group)
+                field.PostApply(func);
+            return group;
+        }
+
+        public static SyncField[] PostApply(this SyncField[] group, Action<object, object, object> func)
         {
             foreach (SyncField field in group)
                 field.PostApply(func);
