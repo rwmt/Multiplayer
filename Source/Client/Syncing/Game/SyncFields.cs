@@ -1,12 +1,12 @@
+using System;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Reflection.Emit;
 using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Client.Persistent;
 using RimWorld;
 using RimWorld.Planet;
-using System;
-using System.Collections.Generic;
-using System.Reflection;
-using System.Reflection.Emit;
 using UnityEngine;
 using Verse;
 using static Verse.Widgets;
@@ -37,6 +37,7 @@ namespace Multiplayer.Client
 
         public static ISyncField SyncThingFilterHitPoints;
         public static ISyncField SyncThingFilterQuality;
+        public static ISyncField SyncThingFilterMentalBreak;
 
         public static ISyncField SyncBillPaused;
         public static ISyncField SyncBillSuspended;
@@ -55,7 +56,7 @@ namespace Multiplayer.Client
         public static SyncField[] SyncBillIncludeCriteria;
 
         public static SyncField[] SyncDrugPolicyEntry;
-        public static SyncField[] SyncDrugPolicyEntryBuffered;
+        public static ISyncField SyncDrugPolicyEntryTakeToInventory;
 
         public static ISyncField SyncTradeableCount;
 
@@ -139,8 +140,9 @@ namespace Multiplayer.Client
             SyncFactionAcceptRoyalFavor = Sync.Field(typeof(Faction), nameof(Faction.allowRoyalFavorRewards));
             SyncFactionAcceptGoodwill = Sync.Field(typeof(Faction), nameof(Faction.allowGoodwillRewards));
 
-            SyncThingFilterHitPoints = Sync.Field(typeof(ThingFilterContext), $"{nameof(ThingFilterContext.Filter)}/{nameof(ThingFilter.AllowedHitPointsPercents)}").SetBufferChanges();
-            SyncThingFilterQuality = Sync.Field(typeof(ThingFilterContext), $"{nameof(ThingFilterContext.Filter)}/{nameof(ThingFilter.AllowedQualityLevels)}").SetBufferChanges();
+            SyncThingFilterHitPoints = Sync.Field(typeof(ThingFilterContext), nameof(ThingFilterContext.Filter), nameof(ThingFilter.AllowedHitPointsPercents)).SetBufferChanges();
+            SyncThingFilterQuality = Sync.Field(typeof(ThingFilterContext), nameof(ThingFilterContext.Filter), nameof(ThingFilter.AllowedQualityLevels)).SetBufferChanges();
+            SyncThingFilterMentalBreak = Sync.Field(typeof(ThingFilterContext), nameof(ThingFilterContext.Filter), nameof(ThingFilter.AllowedMentalBreakChance)).SetBufferChanges();
 
             SyncBillPaused = Sync.Field(typeof(Bill_Production), nameof(Bill_Production.paused)).SetBufferChanges();
             SyncBillSuspended = Sync.Field(typeof(Bill), nameof(Bill.suspended));
@@ -179,16 +181,15 @@ namespace Multiplayer.Client
                 nameof(DrugPolicyEntry.allowedForAddiction),
                 nameof(DrugPolicyEntry.allowedForJoy),
                 nameof(DrugPolicyEntry.allowScheduled),
-                nameof(DrugPolicyEntry.takeToInventory)
-            );
-
-            SyncDrugPolicyEntryBuffered = Sync.Fields(
-                typeof(DrugPolicy),
-                $"{nameof(DrugPolicy.entriesInt)}/[]",
                 nameof(DrugPolicyEntry.daysFrequency),
                 nameof(DrugPolicyEntry.onlyIfMoodBelow),
                 nameof(DrugPolicyEntry.onlyIfJoyBelow)
             ).SetBufferChanges();
+
+            SyncDrugPolicyEntryTakeToInventory = Sync.Field(typeof(DrugPolicy),
+                    $"{nameof(DrugPolicy.entriesInt)}/[]",
+                    nameof(DrugPolicyEntry.takeToInventory))
+                .PostApply(UpdateDrugPolicyEntry).SetBufferChanges();
 
             // This depends on the order of AutoSlaughterManager.configs being the same on all clients
             // The array is initialized using DefDatabase<ThingDef>.AllDefs which shouldn't cause problems though
@@ -200,8 +201,9 @@ namespace Multiplayer.Client
                 nameof(AutoSlaughterConfig.maxMalesYoung),
                 nameof(AutoSlaughterConfig.maxFemales),
                 nameof(AutoSlaughterConfig.maxFemalesYoung),
-                nameof(AutoSlaughterConfig.allowSlaughterPregnant)
-            ).PostApply(Autoslaughter_PostApply);
+                nameof(AutoSlaughterConfig.allowSlaughterPregnant),
+                nameof(AutoSlaughterConfig.allowSlaughterBonded)
+            ).SetBufferChanges().PostApply(AutoSlaughter_PostApply);
 
             SyncTradeableCount = Sync.Field(typeof(MpTransferableReference), nameof(MpTransferableReference.CountToTransfer)).SetBufferChanges().PostApply(TransferableCount_PostApply);
 
@@ -381,6 +383,13 @@ namespace Multiplayer.Client
                 SyncThingFilterQuality.Watch(ThingFilterMarkers.DrawnThingFilter);
         }
 
+        [MpPrefix(typeof(ThingFilterUI), nameof(ThingFilterUI.DrawMentalBreakFilterConfig))]
+        static void ThingFilterMentalBreak()
+        {
+            if (ThingFilterMarkers.DrawnThingFilter != null)
+                SyncThingFilterMentalBreak.Watch(ThingFilterMarkers.DrawnThingFilter);
+        }
+
         [MpPrefix(typeof(Bill), nameof(Bill.DoInterface))]
         static void BillInterfaceCard(Bill __instance)
         {
@@ -470,7 +479,7 @@ namespace Multiplayer.Client
             for (int i = 0; i < policy.Count; i++)
             {
                 SyncDrugPolicyEntry.Watch(policy, i);
-                SyncDrugPolicyEntryBuffered.Watch(policy, i);
+                SyncDrugPolicyEntryTakeToInventory.Watch(policy, i);
             }
         }
 
@@ -563,9 +572,34 @@ namespace Multiplayer.Client
             SyncDryadCaste.Watch(__instance.treeConnection);
         }
 
-        static void Autoslaughter_PostApply(object target, object value)
+        static void AutoSlaughter_PostApply(object target, object value, object index)
         {
-            Multiplayer.MapContext.autoSlaughterManager.Notify_ConfigChanged();
+            var manager = (AutoSlaughterManager)target;
+            manager.Notify_ConfigChanged();
+            UpdateAutoSlaughterUiBuffer(manager.configs[(int) index]);
+        }
+
+        [MpPostfix(typeof(Dialog_AutoSlaughter), MethodType.Constructor, [typeof(Map)])]
+        static void DialogAutoSlaughterUpdateUiBuffers(Map map) =>
+            map.autoSlaughterManager.configs.ForEach(UpdateAutoSlaughterUiBuffer);
+
+        private static void UpdateAutoSlaughterUiBuffer(AutoSlaughterConfig config)
+        {
+            // The UI buffers are updated because otherwise the player receiving an update will never actually see
+            // the new value. It'll still work, but the player will have no information what's the actual limit as the
+            // game never updates the buffered values from the int values.
+            config.uiMaxTotalBuffer = Math.Max(0, config.maxTotal).ToString();
+            config.uiMaxMalesBuffer = Math.Max(0, config.maxMales).ToString();
+            config.uiMaxMalesYoungBuffer = Math.Max(0, config.maxMalesYoung).ToString();
+            config.uiMaxFemalesBuffer = Math.Max(0, config.maxFemales).ToString();
+            config.uiMaxFemalesYoungBuffer = Math.Max(0, config.maxFemalesYoung).ToString();
+        }
+
+        private static void UpdateDrugPolicyEntry(object target, object value, object index)
+        {
+            var policy = (DrugPolicy)target;
+            var entry = policy[(int) index];
+            entry.takeToInventoryTempBuffer = entry.takeToInventory.ToString();
         }
 
         // Neural supercharger auto use mode syncing
