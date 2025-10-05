@@ -58,6 +58,7 @@ namespace Multiplayer.Client
 
         public static SyncField[] SyncDrugPolicyEntry;
         public static SyncField[] SyncDrugPolicyEntryBuffered;
+        public static ISyncField SyncDrugPolicyEntryTakeToInventory;
 
         public static ISyncField SyncTradeableCount;
 
@@ -192,6 +193,11 @@ namespace Multiplayer.Client
                 nameof(DrugPolicyEntry.onlyIfMoodBelow),
                 nameof(DrugPolicyEntry.onlyIfJoyBelow)
             ).SetBufferChanges();
+
+            SyncDrugPolicyEntryTakeToInventory = Sync.Field(typeof(DrugPolicy),
+                    $"{nameof(DrugPolicy.entriesInt)}/[]",
+                    nameof(DrugPolicyEntry.takeToInventory))
+                .PostApply(UpdateDrugPolicyEntry).SetBufferChanges();
 
             // This depends on the order of AutoSlaughterManager.configs being the same on all clients
             // The array is initialized using DefDatabase<ThingDef>.AllDefs which shouldn't cause problems though
@@ -482,6 +488,7 @@ namespace Multiplayer.Client
             {
                 SyncDrugPolicyEntry.Watch(policy, i);
                 SyncDrugPolicyEntryBuffered.Watch(policy, i);
+                SyncDrugPolicyEntryTakeToInventory.Watch(policy, i);
             }
         }
 
@@ -595,6 +602,13 @@ namespace Multiplayer.Client
             config.uiMaxMalesYoungBuffer = Math.Max(0, config.maxMalesYoung).ToString();
             config.uiMaxFemalesBuffer = Math.Max(0, config.maxFemales).ToString();
             config.uiMaxFemalesYoungBuffer = Math.Max(0, config.maxFemalesYoung).ToString();
+        }
+
+        private static void UpdateDrugPolicyEntry(object target, object value, object index)
+        {
+            var policy = (DrugPolicy)target;
+            var entry = policy[(int) index];
+            entry.takeToInventoryTempBuffer = entry.takeToInventory.ToString();
         }
 
         // Neural supercharger auto use mode syncing
