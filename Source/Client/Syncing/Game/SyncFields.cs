@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
-using LudeonTK;
 using Multiplayer.API;
 using Multiplayer.Client.Persistent;
 using RimWorld;
@@ -57,7 +56,6 @@ namespace Multiplayer.Client
         public static SyncField[] SyncBillIncludeCriteria;
 
         public static SyncField[] SyncDrugPolicyEntry;
-        public static SyncField[] SyncDrugPolicyEntryBuffered;
         public static ISyncField SyncDrugPolicyEntryTakeToInventory;
 
         public static ISyncField SyncTradeableCount;
@@ -183,12 +181,6 @@ namespace Multiplayer.Client
                 nameof(DrugPolicyEntry.allowedForAddiction),
                 nameof(DrugPolicyEntry.allowedForJoy),
                 nameof(DrugPolicyEntry.allowScheduled),
-                nameof(DrugPolicyEntry.takeToInventory)
-            );
-
-            SyncDrugPolicyEntryBuffered = Sync.Fields(
-                typeof(DrugPolicy),
-                $"{nameof(DrugPolicy.entriesInt)}/[]",
                 nameof(DrugPolicyEntry.daysFrequency),
                 nameof(DrugPolicyEntry.onlyIfMoodBelow),
                 nameof(DrugPolicyEntry.onlyIfJoyBelow)
@@ -487,7 +479,6 @@ namespace Multiplayer.Client
             for (int i = 0; i < policy.Count; i++)
             {
                 SyncDrugPolicyEntry.Watch(policy, i);
-                SyncDrugPolicyEntryBuffered.Watch(policy, i);
                 SyncDrugPolicyEntryTakeToInventory.Watch(policy, i);
             }
         }
