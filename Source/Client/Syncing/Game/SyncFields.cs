@@ -38,6 +38,7 @@ namespace Multiplayer.Client
 
         public static ISyncField SyncThingFilterHitPoints;
         public static ISyncField SyncThingFilterQuality;
+        public static ISyncField SyncThingFilterMentalBreak;
 
         public static ISyncField SyncBillPaused;
         public static ISyncField SyncBillSuspended;
@@ -140,8 +141,9 @@ namespace Multiplayer.Client
             SyncFactionAcceptRoyalFavor = Sync.Field(typeof(Faction), nameof(Faction.allowRoyalFavorRewards));
             SyncFactionAcceptGoodwill = Sync.Field(typeof(Faction), nameof(Faction.allowGoodwillRewards));
 
-            SyncThingFilterHitPoints = Sync.Field(typeof(ThingFilterContext), $"{nameof(ThingFilterContext.Filter)}/{nameof(ThingFilter.AllowedHitPointsPercents)}").SetBufferChanges();
-            SyncThingFilterQuality = Sync.Field(typeof(ThingFilterContext), $"{nameof(ThingFilterContext.Filter)}/{nameof(ThingFilter.AllowedQualityLevels)}").SetBufferChanges();
+            SyncThingFilterHitPoints = Sync.Field(typeof(ThingFilterContext), nameof(ThingFilterContext.Filter), nameof(ThingFilter.AllowedHitPointsPercents)).SetBufferChanges();
+            SyncThingFilterQuality = Sync.Field(typeof(ThingFilterContext), nameof(ThingFilterContext.Filter), nameof(ThingFilter.AllowedQualityLevels)).SetBufferChanges();
+            SyncThingFilterMentalBreak = Sync.Field(typeof(ThingFilterContext), nameof(ThingFilterContext.Filter), nameof(ThingFilter.AllowedMentalBreakChance)).SetBufferChanges();
 
             SyncBillPaused = Sync.Field(typeof(Bill_Production), nameof(Bill_Production.paused)).SetBufferChanges();
             SyncBillSuspended = Sync.Field(typeof(Bill), nameof(Bill.suspended));
@@ -381,6 +383,13 @@ namespace Multiplayer.Client
         {
             if (ThingFilterMarkers.DrawnThingFilter != null)
                 SyncThingFilterQuality.Watch(ThingFilterMarkers.DrawnThingFilter);
+        }
+
+        [MpPrefix(typeof(ThingFilterUI), nameof(ThingFilterUI.DrawMentalBreakFilterConfig))]
+        static void ThingFilterMentalBreak()
+        {
+            if (ThingFilterMarkers.DrawnThingFilter != null)
+                SyncThingFilterMentalBreak.Watch(ThingFilterMarkers.DrawnThingFilter);
         }
 
         [MpPrefix(typeof(Bill), nameof(Bill.DoInterface))]
