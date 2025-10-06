@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Multiplayer.Common;
 using RestSharp;
+using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client.Util;
@@ -21,10 +22,9 @@ public static class VersionChecker
                 if (isContinuousRelease)
                 {
                     latestContinuousRelease = await GetLatestContinuousRelease();
-#if !DEBUG
+                    if (MpVersion.IsDebug) return;
                     if (latestContinuousRelease is { IsInstalled: false } release)
                         Log.Warning($"Newer Multiplayer version is available at {release.html_url}");
-#endif
                 }
             }
             catch (Exception e)
@@ -55,16 +55,17 @@ public static class VersionChecker
 
     public static void OpenNewVersionDialogIfApplicable()
     {
-#if !DEBUG
+        if (MpVersion.IsDebug) return;
         var release = latestContinuousRelease;
         if (!isContinuousRelease || release is not { IsInstalled: false }) return;
-        var dialog = new Dialog_MessageBox("A new version of Multiplayer is available. Update now for the latest features, improvements and bug fixes.",
-            "Open download page",
-            () => { Application.OpenURL(release.html_url); },
-            "Remind me later",
-            () => { });
+        var dialog =
+            new Dialog_MessageBox(
+                "A new version of Multiplayer is available. Update now for the latest features, improvements and bug fixes.",
+                "Open download page",
+                () => { Application.OpenURL(release.html_url); },
+                "Remind me later",
+                () => { });
         Find.WindowStack.Add(dialog);
-#endif
     }
 
     public class Release
