@@ -1,5 +1,7 @@
 ﻿### This 'alpha' release is an automatically generated snapshot of the current state of development. It is continuously updated with work-in-progress changes that may be broken, incomplete, or incompatible.
 
+#### Supported RimWorld versions: latest 1.6
+
 #### Installation
 1. Download the `Multiplayer-beta.zip` file below.
 2. Open your RimWorld installation directory
