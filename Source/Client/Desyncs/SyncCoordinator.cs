@@ -124,19 +124,20 @@ namespace Multiplayer.Client
             var local = oldOpinion.isLocalClientsOpinion ? oldOpinion : newOpinion;
             var remote = !oldOpinion.isLocalClientsOpinion ? oldOpinion : newOpinion;
 
-            var diffAt = FindTraceHashesDiffTick(local, remote);
+            var diffAt = FindTraceHashesDiffTick(local, remote, out var found);
             Multiplayer.Client.Send(Packets.Client_Desynced, local.startTick, diffAt);
             Multiplayer.session.desyncTracesFromHost = null;
 
             MpUI.ClearWindowStack();
             Find.WindowStack.Add(new DesyncedWindow(
                 desyncMessage,
-                new SaveableDesyncInfo(this, local, remote, diffAt)
+                new SaveableDesyncInfo(this, local, remote, diffAt, found)
             ));
         }
 
-        private static int FindTraceHashesDiffTick(ClientSyncOpinion local, ClientSyncOpinion remote)
+        private static int FindTraceHashesDiffTick(ClientSyncOpinion local, ClientSyncOpinion remote, out bool found)
         {
+            found = true;
             //Find the length of whichever stack trace is shorter.
             var localCount = local.desyncStackTraceHashes.Count;
             var remoteCount = remote.desyncStackTraceHashes.Count;
@@ -145,10 +146,9 @@ namespace Multiplayer.Client
             //Find the point at which the hashes differ - this is where the desync occurred.
             for (int i = 0; i < count; i++)
                 if (local.desyncStackTraceHashes[i] != remote.desyncStackTraceHashes[i])
-                {
                     return i;
-                }
 
+            found = false;
             if (localCount != remoteCount)
                 return count - 1;
 

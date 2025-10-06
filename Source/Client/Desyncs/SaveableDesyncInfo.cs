@@ -20,7 +20,8 @@ public class SaveableDesyncInfo(
     SyncCoordinator coordinator,
     ClientSyncOpinion local,
     ClientSyncOpinion remote,
-    int diffAt)
+    int diffAt,
+    bool diffAtFound)
 {
     public readonly ClientSyncOpinion local = local;
     public readonly ClientSyncOpinion remote = remote;
@@ -85,6 +86,11 @@ public class SaveableDesyncInfo(
             }
 
             traceMessage = "Note: trace hashes are equal between local and remote\n\n";
+        }
+        else if (!diffAtFound)
+        {
+            traceMessage = "Note: traces differ in amount, but the existing ones are equal. This means that a tick" +
+                           " has ended sooner on one of the connection sides\n\n";
         }
 
         traceMessage += local.GetFormattedStackTracesForRange(diffAt);
