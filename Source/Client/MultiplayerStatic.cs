@@ -218,7 +218,7 @@ namespace Multiplayer.Client
 
                         Replay.LoadReplay(Replay.SavedReplayFile(current[1]), true, () =>
                         {
-                            TickPatch.AllTickables.Do(t => t.SetDesiredTimeSpeed(TimeSpeed.Normal));
+                            TickPatch.AllTickables.Do(t => t.DesiredTimeSpeed = TimeSpeed.Normal);
 
                             void TickBatch()
                             {

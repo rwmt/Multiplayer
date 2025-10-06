@@ -1,5 +1,5 @@
-using Multiplayer.Common;
 using System.Collections.Generic;
+using Multiplayer.Common;
 using Verse;
 
 namespace Multiplayer.Client
@@ -12,9 +12,7 @@ namespace Multiplayer.Client
 
         float TimeToTickThrough { get; set; }
 
-        TimeSpeed DesiredTimeSpeed { get; }
-
-        void SetDesiredTimeSpeed(TimeSpeed speed);
+        TimeSpeed DesiredTimeSpeed { get; set; }
 
         float TickRateMultiplier(TimeSpeed speed);
 

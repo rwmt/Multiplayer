@@ -1,6 +1,3 @@
-using Multiplayer.Client.Networking;
-using Multiplayer.Common;
-using RimWorld;
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -9,7 +6,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using Multiplayer.Client.AsyncTime;
 using Multiplayer.Client.Comp;
+using Multiplayer.Client.Networking;
 using Multiplayer.Client.Util;
+using Multiplayer.Common;
+using RimWorld;
 using UnityEngine;
 using Verse;
 
@@ -94,9 +94,9 @@ namespace Multiplayer.Client
 
         private static void SetGameState(ServerSettings settings)
         {
-            Multiplayer.AsyncWorldTime.SetDesiredTimeSpeed(TimeSpeed.Paused);
+            Multiplayer.AsyncWorldTime.DesiredTimeSpeed = TimeSpeed.Paused;
             foreach (var map in Find.Maps)
-                map.AsyncTime().SetDesiredTimeSpeed(TimeSpeed.Paused);
+                map.AsyncTime().DesiredTimeSpeed = TimeSpeed.Paused;
 
             Find.TickManager.CurTimeSpeed = TimeSpeed.Paused;
 

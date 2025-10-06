@@ -44,15 +44,14 @@ public class AsyncWorldTimeComp : IExposable, ITickable
     }
 
     // Run at the speed of the fastest map or at chosen speed if there are no maps
-    public TimeSpeed DesiredTimeSpeed => !Find.Maps.Any() ?
-        timeSpeedInt :
-        Find.Maps.Select(m => m.AsyncTime())
-        .Where(a => a.ActualRateMultiplier(a.DesiredTimeSpeed) != 0f)
-        .Max(a => a?.DesiredTimeSpeed) ?? TimeSpeed.Paused;
-
-    public void SetDesiredTimeSpeed(TimeSpeed speed)
+    public TimeSpeed DesiredTimeSpeed
     {
-        timeSpeedInt = speed;
+        get => !Find.Maps.Any()
+            ? timeSpeedInt
+            : Find.Maps.Select(m => m.AsyncTime())
+                .Where(a => a.ActualRateMultiplier(a.DesiredTimeSpeed) != 0f)
+                .Max(a => a?.DesiredTimeSpeed) ?? TimeSpeed.Paused;
+        set => timeSpeedInt = value;
     }
 
     public Queue<ScheduledCommand> Cmds => cmds;
@@ -274,8 +273,8 @@ public class AsyncWorldTimeComp : IExposable, ITickable
     public void SetTimeEverywhere(TimeSpeed speed)
     {
         foreach (var map in Find.Maps)
-            map.AsyncTime().SetDesiredTimeSpeed(speed);
-        SetDesiredTimeSpeed(speed);
+            map.AsyncTime().DesiredTimeSpeed = speed;
+        DesiredTimeSpeed = speed;
     }
 
     public static float lastSpeedChange;
@@ -283,7 +282,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
     private void HandleTimeSpeed(ScheduledCommand cmd, ByteReader data)
     {
         TimeSpeed speed = (TimeSpeed)data.ReadByte();
-        SetDesiredTimeSpeed(speed);
+        DesiredTimeSpeed = speed;
 
         if (!Multiplayer.GameComp.asyncTime)
         {
@@ -311,7 +310,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         if (!Multiplayer.GameComp.asyncTime || vote == TimeVote.ResetGlobal)
             SetTimeEverywhere(Multiplayer.GameComp.GetLowestTimeVote(TickableId));
         else if (TickPatch.TickableById(tickableId) is { } tickable)
-            tickable.SetDesiredTimeSpeed(Multiplayer.GameComp.GetLowestTimeVote(tickableId));
+            tickable.DesiredTimeSpeed = Multiplayer.GameComp.GetLowestTimeVote(tickableId);
     }
 
     public void FinalizeInit()

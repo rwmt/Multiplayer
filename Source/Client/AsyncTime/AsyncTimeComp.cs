@@ -50,11 +50,10 @@ namespace Multiplayer.Client
             }
         }
 
-        public TimeSpeed DesiredTimeSpeed => timeSpeedInt;
-
-        public void SetDesiredTimeSpeed(TimeSpeed speed)
+        public TimeSpeed DesiredTimeSpeed
         {
-            timeSpeedInt = speed;
+            get => timeSpeedInt;
+            set => timeSpeedInt = value;
         }
 
         public bool Paused => this.ActualRateMultiplier(DesiredTimeSpeed) == 0f;
@@ -269,7 +268,7 @@ namespace Multiplayer.Client
                 if (cmdType == CommandType.MapTimeSpeed && Multiplayer.GameComp.asyncTime)
                 {
                     TimeSpeed speed = (TimeSpeed)data.ReadByte();
-                    SetDesiredTimeSpeed(speed);
+                    DesiredTimeSpeed = speed;
 
                     MpLog.Debug("Set map time speed " + speed);
                 }
