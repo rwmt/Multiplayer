@@ -36,6 +36,7 @@ jobs:
 
     - name: Package files
       run: |
+        sed -i "s/<name>\(.*\)<\/name>\$/<name>\1 [Continuous]<\/name>/" About/About.xml
         mkdir -p output/Multiplayer
         mv About/ Assemblies/ AssembliesCustom/ Defs/ Languages/ Textures/ output/Multiplayer
         cd output/
