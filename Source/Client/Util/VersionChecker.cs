@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Multiplayer.Common;
 using RestSharp;
-using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client.Util;
@@ -35,10 +34,14 @@ public static class VersionChecker
         });
     }
 
-    private static bool isContinuousRelease =
+    public static bool isContinuousRelease =
         Multiplayer.modContentPack.ModMetaData.Source == ContentSource.ModsFolder &&
         MpVersion.GitDescription?.StartsWith("continuous") == true &&
         MpVersion.GitHash?.EndsWith("dirty") == false;
+
+    public static bool isLocalBuild =
+        Multiplayer.modContentPack.ModMetaData.Source == ContentSource.ModsFolder &&
+        MpVersion.GitHash?.EndsWith("dirty") == true;
 
     private static async Task<Release?> GetLatestContinuousRelease()
     {

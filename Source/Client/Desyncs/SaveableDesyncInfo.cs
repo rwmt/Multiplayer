@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using HarmonyLib;
 using Multiplayer.Common;
@@ -11,6 +12,7 @@ using Multiplayer.Common.Util;
 using RimWorld;
 using UnityEngine;
 using Verse;
+using CompressionLevel = System.IO.Compression.CompressionLevel;
 
 namespace Multiplayer.Client.Desyncs;
 
@@ -24,7 +26,9 @@ public class SaveableDesyncInfo(
     public readonly ClientSyncOpinion remote = remote;
     public readonly int diffAt = diffAt;
     private readonly Task<string> metadata = Task.Run(MetadataGenerator.Generate);
-    public bool ReadyToSave => metadata.IsCompleted;
+    private readonly Task<FileInfo> replay = Task.Run(SaveReplayIfApplicable);
+
+    public bool ReadyToSave => metadata.IsCompleted && replay.IsCompleted;
 
     public void Save()
     {
@@ -43,6 +47,20 @@ public class SaveableDesyncInfo(
             if (extraLogs != null) zip.AddEntry("local_logs.txt", extraLogs);
 
             zip.AddEntry("local_metadata.txt", metadata.Result);
+
+            try
+            {
+                replay.Wait();
+            }
+            catch (AggregateException e)
+            {
+                if (e.InnerExceptions.SingleOrDefault(inner => inner is TaskCanceledException) == null) throw;
+            }
+            if (replay.IsCompletedSuccessfully) {
+                var replayFile = replay.Result;
+                zip.CreateEntryFromFile(replayFile.FullName, "replay.rwmts", CompressionLevel.NoCompression);
+                DeleteFileSilent(replayFile);
+            }
         }
         catch (Exception e)
         {
@@ -135,6 +153,24 @@ public class SaveableDesyncInfo(
                 max = result;
 
         return $"{FilePrefix}{max + 1:00}";
+    }
+
+    private static Task<FileInfo> SaveReplayIfApplicable()
+    {
+        if (!Multiplayer.settings.includeReplayInDesync) return Task.FromCanceled<FileInfo>(new CancellationToken(true));
+
+        try
+        {
+            var tmp = new FileInfo(Path.Combine(Multiplayer.DesyncsDir, "desync-replay.tmp.zip"));
+            if (tmp.Exists) tmp.Delete();
+            Replay.ForSaving(tmp).WriteData(Multiplayer.session.dataSnapshot);
+            return Task.FromResult(tmp);
+        }
+        catch (Exception e)
+        {
+            Log.Error($"Failed to save replay for desync: {e}");
+            return Task.FromException<FileInfo>(e);
+        }
     }
 
     private static void DeleteFileSilent(FileInfo file)

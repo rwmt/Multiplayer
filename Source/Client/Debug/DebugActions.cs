@@ -1,11 +1,12 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 using System.Text;
-
 using HarmonyLib;
 using LudeonTK;
 using Multiplayer.Client.Desyncs;
@@ -147,6 +148,15 @@ namespace Multiplayer.Client
 
             Multiplayer.game.asyncWorldTimeComp.randState++;
             Multiplayer.game.sync.TryAddStackTraceForDesyncLogRaw(logItem, depth, hash);
+        }
+
+        [DebugAction(MultiplayerLocalCategory, name = "Show desync window", allowedGameStates = AllowedGameStates.Playing)]
+        public static void ShowDesync()
+        {
+            Find.WindowStack.Add(new DesyncedWindow(
+                "Debug action",
+                new SaveableDesyncInfo(Multiplayer.game.sync, new ClientSyncOpinion(0), new ClientSyncOpinion(0), 0)
+            ));
         }
 
         [DebugAction(MultiplayerLocalCategory, name = "Show stack traces", allowedGameStates = AllowedGameStates.Playing)]
@@ -344,7 +354,7 @@ namespace Multiplayer.Client
             object FieldValue(FieldInfo field)
             {
                 var value = field.GetValue(null);
-                if (value is System.Collections.ICollection col)
+                if (value is ICollection col)
                     return col.Count;
                 if (field.Name.ToLowerInvariant().Contains("path") && value is string path && (path.Contains("/") || path.Contains("\\")))
                     return "[x]";
@@ -389,7 +399,7 @@ namespace Multiplayer.Client
                 toHash.Add(Encoding.UTF8.GetBytes(ins.opcode.Name + ins.operand));
             }
 
-            using (var sha256 = System.Security.Cryptography.SHA256.Create()) {
+            using (var sha256 = SHA256.Create()) {
                 return Convert.ToBase64String(sha256.ComputeHash(toHash.ToArray()));
             }
         }
