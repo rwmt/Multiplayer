@@ -76,26 +76,24 @@ namespace Multiplayer.Client
 
         private static void TickSyncCoordinator()
         {
-            var sync = Multiplayer.game.sync;
-            if (sync.ShouldCollect && TickPatch.Timer % 30 == 0 && sync.currentOpinion != null)
+            if (TickPatch.Timer % 30 == 0)
             {
-                sync.currentOpinion.roundMode = RoundMode.GetCurrentRoundMode();
+                var sync = Multiplayer.game.sync;
+                var opinion = sync.FinishLocalOpinion();
+                if (opinion == null) return;
 
                 try
                 {
-                    // In case sending the opinion failed, just keep on going and ignore it. We need to make sure that
-                    // sync.currentOpinion is set to null to prevent cascading failure where the opinion keeps getting
-                    // bigger and the sending keeps failing because of a too big packet.
                     if (!TickPatch.Simulating && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
-                        Multiplayer.Client.SendFragmented(new ClientSyncInfoPacket
-                            { SyncOpinion = sync.currentOpinion.ToNet() }.Serialize());
+                        Multiplayer.Client.SendFragmented(
+                            new ClientSyncInfoPacket { SyncOpinion = opinion.ToNet() }.Serialize());
                 }
                 catch (Exception e)
                 {
                     Log.Error($"Failed to send client sync info packet {e}");
                 }
-                sync.AddClientOpinionAndCheckDesync(sync.currentOpinion);
-                sync.currentOpinion = null;
+
+                sync.AddClientOpinionAndCheckDesync(opinion);
             }
         }
 
