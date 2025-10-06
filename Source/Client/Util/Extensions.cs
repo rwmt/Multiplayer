@@ -230,11 +230,6 @@ namespace Multiplayer.Client
             return e.Aggregate(0, (a, b) => Gen.HashCombineInt(a, b));
         }
 
-        public static string IgnorePrefix(this string str, string prefix)
-        {
-            return str.Substring(prefix.Length);
-        }
-
         public static string[] Names(this ParameterInfo[] pinfo)
         {
             return pinfo.Select(pi => pi.Name).ToArray();

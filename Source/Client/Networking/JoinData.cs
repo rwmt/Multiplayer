@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -233,13 +234,13 @@ namespace Multiplayer.Client
 
                 foreach (var asm in MultiplayerData.GetModAssemblies(contentPack))
                 {
-                    var relPath = asm.FullName.IgnorePrefix(contentPack.RootDir).NormalizePath();
+                    var relPath = asm.FullName.RemovePrefix(contentPack.RootDir).NormalizePath();
                     fileDict.Add(modId, new ModFile(asm.FullName, relPath, asm.CRC32()));
                 }
 
                 foreach (var xmlFile in GetModDefsAndPatches(contentPack))
                 {
-                    var relPath = xmlFile.FullName.IgnorePrefix(contentPack.RootDir).NormalizePath();
+                    var relPath = xmlFile.FullName.RemovePrefix(contentPack.RootDir).NormalizePath();
                     fileDict.Add(modId, new ModFile(xmlFile.FullName, relPath, xmlFile.CRC32()));
                 }
             }
@@ -341,7 +342,7 @@ namespace Multiplayer.Client
             return files.GetEnumerator();
         }
 
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+        IEnumerator IEnumerable.GetEnumerator()
         {
             return files.GetEnumerator();
         }
