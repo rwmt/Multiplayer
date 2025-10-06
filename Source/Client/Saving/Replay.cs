@@ -1,12 +1,12 @@
-using Multiplayer.Common;
-using RimWorld;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using Multiplayer.Client.Saving;
+using Multiplayer.Common;
 using Multiplayer.Common.Util;
+using RimWorld;
 using Verse;
 
 namespace Multiplayer.Client
@@ -15,27 +15,15 @@ namespace Multiplayer.Client
     {
         public ReplayInfo info;
 
-        private Replay(FileInfo file)
-        {
-            File = file;
-        }
+        private Replay(FileInfo file) => this.file = file;
 
-        public FileInfo File { get; }
+        private FileInfo file;
 
-        public ZipArchive CreateZipWrite()
-        {
-            return MpZipFile.Open(File.FullName, ZipArchiveMode.Create);
-        }
+        private ZipArchive CreateZipWrite() => MpZipFile.Open(file.FullName, ZipArchiveMode.Create);
 
-        public ZipArchive OpenZipRead()
-        {
-            return MpZipFile.Open(File.FullName, ZipArchiveMode.Read);
-        }
+        public ZipArchive OpenZipRead() => MpZipFile.Open(file.FullName, ZipArchiveMode.Read);
 
-        public void WriteCurrentData()
-        {
-            WriteData(Multiplayer.session.dataSnapshot);
-        }
+        public void WriteCurrentData() => WriteData(Multiplayer.session.dataSnapshot);
 
         public void WriteData(GameDataSnapshot gameData)
         {

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Multiplayer.Client.Saving;
+using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using UnityEngine;
 using Verse;
@@ -15,6 +16,7 @@ namespace Multiplayer.Client
         public bool transparentChat = true;
         public int autosaveSlots = 5;
         public bool showDevInfo;
+        public bool includeReplayInDesync = VersionChecker.isContinuousRelease;
         public int desyncTracesRadius = 40;
         public string serverAddress = "127.0.0.1";
         public bool appendNameToAutosave;
@@ -58,6 +60,7 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref transparentChat, "transparentChat", true);
             Scribe_Values.Look(ref autosaveSlots, "autosaveSlots", 5);
             Scribe_Values.Look(ref showDevInfo, "showDevInfo");
+            Scribe_Values.Look(ref includeReplayInDesync, "includeReplayInDesync", VersionChecker.isContinuousRelease);
             Scribe_Values.Look(ref desyncTracesRadius, "desyncTracesRadius", 40);
             Scribe_Values.Look(ref serverAddress, "serverAddress", "127.0.0.1");
             Scribe_Values.Look(ref showModCompatibility, "showModCompatibility", true);

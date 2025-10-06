@@ -100,6 +100,9 @@ public static class MpSettingsUI
             }
         }
 
+        if (VersionChecker.isContinuousRelease || VersionChecker.isLocalBuild)
+            listing.CheckboxLabeled("MpIncludeReplayInDesync".Translate(), ref settings.includeReplayInDesync);
+
         if (Prefs.DevMode)
         {
             listing.CheckboxLabeled("Show debug info", ref settings.showDevInfo);
