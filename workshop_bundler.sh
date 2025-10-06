@@ -2,7 +2,7 @@
 
 
 
-VERSION=$(grep -Po '(?<=Version = ")[0-9\.]+' Source/Common/Version.cs)
+VERSION=$(grep -Po '(?<=SimpleVersion = ")[0-9\.]+' Source/Common/Version.cs)
 
 git submodule update --init --recursive || { echo 'git submodule update FAILED' ; exit 1; }
 
