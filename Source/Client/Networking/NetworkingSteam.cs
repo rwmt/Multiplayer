@@ -26,13 +26,16 @@ namespace Multiplayer.Client.Networking
 
         public void SendRawSteam(byte[] raw, bool reliable)
         {
-            SteamNetworking.SendP2PPacket(
+            var sent = SteamNetworking.SendP2PPacket(
                 remoteId,
                 raw,
                 (uint)raw.Length,
                 reliable ? EP2PSend.k_EP2PSendReliable : EP2PSend.k_EP2PSendUnreliable,
                 sendChannel
             );
+            if (sent) return;
+            var hex = raw.SubArray(0, Math.Min(raw.Length, 128)).ToHexString();
+            ServerLog.Error($"Failed to send packet (len: {raw.Length}): {hex}");
         }
 
         public override void Close(MpDisconnectReason reason, byte[] data = null)
