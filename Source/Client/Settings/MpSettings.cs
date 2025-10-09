@@ -35,6 +35,7 @@ namespace Multiplayer.Client
         public bool hideOtherPlayersInColonistBar = false;
         public bool hideOtherPlayersQuests = false;
 
+        public string mostRecentVersionWelcomed = "";
 
         internal static readonly ColorRGBClient[] DefaultPlayerColors =
         {
@@ -84,6 +85,8 @@ namespace Multiplayer.Client
 
             Scribe_Deep.Look(ref serverSettingsClient, "serverSettings");
             serverSettingsClient ??= new ServerSettingsClient();
+
+            Scribe_Values.Look(ref mostRecentVersionWelcomed, "playerWelcomedToThisVersion", "");
         }
     }
 

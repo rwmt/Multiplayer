@@ -1,9 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using HarmonyLib;
 using Multiplayer.Client.Util;
 using RimWorld;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 using UnityEngine;
 using Verse;
 using Random = System.Random;
@@ -436,4 +437,6 @@ namespace Multiplayer.Client
                 __result = false;
         }
     }
+
+    
 }

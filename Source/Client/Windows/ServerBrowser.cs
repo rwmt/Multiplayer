@@ -19,6 +19,40 @@ using Verse.Steam;
 
 namespace Multiplayer.Client
 {
+    public static class WelcomeMessage
+    {
+        public static bool welcomedThisSession = false;
+
+        public static string version => "MpWelcomeVersion".Translate();
+
+
+        public static string Title()
+        {
+            string title = "MpWelcomeTitle".Translate(version) ;
+            return title;
+        }
+        public static TaggedString Message()
+        {
+            TaggedString message = "MpWelcomeMessage".Translate() + "\n\n";
+
+            int issueCount = 1;
+            string knownIssueKey = "MpKnownIssue";
+
+            //while (LanguageDatabase.activeLanguage.HaveTextForKey(knownIssueKey + issueCount))
+            foreach (var thing in LanguageDatabase.activeLanguage.keyedReplacements.Where(kvp => kvp.Key.StartsWith(knownIssueKey)))
+            {
+                message += "- " + (thing.Key).Translate() + "\n";
+                issueCount++;
+            }
+
+            message += "\n\n" + "MpWelcomeCompleteList".Translate();
+            message += "\n\n" + "MpWelcomePrepatcher".Translate();
+            message += "\n\n" + "MpWelcomeDiscord".Translate();
+
+            return message;
+        }
+    }
+
     public class ServerBrowser : Window
     {
         private LanListener lanListener;
@@ -40,6 +74,19 @@ namespace Multiplayer.Client
         {
             Lan, Direct, Steam, Host
         }
+
+        public override void PostOpen()
+        {
+            if ((Multiplayer.settings.mostRecentVersionWelcomed == WelcomeMessage.version && Multiplayer.settings.mostRecentVersionWelcomed != "testing" )|| WelcomeMessage.welcomedThisSession) return;
+            Find.WindowStack.Add(new Dialog_MessageBox(WelcomeMessage.Message(), title: WelcomeMessage.Title(), buttonBAction: () =>
+            {
+                Multiplayer.settings.mostRecentVersionWelcomed = WelcomeMessage.version;
+                Multiplayer.settings.Write();
+            }, buttonBText: "MpWelcomeNeverShowButton".Translate()));
+            WelcomeMessage.welcomedThisSession = true;
+        }
+
+
 
         public override void DoWindowContents(Rect inRect)
         {
