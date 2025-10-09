@@ -171,7 +171,10 @@ public class PacketTest
             foreach (var packet in packetsOfType)
             {
                 var serialized = binder.Serialize(packet);
-                text.AppendLine(BitConverter.ToString(serialized));
+                text.Append(BitConverter.ToString(serialized));
+                if (serialized.Length > 32)
+                    text.Append($" ({serialized.Length} bytes)");
+                text.AppendLine();
             }
 
             await Verify(text).UseDirectory("packet-serializations").UseFileName(packetsOfType.Key.Name).DisableDiff()
