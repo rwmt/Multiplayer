@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
 using RimWorld.Planet;
 using UnityEngine;
 using Verse;
@@ -33,31 +34,30 @@ public class PlayerCursors
 
     private void SendCursor()
     {
-        var writer = new ByteWriter();
-        writer.WriteByte(cursorSeq++);
+        var packet = new ClientCursorPacket(cursorSeq++);
 
         if (Find.CurrentMap != null && !WorldRendererUtility.WorldSelected)
         {
-            writer.WriteByte((byte)Find.CurrentMap.Index);
+            packet.map = (byte)Find.CurrentMap.Index;
 
             var icon = Find.MapUI?.designatorManager?.SelectedDesignator?.icon;
             int iconId = icon == null ? 0 :
                 !MultiplayerData.icons.Contains(icon) ? 0 : MultiplayerData.icons.IndexOf(icon);
-            writer.WriteByte((byte)iconId);
+            packet.icon = (byte)iconId;
 
-            writer.WriteVectorXZ(UI.MouseMapPosition());
+            var mapPosition = UI.MouseMapPosition();
+            packet.x = mapPosition.x;
+            packet.z = mapPosition.z;
 
             if (Find.Selector.dragBox.IsValidAndActive)
-                writer.WriteVectorXZ(Find.Selector.dragBox.start);
-            else
-                writer.WriteShort(-1);
-        }
-        else
-        {
-            writer.WriteByte(byte.MaxValue);
+            {
+                var dragVec = Find.Selector.dragBox.start;
+                packet.dragX = dragVec.x;
+                packet.dragZ = dragVec.z;
+            }
         }
 
-        Multiplayer.Client.Send(Packets.Client_Cursor, writer.ToArray(), reliable: false);
+        Multiplayer.Client.Send(packet, reliable: false);
     }
 
     private void SendSelected()

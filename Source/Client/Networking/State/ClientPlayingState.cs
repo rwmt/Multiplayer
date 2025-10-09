@@ -1,9 +1,9 @@
-using Ionic.Zlib;
-using Multiplayer.Common;
-using RimWorld;
-using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
+using Ionic.Zlib;
+using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
+using RimWorld;
 using UnityEngine;
 using Verse;
 
@@ -17,88 +17,78 @@ namespace Multiplayer.Client
         [PacketHandler(Packets.Server_TimeControl)]
         public new void HandleTimeControl(ByteReader data) => base.HandleTimeControl(data);
 
-        [PacketHandler(Packets.Server_Command)]
-        public void HandleCommand(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleCommand(ServerCommandPacket packet)
         {
-            ScheduledCommand cmd = ScheduledCommand.Deserialize(data);
-            Session.ScheduleCommand(cmd);
-
+            Session.ScheduleCommand(packet.ToCommand());
             Multiplayer.session.receivedCmds++;
             Multiplayer.session.ProcessTimeControl();
         }
 
-        [PacketHandler(Packets.Server_PlayerList)]
-        public void HandlePlayerList(ByteReader data)
+        [TypedPacketHandler]
+        public void HandlePlayerList(ServerPlayerListPacket packet)
         {
-            var action = data.ReadEnum<PlayerListAction>();
-            if (action == PlayerListAction.Add)
+            if (packet.action == PlayerListAction.Add)
             {
-                var info = PlayerInfo.Read(data);
-                if (!Multiplayer.session.players.Contains(info))
+                foreach (var info in packet.players)
                 {
-                    ServerLog.Log($"PlayerList: Adding player {info.id}:{info.username}");
-                    Multiplayer.session.players.Add(info);
-                }
-                else
-                {
-                    ServerLog.Error($"PlayerList: Adding player {info.id}:{info.username} - player already exists");
+                    if (!Multiplayer.session.players.Any(p => p.id == info.id || p.username == info.username))
+                    {
+                        ServerLog.Log($"PlayerList: Adding player {info.id}:{info.username}");
+                        Multiplayer.session.players.Add(PlayerInfo.FromNet(info));
+                    }
+                    else
+                    {
+                        ServerLog.Error($"PlayerList: Adding player {info.id}:{info.username} - player already exists");
+                    }
                 }
             }
-            else if (action == PlayerListAction.Remove)
+            else if (packet.action == PlayerListAction.Remove)
             {
-                int id = data.ReadInt32();
-                ServerLog.Log($"PlayerList: Removing player with id {id}");
-                var matches = Multiplayer.session.players.RemoveAll(p => p.id == id);
+                ServerLog.Log($"PlayerList: Removing player with id {packet.playerId}");
+                var matches = Multiplayer.session.players.RemoveAll(p => p.id == packet.playerId);
                 if (matches > 1)
                 {
-                    ServerLog.Error($"PlayerList: Removing player with id {id} -- occurred {matches} times. This should not happen");
+                    ServerLog.Error($"PlayerList: Removing player with id {packet.playerId} -- occurred {matches} times. This should not happen");
                 }
             }
-            else if (action == PlayerListAction.List)
+            else if (packet.action == PlayerListAction.List)
             {
-                int count = data.ReadInt32();
-                ServerLog.Log($"PlayerList: Received player list with {count} entries");
+                ServerLog.Log($"PlayerList: Received player list with {packet.players.Length} entries");
 
                 Multiplayer.session.players.Clear();
-                for (int i = 0; i < count; i++)
+                foreach (var info in packet.players)
                 {
-                    var info = PlayerInfo.Read(data);
                     ServerLog.Log($"PlayerList: Adding player from list {info.id}:{info.username}");
-                    Multiplayer.session.players.Add(info);
+                    Multiplayer.session.players.Add(PlayerInfo.FromNet(info));
                 }
             }
-            else if (action == PlayerListAction.Latencies)
+            else if (packet.action == PlayerListAction.Latencies)
             {
-                int count = data.ReadInt32();
-
-                for (int i = 0; i < count; i++)
+                foreach (var latency in packet.latencies)
                 {
-                    var id = data.ReadInt32();
-                    var player = Multiplayer.session.GetPlayerInfo(id);
+                    var player = Multiplayer.session.GetPlayerInfo(latency.playerId);
                     if (player == null)
                     {
-                        ServerLog.Log($"PlayerList: Received latency info for unknown player with id {id}");
+                        ServerLog.Log($"PlayerList: Received latency info for unknown player with id {latency.playerId}");
                         continue;
                     }
-                    player.latency = data.ReadInt32();
-                    player.ticksBehind = data.ReadInt32();
-                    player.simulating = data.ReadBool();
-                    player.frameTime = data.ReadFloat();
+                    player.latency = latency.latency;
+                    player.ticksBehind = latency.ticksBehind;
+                    player.simulating = latency.simulating;
+                    player.frameTime = latency.frameTime;
                 }
             }
-            else if (action == PlayerListAction.Status)
+            else if (packet.action == PlayerListAction.Status)
             {
-                var id = data.ReadInt32();
-                var status = data.ReadEnum<PlayerStatus>();
-                var player = Multiplayer.session.GetPlayerInfo(id);
-
+                var player = Multiplayer.session.GetPlayerInfo(packet.playerId);
                 if (player == null)
                 {
-                    ServerLog.Log($"PlayerList: Received player status ({status}) for unknown player with id {id}");
+                    ServerLog.Log($"PlayerList: Received player status ({packet.status}) for unknown player with id {packet.playerId}");
                 }
                 else
                 {
-                    player.status = status;
+                    player.status = packet.status;
                 }
             }
         }
@@ -110,44 +100,26 @@ namespace Multiplayer.Client
             Multiplayer.session.AddMsg(msg);
         }
 
-        [PacketHandler(Packets.Server_Cursor)]
-        public void HandleCursor(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleCursor(ServerCursorPacket packet)
         {
-            int playerId = data.ReadInt32();
-            var player = Multiplayer.session.GetPlayerInfo(playerId);
+            var player = Multiplayer.session.GetPlayerInfo(packet.playerId);
             if (player == null) return;
 
-            byte seq = data.ReadByte();
-            if (seq < player.cursorSeq && player.cursorSeq - seq < 128) return;
+            var data = packet.data;
+            if (data.seq < player.cursorSeq && player.cursorSeq - data.seq < 128) return;
 
-            byte map = data.ReadByte();
-            player.map = map;
+            player.map = data.map;
+            if (data.map == byte.MaxValue) return;
 
-            if (map == byte.MaxValue) return;
-
-            byte icon = data.ReadByte();
-            float x = data.ReadShort() / 10f;
-            float z = data.ReadShort() / 10f;
-
-            player.cursorSeq = seq;
+            player.cursorSeq = data.seq;
             player.lastCursor = player.cursor;
             player.lastDelta = Multiplayer.clock.ElapsedMillisDouble() - player.updatedAt;
-            player.cursor = new Vector3(x, 0, z);
+            player.cursor = new Vector3(data.x, 0, data.z);
             player.updatedAt = Multiplayer.clock.ElapsedMillisDouble();
-            player.cursorIcon = icon;
+            player.cursorIcon = data.icon;
 
-            short dragXRaw = data.ReadShort();
-            if (dragXRaw != -1)
-            {
-                float dragX = dragXRaw / 10f;
-                float dragZ = data.ReadShort() / 10f;
-
-                player.dragStart = new Vector3(dragX, 0, dragZ);
-            }
-            else
-            {
-                player.dragStart = PlayerInfo.Invalid;
-            }
+            player.dragStart = data.HasDrag ? new Vector3(data.dragX, 0, data.dragZ) : PlayerInfo.Invalid;
         }
 
         [PacketHandler(Packets.Server_Selected)]
@@ -171,16 +143,8 @@ namespace Multiplayer.Client
                 player.selectedThings.Remove(remove[i]);
         }
 
-        [PacketHandler(Packets.Server_PingLocation)]
-        public void HandlePing(ByteReader data)
-        {
-            int player = data.ReadInt32();
-            int map = data.ReadInt32();
-            PlanetTile planetTile = new(data.ReadInt32(), data.ReadInt32());
-            var loc = new Vector3(data.ReadFloat(), data.ReadFloat(), data.ReadFloat());
-
-            Session.locationPings.ReceivePing(player, map, planetTile, loc);
-        }
+        [TypedPacketHandler]
+        public void HandlePing(ServerPingLocPacket packet) => Session.locationPings.ReceivePing(packet);
 
         [PacketHandler(Packets.Server_MapResponse)]
         public void HandleMapResponse(ByteReader data)

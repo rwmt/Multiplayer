@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
+using Multiplayer.Common.Networking.Packet;
 
 namespace Multiplayer.Common
 {
@@ -22,20 +23,9 @@ namespace Multiplayer.Common
             this.server = server;
         }
 
-        public void SendLatencies()
-        {
-            var writer = new ByteWriter();
-            writer.WriteEnum(PlayerListAction.Latencies);
-
-            writer.WriteInt32(JoinedPlayers.Count());
-            foreach (var player in JoinedPlayers)
-            {
-                writer.WriteInt32(player.id);
-                player.WriteLatencyUpdate(writer);
-            }
-
-            server.SendToPlaying(Packets.Server_PlayerList, writer.ToArray());
-        }
+        public void SendLatencies() =>
+            server.SendToPlaying(
+                ServerPlayerListPacket.Latencies(JoinedPlayers.Select(p => p.LatencyPacket())));
 
         // id can be an IPAddress or CSteamID
         public MpDisconnectReason? OnPreConnect(object id)
@@ -100,7 +90,7 @@ namespace Multiplayer.Common
                 server.SendNotification("MpPlayerDisconnected", conn.username);
                 server.SendChat($"{conn.username} has left.");
 
-                server.SendToPlaying(Packets.Server_PlayerList, new object[] { PlayerListAction.Remove, player.id });
+                server.SendToPlaying(ServerPlayerListPacket.Remove(player.id));
 
                 player.ResetTimeVotes();
             }
@@ -154,11 +144,7 @@ namespace Multiplayer.Common
                 player.color = color;
             }
 
-            var writer = new ByteWriter();
-            writer.WriteEnum(PlayerListAction.Add);
-            writer.WriteRaw(player.SerializePlayerInfo());
-
-            server.SendToPlaying(Packets.Server_PlayerList, writer.ToArray());
+            server.SendToPlaying(ServerPlayerListPacket.Add(player.PlayerInfoPacket()));
         }
 
         public void SendInitDataCommand(ServerPlayer player)

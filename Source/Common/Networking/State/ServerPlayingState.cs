@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Multiplayer.Common.Networking.Packet;
 
 namespace Multiplayer.Common
 {
@@ -41,16 +42,12 @@ namespace Multiplayer.Common
             }
         }
 
-        [PacketHandler(Packets.Client_Command)]
-        public void HandleClientCommand(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleClientCommand(ClientCommandPacket packet)
         {
-            CommandType cmd = data.ReadEnum<CommandType>();
-            int mapId = data.ReadInt32();
-            byte[]? extra = data.ReadPrefixedBytes(65535);
-            if (extra == null) return;
-            if (cmd == CommandType.PlayerCount)
+            if (packet.type == CommandType.PlayerCount)
             {
-                ByteReader reader = new ByteReader(extra);
+                ByteReader reader = new ByteReader(packet.data);
                 var prevMapId = reader.ReadInt32();
                 var newMapId = reader.ReadInt32();
                 if (Player.currentMapId != prevMapId)
@@ -61,7 +58,7 @@ namespace Multiplayer.Common
 
             // todo check if map id is valid for the player
 
-            Server.commands.Send(cmd, Player.FactionId, mapId, extra, Player);
+            Server.commands.Send(packet.type, Player.FactionId, packet.mapId, packet.data, Player);
         }
 
         public const int MaxChatMsgLength = 128;
@@ -110,43 +107,14 @@ namespace Multiplayer.Common
                 Server.worldData.EndJoinPointCreation();
         }
 
-        [PacketHandler(Packets.Client_Cursor)]
-        public void HandleCursor(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleCursor(ClientCursorPacket clientPacket)
         {
             if (Player.lastCursorTick == Server.NetTimer) return; // policy
-
-            var writer = new ByteWriter();
-
-            byte seq = data.ReadByte();
-            byte map = data.ReadByte();
-
-            writer.WriteInt32(Player.id);
-            writer.WriteByte(seq);
-            writer.WriteByte(map);
-
-            if (map < byte.MaxValue)
-            {
-                byte icon = data.ReadByte();
-                short x = data.ReadShort();
-                short z = data.ReadShort();
-
-                writer.WriteByte(icon);
-                writer.WriteShort(x);
-                writer.WriteShort(z);
-
-                short dragX = data.ReadShort();
-                writer.WriteShort(dragX);
-
-                if (dragX != -1)
-                {
-                    short dragZ = data.ReadShort();
-                    writer.WriteShort(dragZ);
-                }
-            }
-
             Player.lastCursorTick = Server.NetTimer;
 
-            Server.SendToIngame(Packets.Server_Cursor, writer.ToArray(), reliable: false, excluding: Player);
+            var serverPacket = new ServerCursorPacket(Player.id, clientPacket);
+            Server.SendToIngame(serverPacket, reliable: false, excluding: Player);
         }
 
         [PacketHandler(Packets.Client_Selected)]
@@ -164,22 +132,9 @@ namespace Multiplayer.Common
             Server.SendToPlaying(Packets.Server_Selected, writer.ToArray(), excluding: Player);
         }
 
-        [PacketHandler(Packets.Client_PingLocation)]
-        public void HandlePing(ByteReader data)
-        {
-            var writer = new ByteWriter();
-
-            writer.WriteInt32(Player.id);
-
-            writer.WriteInt32(data.ReadInt32()); // Map id
-            writer.WriteInt32(data.ReadInt32()); // Planet tile id
-            writer.WriteInt32(data.ReadInt32()); // Planet tile layer
-            writer.WriteFloat(data.ReadFloat()); // X
-            writer.WriteFloat(data.ReadFloat()); // Y
-            writer.WriteFloat(data.ReadFloat()); // Z
-
-            Server.SendToPlaying(Packets.Server_PingLocation, writer.ToArray());
-        }
+        [TypedPacketHandler]
+        public void HandlePing(ClientPingLocPacket packet) =>
+            Server.SendToPlaying(new ServerPingLocPacket(Player.id, packet));
 
         [PacketHandler(Packets.Client_KeepAlive)]
         public void HandleClientKeepAlive(ByteReader data)

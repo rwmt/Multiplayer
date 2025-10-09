@@ -2,6 +2,7 @@ using Multiplayer.API;
 using Multiplayer.Common;
 using System.Collections.Generic;
 using System.Linq;
+using Multiplayer.Common.Networking.Packet;
 using UnityEngine;
 using Verse;
 
@@ -60,34 +61,23 @@ public class PlayerInfo : IPlayerInfo
         this.type = type;
     }
 
-    public static PlayerInfo Read(ByteReader data)
+    public static PlayerInfo FromNet(ServerPlayerListPacket.PlayerInfo info)
     {
-        int id = data.ReadInt32();
-        string username = data.ReadString();
-        int latency = data.ReadInt32();
-        var type = data.ReadEnum<PlayerType>();
-        var status = data.ReadEnum<PlayerStatus>();
-
-        var steamId = data.ReadULong();
-        var steamName = data.ReadString();
-
-        var ticksBehind = data.ReadInt32();
-        var simulating = data.ReadBool();
-
-        var color = new Color(data.ReadByte() / 255f, data.ReadByte() / 255f, data.ReadByte() / 255f);
-
-        int factionId = data.ReadInt32();
-
-        return new PlayerInfo(id, username, latency, type)
+        var color = new Color(info.r / 255f, info.g / 255f, info.b / 255f);
+        return new PlayerInfo(id: info.id, username: info.username, latency: info.latency, type: info.type)
         {
-            status = status,
-            steamId = steamId,
-            steamPersonaName = steamName,
+            status = info.status,
+
+            steamId = info.steamId,
+            steamPersonaName = info.steamPersonaName,
+
+            ticksBehind = info.ticksBehind,
+            simulating = info.simulating,
+
             color = color,
             selectionBracketMaterial = MaterialPool.MatFrom("UI/Overlays/SelectionBracket", ShaderDatabase.MetaOverlay, color * new Color(1, 1, 1, 0.5f)),
-            ticksBehind = ticksBehind,
-            simulating = simulating,
-            factionId = factionId
+
+            factionId = info.factionId,
         };
     }
 }

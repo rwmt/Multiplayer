@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Multiplayer.Common.Networking.Packet;
 
 namespace Multiplayer.Common
 {
@@ -205,16 +206,25 @@ namespace Multiplayer.Common
             queue.Enqueue(action);
         }
 
-        public void SendToPlaying(Packets id, object[] data)
+        public void SendToPlaying<T>(T packet, bool reliable = true, ServerPlayer? excluding = null) where T : IPacket
         {
-            SendToPlaying(id, ByteWriter.GetBytes(data));
+            var materialized = packet.Serialize();
+            SendToPlaying(materialized.id, materialized.data, reliable, excluding);
         }
+
+        public void SendToPlaying(Packets id, object[] data) => SendToPlaying(id, ByteWriter.GetBytes(data));
 
         public void SendToIngame(Packets id, byte[] data, bool reliable = true, ServerPlayer? excluding = null)
         {
             foreach (ServerPlayer player in PlayingIngamePlayers)
                 if (player != excluding)
                     player.conn.Send(id, data, reliable);
+        }
+
+        public void SendToIngame<T>(T packet, bool reliable = true, ServerPlayer? excluding = null) where T : IPacket
+        {
+            var serialized = packet.Serialize();
+            SendToIngame(serialized.id, serialized.data, reliable, excluding);
         }
 
         public void SendToPlaying(Packets id, byte[] data, bool reliable = true, ServerPlayer? excluding = null)

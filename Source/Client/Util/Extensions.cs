@@ -12,6 +12,7 @@ using System.Xml;
 using HarmonyLib;
 using Ionic.Crc;
 using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -35,8 +36,15 @@ namespace Multiplayer.Client
             return Find.FactionManager.GetById(cmd.factionId);
         }
 
-        public static AsyncTimeComp AsyncTime(this Map map) =>
-            Multiplayer.game?.asyncTimeComps?.FirstOrDefault(t => t.map == map);
+        public static AsyncTimeComp AsyncTime(this Map map)
+        {
+            var list = Multiplayer.game?.asyncTimeComps;
+            if (list == null) return null;
+            for (int i = 0; i < list.Count; i++)
+                if (list[i].map == map)
+                    return list[i];
+            return null;
+        }
 
         public static MultiplayerMapComp MpComp(this Map map) =>
             Multiplayer.game?.mapComps?.FirstOrDefault(t => t.map == map);
@@ -67,20 +75,11 @@ namespace Multiplayer.Client
             return null;
         }
 
-        public static void SendCommand(this ConnectionBase conn, CommandType type, int mapId, byte[] data)
-        {
-            ByteWriter writer = new ByteWriter();
-            writer.WriteEnum(type);
-            writer.WriteInt32(mapId);
-            writer.WritePrefixedBytes(data);
+        public static void SendCommand(this ConnectionBase conn, CommandType type, int mapId, byte[] data) =>
+            conn.Send(new ClientCommandPacket(type, mapId, data));
 
-            conn.Send(Packets.Client_Command, writer.ToArray());
-        }
-
-        public static void SendCommand(this ConnectionBase conn, CommandType type, int mapId, params object[] data)
-        {
+        public static void SendCommand(this ConnectionBase conn, CommandType type, int mapId, params object[] data) =>
             SendCommand(conn, type, mapId, ByteWriter.GetBytes(data));
-        }
 
         public static bool IsIssuedBySelf(this ScheduledCommand cmd) => cmd.playerId == Multiplayer.session?.playerId;
 
