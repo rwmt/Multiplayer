@@ -179,7 +179,7 @@ public sealed class PacketReader(ByteReader reader) : PacketBuffer(false)
     public override void Bind<T>(ref T[] obj, Binder<T> bind, int maxLength = DefaultMaxLength)
     {
         int len = reader.ReadInt32();
-        if (len > maxLength && maxLength != -1) throw new ReaderException("Object too big");
+        if (len > maxLength && maxLength != -1) throw new ReaderException($"Array too big ({len}>{maxLength})");
 
         obj = new T[len];
         for (var i = 0; i < len; i++)
@@ -192,14 +192,14 @@ public sealed class PacketReader(ByteReader reader) : PacketBuffer(false)
 
     public override void BindRemaining(ref byte[] obj, int maxLength = DefaultMaxLength)
     {
-        if (reader.Left > maxLength) throw new ReaderException("Object too big");
+        if (reader.Left > maxLength) throw new ReaderException($"Remaining bytes too big ({reader.Left}>{maxLength})");
         obj = reader.ReadRaw(reader.Left);
     }
 
     public override void Bind<T>(ref List<T> obj, Binder<T> bind, int maxLength = DefaultMaxLength)
     {
         int len = reader.ReadInt32();
-        if (len > maxLength) throw new ReaderException("Object too big");
+        if (len > maxLength) throw new ReaderException($"List too big ({len}>{maxLength})");
 
         obj = new List<T>(len);
         for (var i = 0; i < len; i++)
@@ -214,7 +214,7 @@ public sealed class PacketReader(ByteReader reader) : PacketBuffer(false)
         int maxLength = DefaultMaxLength)
     {
         int len = reader.ReadInt32();
-        if (len > maxLength && maxLength != -1) throw new ReaderException("Object too big");
+        if (len > maxLength && maxLength != -1) throw new ReaderException($"Dictionary too big ({len}>{maxLength})");
 
         obj = new Dictionary<K, V>(len);
         for (int i = 0; i < len; i++)
@@ -260,7 +260,7 @@ public sealed class PacketWriter(ByteWriter writer) : PacketBuffer(true)
 
     public override void Bind(ref string obj, int maxLength = DefaultMaxLength)
     {
-        if (obj != null && obj.Length > maxLength) throw new WriterException("Too long string");
+        if (obj != null && obj.Length > maxLength) throw new WriterException($"Too long string ({obj.Length}>{maxLength})");
         writer.WriteString(obj);
     }
 
@@ -274,7 +274,7 @@ public sealed class PacketWriter(ByteWriter writer) : PacketBuffer(true)
 
     public override void Bind<T>(ref T[] obj, Binder<T> bind, int maxLength = DefaultMaxLength)
     {
-        if (obj.Length > maxLength) throw new WriterException("Object too big");
+        if (obj.Length > maxLength) throw new WriterException($"Array too big ({obj.Length}>{maxLength})");
         writer.WriteInt32(obj.Length);
         for (var i = 0; i < obj.Length; i++)
         {
@@ -284,13 +284,13 @@ public sealed class PacketWriter(ByteWriter writer) : PacketBuffer(true)
 
     public override void BindRemaining(ref byte[] obj, int maxLength = DefaultMaxLength)
     {
-        if (obj.Length > maxLength) throw new WriterException("Object too big");
+        if (obj.Length > maxLength) throw new WriterException($"Remaining bytes too big ({obj.Length}>{maxLength})");
         writer.WriteRaw(obj);
     }
 
     public override void Bind<T>(ref List<T> obj, Binder<T> bind, int maxLength = DefaultMaxLength)
     {
-        if (obj.Count > maxLength) throw new WriterException("Object too big");
+        if (obj.Count > maxLength) throw new WriterException($"List too big ({obj.Count}>{maxLength})");
         writer.WriteInt32(obj.Count);
         for (var i = 0; i < obj.Count; i++)
         {
@@ -302,7 +302,7 @@ public sealed class PacketWriter(ByteWriter writer) : PacketBuffer(true)
     public override void Bind<K, V>(ref Dictionary<K, V> obj, Binder<K> bindKey, Binder<V> bindValue,
         int maxLength = DefaultMaxLength)
     {
-        if (obj.Count > maxLength) throw new WriterException("Object too big");
+        if (obj.Count > maxLength) throw new WriterException($"Dictionary too big ({obj.Count}>{maxLength})");
         writer.WriteInt32(obj.Count);
         foreach (var (key, value) in obj)
         {
