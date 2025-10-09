@@ -157,21 +157,19 @@ namespace Multiplayer.Common
             if (idMatched) Player.keepAliveId++;
         }
 
-        [PacketHandler(Packets.Client_SyncInfo, allowFragmented: true)]
-        public void HandleDesyncCheck(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleDesyncCheck(ClientSyncInfoPacket packet)
         {
             var arbiter = Server.ArbiterPlaying;
             if (arbiter ? !Player.IsArbiter : !Player.IsHost) return; // policy
 
-            var raw = data.ReadRaw(data.Left);
-
             // Keep at most 10 sync infos
-            Server.worldData.syncInfos.Add(raw);
+            Server.worldData.syncInfos.Add(packet.rawSyncOpinion);
             if (Server.worldData.syncInfos.Count > 10)
                 Server.worldData.syncInfos.RemoveAt(0);
 
             foreach (var p in Server.PlayingPlayers.Where(p => !p.IsArbiter && (arbiter || !p.IsHost)))
-                p.conn.SendFragmented(Packets.Server_SyncInfo, raw);
+                p.conn.SendFragmented(new ServerSyncInfoPacket { rawSyncOpinion = packet.rawSyncOpinion }.Serialize());
         }
 
         [PacketHandler(Packets.Client_Freeze)]

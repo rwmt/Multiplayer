@@ -129,6 +129,24 @@ public class PacketTest
         ]);
 
         yield return ServerPlayerListPacket.Status(1, PlayerStatus.Playing);
+
+        var sampleOpinion = new SyncOpinion
+        {
+            startTick = 12345,
+            commandRandomStates = [1, 2, 3],
+            worldRandomStates = [10, 20, 30],
+            mapRandomStates =
+            [
+                new MapRandomState { mapId = 1, randomStates = [111, 222] },
+                new MapRandomState { mapId = 2, randomStates = [333, 444, 555] }
+            ],
+            traceHashes = [999, 888, 777],
+            simulating = true,
+            roundMode = RoundModeEnum.ToNearest
+        };
+
+        yield return new ClientSyncInfoPacket { SyncOpinion = sampleOpinion };
+        yield return new ServerSyncInfoPacket { SyncOpinion = sampleOpinion };
     }
 
     [TestCaseSource(nameof(RoundtripPackets))]

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
 using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
 using Verse;
 
 namespace Multiplayer.Client
@@ -87,6 +88,29 @@ namespace Multiplayer.Client
 
             return writer.ToArray();
         }
+
+        public static ClientSyncOpinion FromNet(SyncOpinion sync) => new(sync.startTick)
+        {
+            commandRandomStates = sync.commandRandomStates,
+            worldRandomStates = sync.worldRandomStates,
+            mapStates = sync.mapRandomStates.Select(state => new MapRandomStateData(state.mapId)
+                { randomStates = state.randomStates }).ToList(),
+            desyncStackTraceHashes = sync.traceHashes,
+            simulating = sync.simulating,
+            roundMode = sync.roundMode
+        };
+
+        public SyncOpinion ToNet() => new()
+        {
+            startTick = startTick,
+            commandRandomStates = commandRandomStates,
+            worldRandomStates = worldRandomStates,
+            mapRandomStates = mapStates.Select(state => new MapRandomState
+                { mapId = state.mapId, randomStates = state.randomStates }).ToList(),
+            traceHashes = desyncStackTraceHashes,
+            simulating = simulating,
+            roundMode = roundMode
+        };
 
         public static ClientSyncOpinion Deserialize(ByteReader data)
         {
