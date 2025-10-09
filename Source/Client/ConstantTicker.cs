@@ -1,6 +1,7 @@
 using HarmonyLib;
 using Multiplayer.Client.Desyncs;
 using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
 using RimWorld;
 using Verse;
 
@@ -80,7 +81,8 @@ namespace Multiplayer.Client
                 sync.currentOpinion.roundMode = RoundMode.GetCurrentRoundMode();
 
                 if (!TickPatch.Simulating && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
-                    Multiplayer.Client.SendFragmented(Packets.Client_SyncInfo, sync.currentOpinion.Serialize());
+                    Multiplayer.Client.SendFragmented(new ClientSyncInfoPacket
+                        { SyncOpinion = sync.currentOpinion.ToNet() }.Serialize());
 
                 sync.AddClientOpinionAndCheckDesync(sync.currentOpinion);
                 sync.currentOpinion = null;

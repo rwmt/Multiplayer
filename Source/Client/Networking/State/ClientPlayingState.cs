@@ -176,11 +176,9 @@ namespace Multiplayer.Client
             ServerLog.Log($"Notification: {msg} ({key}, {args.Join(", ")})");
         }
 
-        [PacketHandler(Packets.Server_SyncInfo, allowFragmented: true)]
-        public void HandleDesyncCheck(ByteReader data)
-        {
-            Multiplayer.game?.sync.AddClientOpinionAndCheckDesync(ClientSyncOpinion.Deserialize(data));
-        }
+        [TypedPacketHandler]
+        public void HandleDesyncCheck(ServerSyncInfoPacket packet) =>
+            Multiplayer.game?.sync.AddClientOpinionAndCheckDesync(ClientSyncOpinion.FromNet(packet.SyncOpinion));
 
         [PacketHandler(Packets.Server_Freeze)]
         public void HandleFreze(ByteReader data)

@@ -54,7 +54,13 @@ public delegate void Binder<T>(PacketBuffer buf, ref T obj);
 public static class BinderOf
 {
     public static Binder<T> Identity<T>() where T : struct, IPacketBufferable =>
-        (PacketBuffer buf, ref T obj) => { buf.Bind(ref obj); };
+        (PacketBuffer buf, ref T obj) => buf.Bind(ref obj);
+
+    public static Binder<int> Int() =>
+        (PacketBuffer buf, ref int obj) => buf.Bind(ref obj);
+
+    public static Binder<uint> UInt() =>
+        (PacketBuffer buf, ref uint obj) => buf.Bind(ref obj);
 }
 
 public static class BinderExtensions
