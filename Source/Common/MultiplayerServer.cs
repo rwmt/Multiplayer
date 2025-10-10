@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using HarmonyLib;
 using Multiplayer.Common.Networking.Packet;
 
 namespace Multiplayer.Common
@@ -98,6 +99,7 @@ namespace Multiplayer.Common
             Stopwatch tickTime = Stopwatch.StartNew();
             double realTime = 0;
 
+            List<ServerPlayer> playersBehind = [];
             while (running)
             {
                 try
@@ -117,12 +119,19 @@ namespace Multiplayer.Common
                     int ticked = 0;
                     while (realTime > 0 && ticked < 2)
                     {
+                        playersBehind.Clear();
+                        playersBehind.AddRange(PlayingIngamePlayers.Where(p => p.ExtrapolatedTicksBehind > 90));
                         if (!freezeManager.Frozen &&
                             PlayingPlayers.Any(p => p.ExtrapolatedTicksBehind < 40) &&
-                            !PlayingIngamePlayers.Any(p => p.ExtrapolatedTicksBehind > 90))
+                            !playersBehind.Any())
                         {
                             gameTimer++;
                             sentCmdsSnapshot = commands.SentCmds;
+                        }
+                        else if (playersBehind.Any())
+                        {
+                            var text = playersBehind.Join(p => $"{p.Username}");
+                            ServerLog.Log($"Simulation paused because some players are too far behind: {text}");
                         }
 
                         // Run up to three times slower depending on max ticksBehind
