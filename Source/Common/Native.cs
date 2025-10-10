@@ -74,44 +74,36 @@ namespace Multiplayer.Client
             }
         }
 
-        public static string? MethodNameFromAddr(long addr, bool harmonyOriginals)
+        private static IntPtr MaybeFindHarmonyOriginalMethod(long addr, bool harmonyOriginals)
         {
-            var domain = DomainPtr;
-            var ji = mono_jit_info_table_find(domain, (IntPtr)addr);
+            var ji = mono_jit_info_table_find(DomainPtr, (IntPtr)addr);
+            if (ji == IntPtr.Zero) return IntPtr.Zero;
 
-            if (ji == IntPtr.Zero) return null;
-
-            var ptrToPrint = mono_jit_info_get_method(ji);
+            var ptr = mono_jit_info_get_method(ji);
             var codeStart = (long)mono_jit_info_get_code_start(ji);
 
             if (harmonyOriginals && HarmonyOriginalGetter != null)
             {
                 var original = HarmonyOriginalGetter(codeStart);
                 if (original != null)
-                    ptrToPrint = original.MethodHandle.Value;
+                    ptr = original.MethodHandle.Value;
             }
 
-            var name = mono_debug_print_stack_frame(ptrToPrint, -1, domain);
+            return ptr;
+        }
 
+        public static string? MethodNameFromAddr(long addr, bool harmonyOriginals)
+        {
+            var ptr = MaybeFindHarmonyOriginalMethod(addr, harmonyOriginals);
+            if (ptr == IntPtr.Zero) return null;
+            var name = mono_debug_print_stack_frame(ptr, -1, DomainPtr);
             return string.IsNullOrEmpty(name) ? null : name;
         }
 
         public static string? MethodNameNormalizedFromAddr(long addr, bool harmonyOriginals)
         {
-            var name = MethodNameFromAddr(addr, harmonyOriginals);
-
-            if (name == null) return null;
-            if (name.Length == 0) return name;
-
-            int ilOffsetIndex = name.IndexOf(" [0x", StringComparison.Ordinal);
-            if (ilOffsetIndex >= 0)
-                name = name.Substring(0, ilOffsetIndex);
-
-            int mvidIndex = name.IndexOf(" in <", StringComparison.Ordinal);
-            if (mvidIndex >= 0)
-                name = name.Substring(0, mvidIndex);
-
-            return name.TrimEnd();
+            var ptr = MaybeFindHarmonyOriginalMethod(addr, harmonyOriginals);
+            return ptr == IntPtr.Zero ? null : mono_method_get_reflection_name(ptr);
         }
 
         private static ConstructorInfo runtimeMethodHandleCtor = AccessTools.Constructor(typeof(RuntimeMethodHandle), new[]{typeof(IntPtr)});
