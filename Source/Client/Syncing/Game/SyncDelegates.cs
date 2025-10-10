@@ -21,7 +21,7 @@ namespace Multiplayer.Client
 
             SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_Arrest),                     "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);  // Arrest
             SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_BringBabyToSafety),          "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);  // Bring baby to safety
-            SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_CaptureEntity),              "GetOptionsFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);       // Capture entity
+            SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_CaptureEntity),              "GetOptionsFor", 2).CancelIfAnyFieldNull().SetContext(mouseKeyContext);       // Capture entity
             SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_CapturePawn),                "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);  // Capture pawn (prisoner or slave)
             SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_CarryDeathrestingToCasket),  "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);  // Carry deathresting to casket
             SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_CarryMechToCharger),         "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);  // Carry mech to charger
