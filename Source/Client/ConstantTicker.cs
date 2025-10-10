@@ -1,3 +1,4 @@
+using System;
 using HarmonyLib;
 using Multiplayer.Client.Desyncs;
 using Multiplayer.Common;
@@ -80,10 +81,19 @@ namespace Multiplayer.Client
             {
                 sync.currentOpinion.roundMode = RoundMode.GetCurrentRoundMode();
 
-                if (!TickPatch.Simulating && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
-                    Multiplayer.Client.SendFragmented(new ClientSyncInfoPacket
-                        { SyncOpinion = sync.currentOpinion.ToNet() }.Serialize());
-
+                try
+                {
+                    // In case sending the opinion failed, just keep on going and ignore it. We need to make sure that
+                    // sync.currentOpinion is set to null to prevent cascading failure where the opinion keeps getting
+                    // bigger and the sending keeps failing because of a too big packet.
+                    if (!TickPatch.Simulating && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
+                        Multiplayer.Client.SendFragmented(new ClientSyncInfoPacket
+                            { SyncOpinion = sync.currentOpinion.ToNet() }.Serialize());
+                }
+                catch (Exception e)
+                {
+                    Log.Error($"Failed to send client sync info packet {e}");
+                }
                 sync.AddClientOpinionAndCheckDesync(sync.currentOpinion);
                 sync.currentOpinion = null;
             }
