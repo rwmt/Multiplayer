@@ -173,10 +173,12 @@ namespace Multiplayer.Common
         [PacketHandler(Packets.Client_KeepAlive)]
         public void HandleClientKeepAlive(ByteReader data)
         {
+            var padding = data.ReadRaw(8);
             int id = data.ReadInt32();
             int ticksBehind = data.ReadInt32();
             var simulating = data.ReadBool();
             var workTicks = data.ReadInt32();
+            var ending = data.ReadRaw(8);
 
             Player.ticksBehind = ticksBehind;
             Player.ticksBehindReceivedAt = Server.gameTimer;

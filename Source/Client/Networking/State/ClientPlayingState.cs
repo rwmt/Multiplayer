@@ -1,8 +1,8 @@
+using System;
+using System.Collections.Generic;
 using Ionic.Zlib;
 using Multiplayer.Common;
 using RimWorld;
-using System;
-using System.Collections.Generic;
 using UnityEngine;
 using Verse;
 
@@ -32,14 +32,20 @@ namespace Multiplayer.Client
         [PacketHandler(Packets.Server_KeepAlive)]
         public void HandleKeepAlive(ByteReader data)
         {
+            var padding = data.ReadRaw(8);
             int id = data.ReadInt32();
+            var ending = data.ReadRaw(8);
             int ticksBehind = TickPatch.tickUntil - TickPatch.Timer;
 
-            connection.Send(
-                Packets.Client_KeepAlive,
-                ByteWriter.GetBytes(id, ticksBehind, TickPatch.Simulating, TickPatch.workTicks),
-                false
-            );
+            var writer = new ByteWriter();
+            writer.WriteRaw(padding);
+            writer.WriteInt32(id);
+            writer.WriteInt32(ticksBehind);
+            writer.WriteBool(TickPatch.Simulating);
+            writer.WriteInt32(TickPatch.workTicks);
+            writer.WriteRaw(ending);
+
+            connection.Send(Packets.Client_KeepAlive, writer.ToArray(), false);
         }
 
         [PacketHandler(Packets.Server_Command)]

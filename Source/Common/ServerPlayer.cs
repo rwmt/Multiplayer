@@ -24,7 +24,7 @@ namespace Multiplayer.Common
 
         public int lastCursorTick = -1;
 
-        public int keepAliveId;
+        public int keepAliveId = 0xCAFE;
         public Stopwatch keepAliveTimer = new();
         public int keepAliveAt;
 
@@ -82,7 +82,17 @@ namespace Multiplayer.Common
             {
                 keepAliveTimer.Start();
             }
-            SendPacket(Packets.Server_KeepAlive, ByteWriter.GetBytes(keepAliveId), false);
+
+            var bytes = new byte[8];
+            var bytes2 = new byte[8];
+            var random = new Random();
+            random.NextBytes(bytes);
+            random.NextBytes(bytes2);
+            var writer = new ByteWriter(20);
+            writer.WriteRaw(bytes);
+            writer.WriteInt32(keepAliveId);
+            writer.WriteRaw(bytes2);
+            SendPacket(Packets.Server_KeepAlive, writer.ToArray(), false);
         }
 
         public void SendPacket(Packets packet, byte[] data, bool reliable = true)
