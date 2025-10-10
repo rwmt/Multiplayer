@@ -3,19 +3,17 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
-using HarmonyLib;
-
-using RimWorld;
-using UnityEngine;
-using Verse;
-
-using Multiplayer.Common;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using HarmonyLib;
 using Multiplayer.Client.AsyncTime;
 using Multiplayer.Client.Comp;
 using Multiplayer.Client.Patches;
 using Multiplayer.Client.Util;
+using Multiplayer.Common;
+using RimWorld;
+using UnityEngine;
+using Verse;
 
 namespace Multiplayer.Client
 {
@@ -155,7 +153,7 @@ namespace Multiplayer.Client
                 if (mod.assemblies.loadedAssemblies.NullOrEmpty())
                     continue;
 
-                if (mod.Name == "Multiplayer")
+                if (mod == modContentPack)
                     continue;
 
                 // Test if mod is using multiplayer api
