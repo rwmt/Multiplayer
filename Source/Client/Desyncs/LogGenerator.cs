@@ -69,6 +69,7 @@ namespace Multiplayer.Client
             log = Regex.Replace(log, "<RI> Input initialized\\.\r\n", "");
             log = Regex.Replace(log, "<RI> Initialized touch support\\.\r\n", "");
             log = Regex.Replace(log, "\\(Filename: C:/buildslave.+\n", "");
+            log = Regex.Replace(log, "\\(Filename: C:\\\\buildslave.+\n", "");
             log = Regex.Replace(log, "\n \n", "\n");
             return log;
         }
