@@ -179,6 +179,7 @@ public class GrowthMomentWindow : Dialog_GrowthMomentChoices
     [MpPostfix(typeof(ChoiceLetter_GrowthMoment), nameof(ChoiceLetter_GrowthMoment.MakeChoices))]
     static void MakeChoicesPatch(ChoiceLetter_GrowthMoment __instance)
     {
+        if (Multiplayer.Client == null) return;
         // The code would work fine without this patch, however, the dialog button under the colonist bar would be
         // removed only after a tick passed. Thanks to this patch, it is instant.
         if (!__instance.choiceMade) return;
