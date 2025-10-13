@@ -187,6 +187,7 @@ namespace Multiplayer.Common
                 if (reliable && !Lenient)
                     throw new PacketReadException($"No handler for packet {packetType} in state {State}");
                 ServerLog.Error($"No handler for packet {packetType} in state {State}");
+                reader.Seek(reader.Length);
                 return;
             }
 
@@ -230,7 +231,7 @@ namespace Multiplayer.Common
             fragPacket.Data.Write(reader.GetBuffer(), reader.Position, reader.Left);
             fragPacket.ReceivedSize += Convert.ToUInt32(reader.Left);
             fragPacket.ReceivedPartsCount++;
-            reader.Seek(reader.Position + reader.Left);
+            reader.Seek(reader.Length);
 
             if (fragPacket.ReceivedPartsCount < fragPacket.ExpectedPartsCount)
             {
