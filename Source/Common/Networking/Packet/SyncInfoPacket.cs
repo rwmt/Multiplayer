@@ -5,8 +5,8 @@ namespace Multiplayer.Common.Networking.Packet;
 [PacketDefinition(Packets.Client_SyncInfo, allowFragmented: true)]
 public record struct ClientSyncInfoPacket : IPacket
 {
-    // 1MiB. For some big saves, the sync opinion can reach ~650KiB, so this includes some leeway.
-    public const int MaxLength = 1 << 20;
+    // 8MiB. For some big saves, the sync opinion can reach ~2.5MiB, so this includes some leeway.
+    public const int MaxLength = 1 << 23;
     public byte[] rawSyncOpinion;
 
     public SyncOpinion SyncOpinion
@@ -58,9 +58,9 @@ public record struct SyncOpinion : IPacketBufferable
         buf.Bind(ref commandRandomStates, BinderOf.UInt());
         buf.Bind(ref worldRandomStates, BinderOf.UInt());
         buf.Bind(ref mapRandomStates, BinderOf.Identity<MapRandomState>());
-        // Max 262k (256Ki) trace hashes. For some big saves, the trace hashes can reach ~60k entries, so this includes
+        // Max 2M trace hashes. For some big saves, the trace hashes can reach ~600k entries, so this includes
         // some leeway.
-        buf.Bind(ref traceHashes, BinderOf.Int(), maxLength: 1<<18);
+        buf.Bind(ref traceHashes, BinderOf.Int(), maxLength: 1<<21);
 
         buf.Bind(ref simulating);
         buf.BindEnum(ref roundMode);
