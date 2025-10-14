@@ -201,20 +201,20 @@ namespace Multiplayer.Common
             Server.SendToPlaying(Packets.Server_Debug, Array.Empty<object>());
         }
 
-        [PacketHandler(Packets.Client_SetFaction)]
-        public void HandleSetFaction(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleSetFaction(ClientSetFactionPacket packet)
         {
             // todo restrict handling
 
-            int playerId = data.ReadInt32();
-            int factionId = data.ReadInt32();
+            int playerId = packet.playerId;
+            int factionId = packet.factionId;
 
             var player = Server.GetPlayer(playerId);
             if (player == null) return;
             if (player.FactionId == factionId) return;
 
             player.FactionId = factionId;
-            Server.SendToPlaying(Packets.Server_SetFaction, new object[] { playerId, factionId });
+            Server.SendToPlaying(new ServerSetFactionPacket(playerId, factionId));
         }
 
         [PacketHandler(Packets.Client_FrameTime)]

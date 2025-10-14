@@ -147,6 +147,9 @@ public class PacketTest
 
         yield return new ClientSyncInfoPacket { SyncOpinion = sampleOpinion };
         yield return new ServerSyncInfoPacket { SyncOpinion = sampleOpinion };
+
+        yield return new ClientSetFactionPacket(123, 123);
+        yield return new ServerSetFactionPacket(123, 123);
     }
 
     [TestCaseSource(nameof(RoundtripPackets))]

@@ -219,15 +219,14 @@ namespace Multiplayer.Client
             Rejoiner.DoRejoin();
         }
 
-        [PacketHandler(Packets.Server_SetFaction)]
-        public void HandleSetFaction(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleSetFaction(ServerSetFactionPacket packet)
         {
-            int player = data.ReadInt32();
-            int factionId = data.ReadInt32();
+            var playerId = packet.playerId;
+            var factionId = packet.factionId;
+            Session.GetPlayerInfo(playerId).factionId = factionId;
 
-            Session.GetPlayerInfo(player).factionId = factionId;
-
-            if (Session.playerId == player)
+            if (Session.playerId == playerId)
             {
                 Multiplayer.game.ChangeRealPlayerFaction(factionId);
                 Session.myFactionId = factionId;
