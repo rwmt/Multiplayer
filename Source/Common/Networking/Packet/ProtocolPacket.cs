@@ -1,0 +1,14 @@
+namespace Multiplayer.Common.Networking.Packet;
+
+[PacketDefinition(Packets.Client_Protocol)]
+public record struct ClientProtocolPacket(int protocolVersion) : IPacket
+{
+    public int protocolVersion = protocolVersion;
+
+    public static ClientProtocolPacket Current() => new(MpVersion.Protocol);
+
+    public void Bind(PacketBuffer buf)
+    {
+        buf.Bind(ref protocolVersion);
+    }
+}

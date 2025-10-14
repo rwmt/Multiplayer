@@ -166,6 +166,8 @@ public class PacketTest
 
         yield return ClientChatPacket.Create("");
         yield return ClientChatPacket.Create("ABC123!@#");
+
+        yield return new ClientProtocolPacket(50);
     }
 
     [TestCaseSource(nameof(RoundtripPackets))]

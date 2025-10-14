@@ -1,4 +1,5 @@
 using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
 
 namespace Tests;
 
@@ -12,7 +13,7 @@ public class TestJoiningState : AsyncConnectionState
 
     protected override async Task RunState()
     {
-        connection.Send(Packets.Client_Protocol, MpVersion.Protocol);
+        connection.Send(ClientProtocolPacket.Current());
         var p = await Packet(Packets.Server_ProtocolOk);
         p.Seek(p.Length); // Pretend to read to avoid an error about not fully reading a packet
 

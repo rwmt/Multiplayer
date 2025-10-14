@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
+using Multiplayer.Common.Networking.Packet;
 
 namespace Multiplayer.Common;
 
@@ -11,7 +12,7 @@ public class ServerJoiningState : AsyncConnectionState
 
     protected override async Task RunState()
     {
-        HandleProtocol(await Packet(Packets.Client_Protocol));
+        HandleProtocol(await TypedPacket<ClientProtocolPacket>());
         HandleUsername(await Packet(Packets.Client_Username));
 
         while (await Server.InitDataTask() is null && await EndIfDead())
@@ -37,11 +38,9 @@ public class ServerJoiningState : AsyncConnectionState
         connection.ChangeState(ConnectionStateEnum.ServerLoading);
     }
 
-    private void HandleProtocol(ByteReader data)
+    private void HandleProtocol(ClientProtocolPacket packet)
     {
-        int clientProtocol = data.ReadInt32();
-
-        if (clientProtocol != MpVersion.Protocol)
+        if (packet.protocolVersion != MpVersion.Protocol)
             Player.Disconnect(MpDisconnectReason.Protocol, ByteWriter.GetBytes(MpVersion.Version, MpVersion.Protocol));
         else
             Player.SendPacket(Packets.Server_ProtocolOk, new object[] { Server.settings.hasPassword });

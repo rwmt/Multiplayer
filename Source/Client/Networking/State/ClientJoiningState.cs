@@ -1,8 +1,9 @@
 using System.Collections.Generic;
+using System.Linq;
 using HarmonyLib;
 using Multiplayer.Client.Networking;
 using Multiplayer.Common;
-using System.Linq;
+using Multiplayer.Common.Networking.Packet;
 using RimWorld;
 using Verse;
 
@@ -16,7 +17,7 @@ namespace Multiplayer.Client
 
         public override void StartState()
         {
-            connection.Send(Packets.Client_Protocol, MpVersion.Protocol);
+            connection.Send(ClientProtocolPacket.Current());
             ConnectionStatusListeners.TryNotifyAll_Connected();
         }
 
