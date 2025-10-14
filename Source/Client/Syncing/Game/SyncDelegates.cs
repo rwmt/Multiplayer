@@ -5,6 +5,7 @@ using System.Reflection.Emit;
 using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Client.Patches;
+using Multiplayer.Common;
 using MultiplayerLoader;
 using RimWorld;
 using RimWorld.Planet;
@@ -351,7 +352,8 @@ namespace Multiplayer.Client
 
             // Growth moment for a child
             CloseDialogsForExpiredLetters.RegisterDefaultLetterChoice(AccessTools.Method(typeof(SyncDelegates), nameof(PickRandomTraitAndPassions)), typeof(ChoiceLetter_GrowthMoment));
-            SyncMethod.Register(typeof(ChoiceLetter_GrowthMoment), nameof(ChoiceLetter_GrowthMoment.MakeChoices)).ExposeParameter(1);
+            SyncMethod.Register(typeof(ChoiceLetter_GrowthMoment), nameof(ChoiceLetter_GrowthMoment.MakeChoices))
+                .TransformArgument(1, TraitSerializer);
 
             // Creep joiner
             SyncMethod.LambdaInGetter(typeof(ChoiceLetter_AcceptCreepJoiner), nameof(ChoiceLetter_AcceptCreepJoiner.Choices), 0); // Accept joiner
@@ -360,6 +362,24 @@ namespace Multiplayer.Client
                 SyncMethod.LambdaInGetter(typeof(ChoiceLetter_AcceptCreepJoiner), nameof(ChoiceLetter_AcceptCreepJoiner.Choices), 2)
                     .method); // Reject joiner
         }
+
+        private static readonly SyncType TraitType = new(typeof(Trait)) { expose = true };
+        private static readonly Serializer<Trait, byte[]> TraitSerializer = Serializer.New<Trait, byte[]>(trait =>
+        {
+            if (trait == ChoiceLetter_GrowthMoment.NoTrait) return [0];
+
+            var writer = new ByteWriter();
+            writer.WriteByte(1);
+            SyncSerialization.WriteSyncObject(writer, trait, TraitType);
+            return writer.ToArray();
+        }, bytes =>
+        {
+            var reader = new ByteReader(bytes);
+            var tag = reader.ReadByte();
+            if (tag == 0) return ChoiceLetter_GrowthMoment.NoTrait;
+
+            return (Trait)SyncSerialization.ReadSyncObject(reader, TraitType);
+        });
 
         static void SyncBabyToChildLetter(ChoiceLetter_BabyToChild letter)
         {
