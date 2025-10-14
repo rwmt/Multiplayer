@@ -171,6 +171,9 @@ public class PacketTest
 
         yield return new ServerProtocolOkPacket(true);
         yield return new ServerProtocolOkPacket(false);
+
+        yield return new ClientUsernamePacket("username");
+        yield return new ClientUsernamePacket("username", "password");
     }
 
     [TestCaseSource(nameof(RoundtripPackets))]

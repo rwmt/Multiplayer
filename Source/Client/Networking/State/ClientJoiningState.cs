@@ -34,7 +34,7 @@ namespace Multiplayer.Client
             }
             else
             {
-                connection.Send(Packets.Client_Username, Multiplayer.username);
+                connection.Send(new ClientUsernamePacket(Multiplayer.username));
             }
         }
 

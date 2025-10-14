@@ -13,7 +13,7 @@ public class ServerJoiningState : AsyncConnectionState
     protected override async Task RunState()
     {
         HandleProtocol(await TypedPacket<ClientProtocolPacket>());
-        HandleUsername(await Packet(Packets.Client_Username));
+        HandleUsername(await TypedPacket<ClientUsernamePacket>());
 
         while (await Server.InitDataTask() is null && await EndIfDead())
             if (Server.InitDataState == InitDataState.Waiting)
@@ -46,11 +46,11 @@ public class ServerJoiningState : AsyncConnectionState
             Player.conn.Send(new ServerProtocolOkPacket(Server.settings.hasPassword));
     }
 
-    private void HandleUsername(ByteReader data)
+    private void HandleUsername(ClientUsernamePacket packet)
     {
         if (Server.settings.hasPassword)
         {
-            string password = data.ReadString();
+            string? password = packet.password;
             if (password != Server.settings.password)
             {
                 Player.Disconnect(MpDisconnectReason.BadGamePassword);
@@ -58,7 +58,7 @@ public class ServerJoiningState : AsyncConnectionState
             }
         }
 
-        string username = data.ReadString();
+        string username = packet.username;
 
         if (username.Length < MultiplayerServer.MinUsernameLength || username.Length > MultiplayerServer.MaxUsernameLength)
         {

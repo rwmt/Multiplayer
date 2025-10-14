@@ -16,7 +16,7 @@ public class TestJoiningState : AsyncConnectionState
         connection.Send(ClientProtocolPacket.Current());
         await TypedPacket<ServerProtocolOkPacket>();
 
-        connection.Send(Packets.Client_Username, connection.username!);
+        connection.Send(new ClientUsernamePacket(connection.username!));
         var p = await Packet(Packets.Server_InitDataRequest);
         p.Seek(p.Length); // Pretend to read to avoid an error about not fully reading a packet
 
