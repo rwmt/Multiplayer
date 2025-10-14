@@ -3,7 +3,7 @@ using System.Linq;
 using System.Text;
 using Multiplayer.Client.Factions;
 using Multiplayer.Client.Util;
-using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
 using RimWorld;
 using RimWorld.Planet;
 using UnityEngine;
@@ -105,11 +105,9 @@ namespace Multiplayer.Client
                         Current.Game.CurrentMap = factionHome;
                         Find.World.renderer.wantedMode = WorldRenderMode.None;
                     }
+
                     Multiplayer.Client.Send(
-                        Packets.Client_SetFaction,
-                        Multiplayer.session.playerId,
-                        playerFaction.loadID
-                    );
+                        new ClientSetFactionPacket(Multiplayer.session.playerId, playerFaction.loadID));
                 }
 
                 Rect locateButton = new Rect(entryRect.xMax - 110, entryRect.y+7, 24, 24);

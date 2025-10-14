@@ -147,6 +147,25 @@ public class PacketTest
 
         yield return new ClientSyncInfoPacket { SyncOpinion = sampleOpinion };
         yield return new ServerSyncInfoPacket { SyncOpinion = sampleOpinion };
+
+        yield return new ClientSetFactionPacket(123, 123);
+        yield return new ServerSetFactionPacket(123, 123);
+
+        yield return new ClientKeepAlivePacket(999, 90, false, 1111);
+        yield return new ServerKeepAlivePacket(256);
+
+        yield return new ServerTimeControlPacket(2_123_456, 1000, 1.2f);
+
+        yield return new ServerFreezePacket(true, 1234);
+        yield return new ServerFreezePacket(false, 9876);
+        yield return ClientFreezePacket.Freeze();
+        yield return ClientFreezePacket.Unfreeze();
+
+        yield return ServerChatPacket.Create("");
+        yield return ServerChatPacket.Create("ABC123!@#");
+
+        yield return ClientChatPacket.Create("");
+        yield return ClientChatPacket.Create("ABC123!@#");
     }
 
     [TestCaseSource(nameof(RoundtripPackets))]

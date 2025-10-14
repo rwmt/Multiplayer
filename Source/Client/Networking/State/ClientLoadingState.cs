@@ -1,10 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using Ionic.Zlib;
 using Multiplayer.Client.Saving;
 using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
 using Verse;
 
 namespace Multiplayer.Client;
@@ -140,9 +140,9 @@ public class ClientLoadingState(ConnectionBase connection) : ClientBaseState(con
         connection.ChangeState(ConnectionStateEnum.ClientPlaying);
     }
 
-    [PacketHandler(Packets.Server_KeepAlive)]
-    public new void HandleKeepAlive(ByteReader data) => base.HandleKeepAlive(data);
+    [TypedPacketHandler]
+    public new void HandleKeepAlive(ServerKeepAlivePacket packet) => base.HandleKeepAlive(packet);
 
-    [PacketHandler(Packets.Server_TimeControl)]
-    public new void HandleTimeControl(ByteReader data) => base.HandleTimeControl(data);
+    [TypedPacketHandler]
+    public new void HandleTimeControl(ServerTimeControlPacket packet) => base.HandleTimeControl(packet);
 }

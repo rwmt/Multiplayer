@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Linq;
 using Multiplayer.Client.Util;
-using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -32,7 +32,7 @@ public class FactionsWindow : Window
         {
             DragAndDropWidget.DropArea(group, Layouter.LastRect(), playerId =>
             {
-                Multiplayer.Client.Send(Packets.Client_SetFaction, (int)playerId, faction.loadID);
+                Multiplayer.Client.Send(new ClientSetFactionPacket((int)playerId, faction.loadID));
             }, null);
 
             Layouter.BeginVerticalInLastRect(spacing: 1f);
@@ -43,7 +43,7 @@ public class FactionsWindow : Window
                 Layouter.Rect(0f, 5f);
 
                 if (Layouter.Button(">", 20f, 20f))
-                    Multiplayer.Client.Send(Packets.Client_SetFaction, Multiplayer.session.playerId, faction.loadID);
+                    Multiplayer.Client.Send(new ClientSetFactionPacket(Multiplayer.session.playerId, faction.loadID));
 
                 TooltipHandler.TipRegion(Layouter.LastRect(), "Switch faction");
 

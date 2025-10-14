@@ -5,6 +5,7 @@ using JetBrains.Annotations;
 using Multiplayer.API;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
 using RimWorld;
 using RimWorld.Planet;
 using UnityEngine;
@@ -75,11 +76,7 @@ public static class FactionCreator
                 InitLocalVisuals(scenario, newMap);
 
                 // todo setting faction of self
-                Multiplayer.Client.Send(
-                    Packets.Client_SetFaction,
-                    Multiplayer.session.playerId,
-                    newFaction.loadID
-                );
+                Multiplayer.Client.Send(new ClientSetFactionPacket(Multiplayer.session.playerId, newFaction.loadID));
             }
         }, "GeneratingMap", doAsynchronously: true, GameAndMapInitExceptionHandlers.ErrorWhileGeneratingMap);
     }
@@ -106,7 +103,7 @@ public static class FactionCreator
         Find.GameInitData.playerFaction = null;
         Find.GameInitData.PrepForMapGen();
 
-        // ScenPart_PlayerFaction --> PreMapGenerate 
+        // ScenPart_PlayerFaction --> PreMapGenerate
 
         Settlement settlement = (Settlement)WorldObjectMaker.MakeWorldObject(WorldObjectDefOf.Settlement);
         settlement.Tile = tile;
@@ -203,7 +200,7 @@ public static class FactionCreator
             pawnStore.Remove(sessionId);
         }
     }
-    
+
     private static Faction NewFactionWithIdeo(string name, Color color, FactionDef def, IdeologyData chooseIdeoInfo)
     {
         var faction = new Faction
@@ -212,7 +209,7 @@ public static class FactionCreator
             def = def,
             Name = name,
             color = color,
-            hidden = true,        
+            hidden = true,
         };
 
         faction.ideos = new FactionIdeosTracker(faction);

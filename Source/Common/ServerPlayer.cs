@@ -74,7 +74,7 @@ namespace Multiplayer.Common
         }
 
         public void SendKeepAlivePacket() =>
-            SendPacket(Packets.Server_KeepAlive, ByteWriter.GetBytes(keepAliveId), false);
+            conn.Send(new ServerKeepAlivePacket(keepAliveId), false);
 
         public void SendPacket(Packets packet, byte[] data, bool reliable = true)
         {
@@ -134,10 +134,7 @@ namespace Multiplayer.Common
             );
         }
 
-        public void SendMsg(string msg)
-        {
-            SendPacket(Packets.Server_Chat, new object[] { msg });
-        }
+        public void SendMsg(string msg) => conn.Send(ServerChatPacket.Create(msg));
     }
 
     public enum PlayerStatus : byte

@@ -11,11 +11,11 @@ namespace Multiplayer.Client
 {
     public class ClientPlayingState(ConnectionBase connection) : ClientBaseState(connection)
     {
-        [PacketHandler(Packets.Server_KeepAlive)]
-        public new void HandleKeepAlive(ByteReader data) => base.HandleKeepAlive(data);
+        [TypedPacketHandler]
+        public new void HandleKeepAlive(ServerKeepAlivePacket packet) => base.HandleKeepAlive(packet);
 
-        [PacketHandler(Packets.Server_TimeControl)]
-        public new void HandleTimeControl(ByteReader data) => base.HandleTimeControl(data);
+        [TypedPacketHandler]
+        public new void HandleTimeControl(ServerTimeControlPacket packet) => base.HandleTimeControl(packet);
 
         [TypedPacketHandler]
         public void HandleCommand(ServerCommandPacket packet)
@@ -93,12 +93,8 @@ namespace Multiplayer.Client
             }
         }
 
-        [PacketHandler(Packets.Server_Chat)]
-        public void HandleChat(ByteReader data)
-        {
-            string msg = data.ReadString();
-            Multiplayer.session.AddMsg(msg);
-        }
+        [TypedPacketHandler]
+        public void HandleChat(ServerChatPacket packet) => Multiplayer.session.AddMsg(packet.msg);
 
         [TypedPacketHandler]
         public void HandleCursor(ServerCursorPacket packet)
@@ -180,14 +176,11 @@ namespace Multiplayer.Client
         public void HandleDesyncCheck(ServerSyncInfoPacket packet) =>
             Multiplayer.game?.sync.AddClientOpinionAndCheckDesync(ClientSyncOpinion.FromNet(packet.SyncOpinion));
 
-        [PacketHandler(Packets.Server_Freeze)]
-        public void HandleFreze(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleFreeze(ServerFreezePacket packet)
         {
-            bool frozen = data.ReadBool();
-            int frozenAt = data.ReadInt32();
-
-            TickPatch.serverFrozen = frozen;
-            TickPatch.frozenAt = frozenAt;
+            TickPatch.serverFrozen = packet.frozen;
+            TickPatch.frozenAt = packet.gameTimer;
         }
 
         [PacketHandler(Packets.Server_Traces, allowFragmented: true)]
@@ -219,15 +212,14 @@ namespace Multiplayer.Client
             Rejoiner.DoRejoin();
         }
 
-        [PacketHandler(Packets.Server_SetFaction)]
-        public void HandleSetFaction(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleSetFaction(ServerSetFactionPacket packet)
         {
-            int player = data.ReadInt32();
-            int factionId = data.ReadInt32();
+            var playerId = packet.playerId;
+            var factionId = packet.factionId;
+            Session.GetPlayerInfo(playerId).factionId = factionId;
 
-            Session.GetPlayerInfo(player).factionId = factionId;
-
-            if (Session.playerId == player)
+            if (Session.playerId == playerId)
             {
                 Multiplayer.game.ChangeRealPlayerFaction(factionId);
                 Session.myFactionId = factionId;

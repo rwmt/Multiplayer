@@ -63,10 +63,10 @@ namespace Multiplayer.Common
 
         public const int MaxChatMsgLength = 128;
 
-        [PacketHandler(Packets.Client_Chat)]
-        public void HandleChat(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleChat(ClientChatPacket packet)
         {
-            string msg = data.ReadString();
+            string msg = packet.msg;
             msg = msg.Trim();
 
             // todo handle max length
@@ -74,7 +74,7 @@ namespace Multiplayer.Common
 
             if (msg[0] == '/')
             {
-                var cmd = msg.Substring(1);
+                var cmd = msg[1..];
                 Server.HandleChatCmd(Player, cmd);
             }
             else
@@ -136,23 +136,18 @@ namespace Multiplayer.Common
         public void HandlePing(ClientPingLocPacket packet) =>
             Server.SendToPlaying(new ServerPingLocPacket(Player.id, packet));
 
-        [PacketHandler(Packets.Client_KeepAlive)]
-        public void HandleClientKeepAlive(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleClientKeepAlive(ClientKeepAlivePacket packet)
         {
-            int id = data.ReadInt32();
-            int ticksBehind = data.ReadInt32();
-            var simulating = data.ReadBool();
-            var workTicks = data.ReadInt32();
-
-            Player.ticksBehind = ticksBehind;
+            Player.ticksBehind = packet.ticksBehind;
             Player.ticksBehindReceivedAt = Server.gameTimer;
-            Player.simulating = simulating;
+            Player.simulating = packet.simulating;
             Player.keepAliveAt = Server.NetTimer;
 
             if (Player.IsHost)
-                Server.workTicks = workTicks;
+                Server.workTicks = packet.workTicks;
 
-            var idMatched = Player.keepAliveId == id;
+            var idMatched = Player.keepAliveId == packet.id;
             connection.OnKeepAliveArrived(idMatched);
             if (idMatched) Player.keepAliveId++;
         }
@@ -172,13 +167,12 @@ namespace Multiplayer.Common
                 p.conn.SendFragmented(new ServerSyncInfoPacket { rawSyncOpinion = packet.rawSyncOpinion }.Serialize());
         }
 
-        [PacketHandler(Packets.Client_Freeze)]
-        public void HandleFreeze(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleFreeze(ClientFreezePacket packet)
         {
-            bool freeze = data.ReadBool();
-            Player.frozen = freeze;
+            Player.frozen = packet.freeze;
 
-            if (!freeze)
+            if (!packet.freeze)
                 Player.unfrozenAt = Server.NetTimer;
         }
 
@@ -201,20 +195,20 @@ namespace Multiplayer.Common
             Server.SendToPlaying(Packets.Server_Debug, Array.Empty<object>());
         }
 
-        [PacketHandler(Packets.Client_SetFaction)]
-        public void HandleSetFaction(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleSetFaction(ClientSetFactionPacket packet)
         {
             // todo restrict handling
 
-            int playerId = data.ReadInt32();
-            int factionId = data.ReadInt32();
+            int playerId = packet.playerId;
+            int factionId = packet.factionId;
 
             var player = Server.GetPlayer(playerId);
             if (player == null) return;
             if (player.FactionId == factionId) return;
 
             player.FactionId = factionId;
-            Server.SendToPlaying(Packets.Server_SetFaction, new object[] { playerId, factionId });
+            Server.SendToPlaying(new ServerSetFactionPacket(playerId, factionId));
         }
 
         [PacketHandler(Packets.Client_FrameTime)]
