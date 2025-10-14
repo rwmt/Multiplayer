@@ -43,7 +43,7 @@ public class ServerJoiningState : AsyncConnectionState
         if (packet.protocolVersion != MpVersion.Protocol)
             Player.Disconnect(MpDisconnectReason.Protocol, ByteWriter.GetBytes(MpVersion.Version, MpVersion.Protocol));
         else
-            Player.SendPacket(Packets.Server_ProtocolOk, new object[] { Server.settings.hasPassword });
+            Player.conn.Send(new ServerProtocolOkPacket(Server.settings.hasPassword));
     }
 
     private void HandleUsername(ByteReader data)

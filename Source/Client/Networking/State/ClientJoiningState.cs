@@ -21,12 +21,10 @@ namespace Multiplayer.Client
             ConnectionStatusListeners.TryNotifyAll_Connected();
         }
 
-        [PacketHandler(Packets.Server_ProtocolOk)]
-        public void HandleProtocolOk(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleProtocolOk(ServerProtocolOkPacket packet)
         {
-            bool hasPassword = data.ReadBool();
-
-            if (hasPassword)
+            if (packet.hasPassword)
             {
                 // Delay showing the window for better UX
                 OnMainThread.Schedule(() => Find.WindowStack.Add(new GamePasswordWindow

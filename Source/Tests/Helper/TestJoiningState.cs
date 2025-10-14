@@ -14,12 +14,11 @@ public class TestJoiningState : AsyncConnectionState
     protected override async Task RunState()
     {
         connection.Send(ClientProtocolPacket.Current());
-        var p = await Packet(Packets.Server_ProtocolOk);
-        p.Seek(p.Length); // Pretend to read to avoid an error about not fully reading a packet
+        await TypedPacket<ServerProtocolOkPacket>();
 
         connection.Send(Packets.Client_Username, connection.username!);
-        p = await Packet(Packets.Server_InitDataRequest);
-        p.Seek(p.Length);
+        var p = await Packet(Packets.Server_InitDataRequest);
+        p.Seek(p.Length); // Pretend to read to avoid an error about not fully reading a packet
 
         connection.Send(
             Packets.Client_InitData,
