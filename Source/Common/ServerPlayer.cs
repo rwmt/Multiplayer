@@ -74,7 +74,7 @@ namespace Multiplayer.Common
         }
 
         public void SendKeepAlivePacket() =>
-            SendPacket(Packets.Server_KeepAlive, ByteWriter.GetBytes(keepAliveId), false);
+            conn.Send(new ServerKeepAlivePacket(keepAliveId), false);
 
         public void SendPacket(Packets packet, byte[] data, bool reliable = true)
         {

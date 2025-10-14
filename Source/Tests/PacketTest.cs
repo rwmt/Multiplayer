@@ -150,6 +150,9 @@ public class PacketTest
 
         yield return new ClientSetFactionPacket(123, 123);
         yield return new ServerSetFactionPacket(123, 123);
+
+        yield return new ClientKeepAlivePacket(999, 90, false, 1111);
+        yield return new ServerKeepAlivePacket(256);
     }
 
     [TestCaseSource(nameof(RoundtripPackets))]

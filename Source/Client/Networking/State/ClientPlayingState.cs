@@ -11,8 +11,8 @@ namespace Multiplayer.Client
 {
     public class ClientPlayingState(ConnectionBase connection) : ClientBaseState(connection)
     {
-        [PacketHandler(Packets.Server_KeepAlive)]
-        public new void HandleKeepAlive(ByteReader data) => base.HandleKeepAlive(data);
+        [TypedPacketHandler]
+        public new void HandleKeepAlive(ServerKeepAlivePacket packet) => base.HandleKeepAlive(packet);
 
         [PacketHandler(Packets.Server_TimeControl)]
         public new void HandleTimeControl(ByteReader data) => base.HandleTimeControl(data);

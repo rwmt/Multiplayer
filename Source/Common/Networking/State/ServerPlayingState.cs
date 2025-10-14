@@ -136,23 +136,18 @@ namespace Multiplayer.Common
         public void HandlePing(ClientPingLocPacket packet) =>
             Server.SendToPlaying(new ServerPingLocPacket(Player.id, packet));
 
-        [PacketHandler(Packets.Client_KeepAlive)]
-        public void HandleClientKeepAlive(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleClientKeepAlive(ClientKeepAlivePacket packet)
         {
-            int id = data.ReadInt32();
-            int ticksBehind = data.ReadInt32();
-            var simulating = data.ReadBool();
-            var workTicks = data.ReadInt32();
-
-            Player.ticksBehind = ticksBehind;
+            Player.ticksBehind = packet.ticksBehind;
             Player.ticksBehindReceivedAt = Server.gameTimer;
-            Player.simulating = simulating;
+            Player.simulating = packet.simulating;
             Player.keepAliveAt = Server.NetTimer;
 
             if (Player.IsHost)
-                Server.workTicks = workTicks;
+                Server.workTicks = packet.workTicks;
 
-            var idMatched = Player.keepAliveId == id;
+            var idMatched = Player.keepAliveId == packet.id;
             connection.OnKeepAliveArrived(idMatched);
             if (idMatched) Player.keepAliveId++;
         }
