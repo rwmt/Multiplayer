@@ -160,6 +160,12 @@ public class PacketTest
         yield return new ServerFreezePacket(false, 9876);
         yield return ClientFreezePacket.Freeze();
         yield return ClientFreezePacket.Unfreeze();
+
+        yield return ServerChatPacket.Create("");
+        yield return ServerChatPacket.Create("ABC123!@#");
+
+        yield return ClientChatPacket.Create("");
+        yield return ClientChatPacket.Create("ABC123!@#");
     }
 
     [TestCaseSource(nameof(RoundtripPackets))]

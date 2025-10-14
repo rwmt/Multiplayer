@@ -93,12 +93,8 @@ namespace Multiplayer.Client
             }
         }
 
-        [PacketHandler(Packets.Server_Chat)]
-        public void HandleChat(ByteReader data)
-        {
-            string msg = data.ReadString();
-            Multiplayer.session.AddMsg(msg);
-        }
+        [TypedPacketHandler]
+        public void HandleChat(ServerChatPacket packet) => Multiplayer.session.AddMsg(packet.msg);
 
         [TypedPacketHandler]
         public void HandleCursor(ServerCursorPacket packet)

@@ -1,13 +1,14 @@
-using LiteNetLib;
-using Multiplayer.Common;
-using RimWorld;
-using Steamworks;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using LiteNetLib;
 using Multiplayer.Client.Factions;
 using Multiplayer.Client.Networking;
 using Multiplayer.Client.Util;
+using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
+using RimWorld;
+using Steamworks;
 using UnityEngine;
 using Verse;
 
@@ -354,7 +355,7 @@ namespace Multiplayer.Client
             else if (Multiplayer.Client == null)
                 Multiplayer.session.AddMsg(Multiplayer.username + ": " + currentMsg);
             else
-                Multiplayer.Client.Send(Packets.Client_Chat, currentMsg);
+                Multiplayer.Client.Send(ClientChatPacket.Create(currentMsg));
 
             currentMsg = "";
         }

@@ -134,10 +134,7 @@ namespace Multiplayer.Common
             );
         }
 
-        public void SendMsg(string msg)
-        {
-            SendPacket(Packets.Server_Chat, new object[] { msg });
-        }
+        public void SendMsg(string msg) => conn.Send(ServerChatPacket.Create(msg));
     }
 
     public enum PlayerStatus : byte

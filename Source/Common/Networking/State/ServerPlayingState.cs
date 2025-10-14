@@ -63,10 +63,10 @@ namespace Multiplayer.Common
 
         public const int MaxChatMsgLength = 128;
 
-        [PacketHandler(Packets.Client_Chat)]
-        public void HandleChat(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleChat(ClientChatPacket packet)
         {
-            string msg = data.ReadString();
+            string msg = packet.msg;
             msg = msg.Trim();
 
             // todo handle max length
@@ -74,7 +74,7 @@ namespace Multiplayer.Common
 
             if (msg[0] == '/')
             {
-                var cmd = msg.Substring(1);
+                var cmd = msg[1..];
                 Server.HandleChatCmd(Player, cmd);
             }
             else

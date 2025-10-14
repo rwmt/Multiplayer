@@ -256,7 +256,7 @@ namespace Multiplayer.Common
         public void SendChat(string msg)
         {
             ServerLog.Detail($"[Chat] {msg}");
-            SendToPlaying(Packets.Server_Chat, new object[] { msg });
+            SendToPlaying(ServerChatPacket.Create(msg));
         }
 
         public void SendNotification(string key, params string[] args)
