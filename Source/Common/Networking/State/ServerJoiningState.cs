@@ -110,13 +110,14 @@ public class ServerJoiningState : AsyncConnectionState
             return false;
         }
 
-        var defsResponse = new ByteWriter();
+        var defStatus = new DefCheckStatus[packet.defInfos.Length];
         var defsMatch = true;
 
-        foreach (var defInfo in packet.defInfos)
+        for (var i = 0; i < packet.defInfos.Length; i++)
         {
             var status = DefCheckStatus.Ok;
 
+            var defInfo = packet.defInfos[i];
             if (!serverInitData.DefInfos.TryGetValue(defInfo.name, out DefInfo info))
                 status = DefCheckStatus.Not_Found;
             else if (info.count != defInfo.count)
@@ -127,19 +128,18 @@ public class ServerJoiningState : AsyncConnectionState
             if (status != DefCheckStatus.Ok)
                 defsMatch = false;
 
-            defsResponse.WriteEnum(status);
+            defStatus[i] = status;
         }
 
-        connection.SendFragmented(
-            Packets.Server_JoinData,
-            Server.settings.gameName,
-            Player.id,
-            serverInitData.RwVersion,
-            MpVersion.Version,
-            defsResponse.ToArray(),
-            serverInitData.RawData
-        );
-
+        connection.SendFragmented(new ServerJoinDataPacket
+        {
+            gameName = Server.settings.gameName,
+            playerId = Player.id,
+            rwVersion = serverInitData.RwVersion,
+            mpVersion = MpVersion.Version,
+            defStatus = defStatus,
+            rawServerInitData = serverInitData.RawData
+        }.Serialize());
         return defsMatch;
     }
 }

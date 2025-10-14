@@ -67,34 +67,34 @@ namespace Multiplayer.Client
                     { name = kv.Key, count = kv.Value.count, hash = kv.Value.hash }).ToArray()
             }.Serialize());
 
-        [PacketHandler(Packets.Server_JoinData, allowFragmented: true)]
-        public void HandleJoinData(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleJoinData(ServerJoinDataPacket packet)
         {
-            Multiplayer.session.gameName = data.ReadString();
-            Multiplayer.session.playerId = data.ReadInt32();
+            Multiplayer.session.gameName = packet.gameName;
+            Multiplayer.session.playerId = packet.playerId;
 
             var remoteInfo = new RemoteData
             {
-                remoteRwVersion = data.ReadString(),
-                remoteMpVersion = data.ReadString(),
+                remoteRwVersion = packet.rwVersion,
+                remoteMpVersion = packet.mpVersion,
                 remoteAddress = Multiplayer.session.address,
                 remotePort = Multiplayer.session.port,
                 remoteSteamHost = Multiplayer.session.steamHost
             };
 
             var defDiff = false;
-            var defsData = new ByteReader(data.ReadPrefixedBytes());
             var defStatusMap = new Dictionary<DefInfo, DefCheckStatus>();
+            var i = 0;
             foreach (var local in MultiplayerData.localDefInfos)
             {
-                var status = defsData.ReadEnum<DefCheckStatus>();
+                var status = packet.defStatus[i++];
                 defStatusMap.Add(local.Value, status);
 
                 if (status != DefCheckStatus.Ok)
                     defDiff = true;
             }
 
-            JoinData.ReadServerData(data.ReadPrefixedBytes(), remoteInfo);
+            JoinData.ReadServerData(packet.rawServerInitData, remoteInfo);
 
             // Delay showing the window for better UX
             OnMainThread.Schedule(Complete, 0.3f);

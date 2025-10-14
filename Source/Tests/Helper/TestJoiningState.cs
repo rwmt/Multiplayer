@@ -38,8 +38,7 @@ public class TestJoiningState : AsyncConnectionState
             modCtorRoundMode = RoundModeEnum.ToNearest, staticCtorRoundMode = RoundModeEnum.ToNearest, defInfos = []
         });
 
-        p = await Packet(Packets.Server_JoinData).Fragmented();
-        p.Seek(p.Length);
+        await TypedPacket<ServerJoinDataPacket>();
 
         connection.Send(Packets.Client_WorldRequest);
         p = await Packet(Packets.Server_WorldDataStart);

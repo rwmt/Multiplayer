@@ -185,6 +185,20 @@ public class PacketTest
                 new KeyedDefInfo { name = "key2", count = 0, hash = 0 }
             ]
         };
+
+        yield return new ServerJoinDataPacket
+        {
+            gameName = "GameName",
+            playerId = 1,
+            rwVersion = "1.6.4566",
+            mpVersion = "0.11.0+123456",
+            defStatus =
+            [
+                DefCheckStatus.Ok, DefCheckStatus.Ok, DefCheckStatus.Count_Diff, DefCheckStatus.Hash_Diff,
+                DefCheckStatus.Not_Found
+            ],
+            rawServerInitData = [1, 2, 3, 4, 5]
+        };
     }
 
     [TestCaseSource(nameof(RoundtripPackets))]
