@@ -211,11 +211,8 @@ namespace Multiplayer.Common
             Server.SendToPlaying(new ServerSetFactionPacket(playerId, factionId));
         }
 
-        [PacketHandler(Packets.Client_FrameTime)]
-        public void HandleFrameTime(ByteReader data)
-        {
-            Player.frameTime = data.ReadFloat();
-        }
+        [TypedPacketHandler]
+        public void HandleFrameTime(ClientFrameTimePacket packet) => Player.frameTime = packet.frameTime;
     }
 
     public enum TracesPacket : byte

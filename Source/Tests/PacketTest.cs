@@ -199,6 +199,10 @@ public class PacketTest
             ],
             rawServerInitData = [1, 2, 3, 4, 5]
         };
+
+        yield return new ClientFrameTimePacket(0f);
+        yield return new ClientFrameTimePacket(0.5f);
+        yield return new ClientFrameTimePacket(123f);
     }
 
     [TestCaseSource(nameof(RoundtripPackets))]
