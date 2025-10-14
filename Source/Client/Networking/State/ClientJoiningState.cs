@@ -58,23 +58,14 @@ namespace Multiplayer.Client
         }
 
         [PacketHandler(Packets.Server_UsernameOk)]
-        public void HandleUsernameOk(ByteReader data)
-        {
-            var writer = new ByteWriter();
-
-            writer.WriteEnum(MultiplayerData.modCtorRoundMode);
-            writer.WriteEnum(MultiplayerData.staticCtorRoundMode);
-            writer.WriteInt32(MultiplayerData.localDefInfos.Count);
-
-            foreach (var kv in MultiplayerData.localDefInfos)
+        public void HandleUsernameOk(ByteReader data) =>
+            connection.SendFragmented(new ClientJoinDataPacket
             {
-                writer.WriteString(kv.Key);
-                writer.WriteInt32(kv.Value.count);
-                writer.WriteInt32(kv.Value.hash);
-            }
-
-            connection.SendFragmented(Packets.Client_JoinData, writer.ToArray());
-        }
+                modCtorRoundMode = MultiplayerData.modCtorRoundMode,
+                staticCtorRoundMode = MultiplayerData.staticCtorRoundMode,
+                defInfos = MultiplayerData.localDefInfos.Select(kv => new KeyedDefInfo
+                    { name = kv.Key, count = kv.Value.count, hash = kv.Value.hash }).ToArray()
+            }.Serialize());
 
         [PacketHandler(Packets.Server_JoinData, allowFragmented: true)]
         public void HandleJoinData(ByteReader data)

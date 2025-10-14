@@ -33,10 +33,10 @@ public class TestJoiningState : AsyncConnectionState
         p = await Packet(Packets.Server_UsernameOk);
         p.Seek(p.Length);
 
-        connection.Send(
-            Packets.Client_JoinData,
-            RoundModeEnum.ToNearest, RoundModeEnum.ToNearest, 0
-        );
+        connection.Send(new ClientJoinDataPacket
+        {
+            modCtorRoundMode = RoundModeEnum.ToNearest, staticCtorRoundMode = RoundModeEnum.ToNearest, defInfos = []
+        });
 
         p = await Packet(Packets.Server_JoinData).Fragmented();
         p.Seek(p.Length);

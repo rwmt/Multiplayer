@@ -21,7 +21,7 @@ public class ServerJoiningState : AsyncConnectionState
 
         connection.Send(Packets.Server_UsernameOk);
 
-        if (HandleClientJoinData(await Packet(Packets.Client_JoinData).Fragmented()) is false)
+        if (!HandleClientJoinData(await TypedPacket<ClientJoinDataPacket>()))
             return;
 
         if (Server.settings.pauseOnJoin)
@@ -100,42 +100,28 @@ public class ServerJoiningState : AsyncConnectionState
         }
     }
 
-    private bool HandleClientJoinData(ByteReader data)
+    private bool HandleClientJoinData(ClientJoinDataPacket packet)
     {
-        var modCtorRoundMode = data.ReadEnum<RoundModeEnum>();
-        var staticCtorRoundMode = data.ReadEnum<RoundModeEnum>();
-
         var serverInitData = Server.InitData ??
                              throw new Exception("Server init data is null during handling of client join data");
-        if ((modCtorRoundMode, staticCtorRoundMode) != serverInitData.RoundModes)
+        if ((packet.modCtorRoundMode, packet.staticCtorRoundMode) != serverInitData.RoundModes)
         {
-            Player.Disconnect($"FP round modes don't match: {(modCtorRoundMode, staticCtorRoundMode)} != {serverInitData.RoundModes}");
-            return false;
-        }
-
-        var defTypeCount = data.ReadInt32();
-        if (defTypeCount > 512)
-        {
-            Player.Disconnect("Too many defs");
+            Player.Disconnect($"FP round modes don't match: {(packet.modCtorRoundMode, packet.staticCtorRoundMode)} != {serverInitData.RoundModes}");
             return false;
         }
 
         var defsResponse = new ByteWriter();
         var defsMatch = true;
 
-        for (int i = 0; i < defTypeCount; i++)
+        foreach (var defInfo in packet.defInfos)
         {
-            var defType = data.ReadString(128);
-            var defCount = data.ReadInt32();
-            var defHash = data.ReadInt32();
-
             var status = DefCheckStatus.Ok;
 
-            if (!serverInitData.DefInfos.TryGetValue(defType, out DefInfo info))
+            if (!serverInitData.DefInfos.TryGetValue(defInfo.name, out DefInfo info))
                 status = DefCheckStatus.Not_Found;
-            else if (info.count != defCount)
+            else if (info.count != defInfo.count)
                 status = DefCheckStatus.Count_Diff;
-            else if (info.hash != defHash)
+            else if (info.hash != defInfo.hash)
                 status = DefCheckStatus.Hash_Diff;
 
             if (status != DefCheckStatus.Ok)

@@ -174,6 +174,17 @@ public class PacketTest
 
         yield return new ClientUsernamePacket("username");
         yield return new ClientUsernamePacket("username", "password");
+
+        yield return new ClientJoinDataPacket
+        {
+            modCtorRoundMode = RoundModeEnum.Downward,
+            staticCtorRoundMode = RoundModeEnum.TowardZero,
+            defInfos =
+            [
+                new KeyedDefInfo { name = "key", count = 1, hash = 123 },
+                new KeyedDefInfo { name = "key2", count = 0, hash = 0 }
+            ]
+        };
     }
 
     [TestCaseSource(nameof(RoundtripPackets))]
