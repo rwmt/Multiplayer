@@ -1,8 +1,9 @@
+using System.Linq;
 using Multiplayer.API;
 using Multiplayer.Client.Patches;
+using Multiplayer.Common.Networking.Packet;
 using RimWorld;
 using RimWorld.Planet;
-using System.Linq;
 using Verse;
 
 namespace Multiplayer.Client.Persistent;
@@ -90,10 +91,7 @@ public static class GravshipTravelUtils
         SetFreeze(false);
     }
 
-    private static void SetFreeze(bool value)
-    {
-        Multiplayer.Client.Send(Common.Packets.Client_Freeze, [value]);
-    }
+    private static void SetFreeze(bool value) => Multiplayer.Client.Send(new ClientFreezePacket(value));
     private static string GravshipDialogPrefix => "ConfirmGravEngineLaunch".Translate().RawText;
 
     // TODO: Try to find a better solution for that

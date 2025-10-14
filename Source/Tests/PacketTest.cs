@@ -155,6 +155,11 @@ public class PacketTest
         yield return new ServerKeepAlivePacket(256);
 
         yield return new ServerTimeControlPacket(2_123_456, 1000, 1.2f);
+
+        yield return new ServerFreezePacket(true, 1234);
+        yield return new ServerFreezePacket(false, 9876);
+        yield return ClientFreezePacket.Freeze();
+        yield return ClientFreezePacket.Unfreeze();
     }
 
     [TestCaseSource(nameof(RoundtripPackets))]

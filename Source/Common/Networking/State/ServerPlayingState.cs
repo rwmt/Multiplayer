@@ -167,13 +167,12 @@ namespace Multiplayer.Common
                 p.conn.SendFragmented(new ServerSyncInfoPacket { rawSyncOpinion = packet.rawSyncOpinion }.Serialize());
         }
 
-        [PacketHandler(Packets.Client_Freeze)]
-        public void HandleFreeze(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleFreeze(ClientFreezePacket packet)
         {
-            bool freeze = data.ReadBool();
-            Player.frozen = freeze;
+            Player.frozen = packet.freeze;
 
-            if (!freeze)
+            if (!packet.freeze)
                 Player.unfrozenAt = Server.NetTimer;
         }
 

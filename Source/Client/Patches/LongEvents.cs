@@ -1,10 +1,11 @@
-using HarmonyLib;
-using Multiplayer.Common;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using HarmonyLib;
+using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
 using Verse;
 
 namespace Multiplayer.Client.Patches
@@ -51,7 +52,7 @@ namespace Multiplayer.Client.Patches
             if (Multiplayer.Client == null) return;
 
             if (__state && MarkLongEvents.IsTickMarked(LongEventHandler.currentEvent?.eventAction))
-                Multiplayer.Client.Send(Packets.Client_Freeze, new object[] { true });
+                Multiplayer.Client.Send(ClientFreezePacket.Freeze());
         }
     }
 
@@ -61,7 +62,7 @@ namespace Multiplayer.Client.Patches
         static void Postfix()
         {
             if (Multiplayer.Client != null && NewLongEvent.currentEventWasMarked)
-                Multiplayer.Client.Send(Packets.Client_Freeze, new object[] { false });
+                Multiplayer.Client.Send(ClientFreezePacket.Unfreeze());
         }
     }
 

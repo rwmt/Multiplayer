@@ -1,4 +1,5 @@
 ﻿using System.Linq;
+using Multiplayer.Common.Networking.Packet;
 using Verse;
 
 namespace Multiplayer.Common
@@ -13,7 +14,7 @@ namespace Multiplayer.Common
             private set
             {
                 frozen = value;
-                Server.SendToPlaying(Packets.Server_Freeze, new object[] { frozen, Server.gameTimer });
+                Server.SendToPlaying(new ServerFreezePacket(frozen, Server.gameTimer));
             }
         }
 

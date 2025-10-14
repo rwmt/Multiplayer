@@ -180,14 +180,11 @@ namespace Multiplayer.Client
         public void HandleDesyncCheck(ServerSyncInfoPacket packet) =>
             Multiplayer.game?.sync.AddClientOpinionAndCheckDesync(ClientSyncOpinion.FromNet(packet.SyncOpinion));
 
-        [PacketHandler(Packets.Server_Freeze)]
-        public void HandleFreze(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleFreeze(ServerFreezePacket packet)
         {
-            bool frozen = data.ReadBool();
-            int frozenAt = data.ReadInt32();
-
-            TickPatch.serverFrozen = frozen;
-            TickPatch.frozenAt = frozenAt;
+            TickPatch.serverFrozen = packet.frozen;
+            TickPatch.frozenAt = packet.gameTimer;
         }
 
         [PacketHandler(Packets.Server_Traces, allowFragmented: true)]
