@@ -189,7 +189,7 @@ namespace Multiplayer.Common
 
             // Send to simulating players as well to update the simulation window for them and actually update further
             // during the same simulation.
-            SendToPlaying(Packets.Server_TimeControl, ByteWriter.GetBytes(gameTimer, sentCmdsSnapshot, serverTimePerTick), false);
+            SendToPlaying(new ServerTimeControlPacket(gameTimer, sentCmdsSnapshot, serverTimePerTick), false);
 
             serverTimePerTick = PlayingIngamePlayers.MaxOrZero(p => p.frameTime);
 

@@ -143,6 +143,6 @@ public class ClientLoadingState(ConnectionBase connection) : ClientBaseState(con
     [TypedPacketHandler]
     public new void HandleKeepAlive(ServerKeepAlivePacket packet) => base.HandleKeepAlive(packet);
 
-    [PacketHandler(Packets.Server_TimeControl)]
-    public new void HandleTimeControl(ByteReader data) => base.HandleTimeControl(data);
+    [TypedPacketHandler]
+    public new void HandleTimeControl(ServerTimeControlPacket packet) => base.HandleTimeControl(packet);
 }

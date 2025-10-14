@@ -15,17 +15,13 @@ public abstract class ClientBaseState(ConnectionBase connection) : MpConnectionS
             false);
     }
 
-    protected void HandleTimeControl(ByteReader data)
+    protected void HandleTimeControl(ServerTimeControlPacket packet)
     {
-        int tickUntil = data.ReadInt32();
-        int sentCmds = data.ReadInt32();
-        float stpt = data.ReadFloat();
+        if (Multiplayer.session.remoteTickUntil >= packet.tickUntil) return;
 
-        if (Multiplayer.session.remoteTickUntil >= tickUntil) return;
-
-        TickPatch.serverTimePerTick = stpt;
-        Multiplayer.session.remoteTickUntil = tickUntil;
-        Multiplayer.session.remoteSentCmds = sentCmds;
+        TickPatch.serverTimePerTick = packet.serverTimePerTick;
+        Multiplayer.session.remoteTickUntil = packet.tickUntil;
+        Multiplayer.session.remoteSentCmds = packet.sentCmds;
         Multiplayer.session.ProcessTimeControl();
     }
 }
