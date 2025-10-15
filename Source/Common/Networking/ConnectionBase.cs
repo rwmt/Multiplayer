@@ -275,7 +275,7 @@ namespace Multiplayer.Common
         {
             var writer = new ByteWriter();
             writer.WriteEnum(reason);
-            writer.WritePrefixedBytes(data ?? Array.Empty<byte>());
+            writer.WriteRaw(data ?? []);
             return writer.ToArray();
         }
     }
