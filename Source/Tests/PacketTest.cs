@@ -203,6 +203,9 @@ public class PacketTest
         yield return new ClientFrameTimePacket(0f);
         yield return new ClientFrameTimePacket(0.5f);
         yield return new ClientFrameTimePacket(123f);
+
+        yield return new ServerInitDataRequestPacket(true);
+        yield return new ServerInitDataRequestPacket(false);
     }
 
     [TestCaseSource(nameof(RoundtripPackets))]

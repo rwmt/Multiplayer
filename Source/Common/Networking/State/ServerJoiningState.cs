@@ -87,7 +87,7 @@ public class ServerJoiningState : AsyncConnectionState
         var completionSource = Server.StartInitData();
         try
         {
-            Player.SendPacket(Packets.Server_InitDataRequest, ByteWriter.GetBytes(Server.settings.syncConfigs));
+            Player.conn.Send(new ServerInitDataRequestPacket(Server.settings.syncConfigs));
 
             ServerLog.Verbose("Sent initial data request");
             initData = await PacketOrNull(Packets.Client_InitData).Fragmented();

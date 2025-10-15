@@ -17,8 +17,7 @@ public class TestJoiningState : AsyncConnectionState
         await TypedPacket<ServerProtocolOkPacket>();
 
         connection.Send(new ClientUsernamePacket(connection.username!));
-        var p = await Packet(Packets.Server_InitDataRequest);
-        p.Seek(p.Length); // Pretend to read to avoid an error about not fully reading a packet
+        await TypedPacket<ServerInitDataRequestPacket>();
 
         connection.Send(
             Packets.Client_InitData,
@@ -30,8 +29,8 @@ public class TestJoiningState : AsyncConnectionState
             Array.Empty<object>()
         );
 
-        p = await Packet(Packets.Server_UsernameOk);
-        p.Seek(p.Length);
+        var p = await Packet(Packets.Server_UsernameOk);
+        p.Seek(p.Length); // Pretend to read to avoid an error about not fully reading a packet
 
         connection.Send(new ClientJoinDataPacket
         {

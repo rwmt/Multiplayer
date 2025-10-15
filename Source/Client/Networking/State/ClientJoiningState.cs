@@ -38,12 +38,9 @@ namespace Multiplayer.Client
             }
         }
 
-        [PacketHandler(Packets.Server_InitDataRequest)]
-        public void HandleInitDataRequest(ByteReader data)
-        {
-            var includeConfigs = data.ReadBool();
-            connection.SendFragmented(Packets.Client_InitData, PackInitData(includeConfigs));
-        }
+        [TypedPacketHandler]
+        public void HandleInitDataRequest(ServerInitDataRequestPacket packet) =>
+            connection.SendFragmented(Packets.Client_InitData, PackInitData(packet.includeConfigs));
 
         public static byte[] PackInitData(bool includeConfigs)
         {
