@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Text;
 using Multiplayer.Common.Networking.Packet;
 
 namespace Multiplayer.Common
@@ -260,17 +259,9 @@ namespace Multiplayer.Common
                 var packetLen = data.Length - pos;
                 var bytesToShow = Math.Min(128, packetLen);
                 var bytes = data.GetBuffer().SubArray(pos, bytesToShow);
-                var bytesStr = ByteArrayToString(bytes);
+                var bytesStr = bytes.ToHexString();
                 throw new PacketReadException($"Exception handling packet {packet} in state {State} (first {bytesToShow}/{packetLen} bytes: {bytesStr})", e);
             }
-        }
-
-        private static string ByteArrayToString(byte[] ba)
-        {
-            StringBuilder hex = new StringBuilder(ba.Length * 2);
-            foreach (byte b in ba)
-                hex.AppendFormat("{0:x2}", b);
-            return hex.ToString();
         }
 
         public abstract void Close(MpDisconnectReason reason, byte[]? data = null);

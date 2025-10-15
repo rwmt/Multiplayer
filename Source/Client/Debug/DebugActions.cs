@@ -155,7 +155,7 @@ namespace Multiplayer.Client
         {
             Find.WindowStack.Add(new DesyncedWindow(
                 "Debug action",
-                new SaveableDesyncInfo(Multiplayer.game.sync, new ClientSyncOpinion(0), new ClientSyncOpinion(0), 0)
+                new SaveableDesyncInfo(Multiplayer.game.sync, new ClientSyncOpinion(0), new ClientSyncOpinion(0), 0, true)
             ));
         }
 

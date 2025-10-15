@@ -1,4 +1,3 @@
-using LiteNetLib;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -8,6 +7,7 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using LiteNetLib;
 
 namespace Multiplayer.Common
 {
@@ -132,6 +132,12 @@ namespace Multiplayer.Common
 
         public static T? ResultNowOrNull<T>(this Task<T> task) where T : class? =>
             task.Status == TaskStatus.RanToCompletion ? task.Result : null;
+
+        public static string RemovePrefix(this string str, string? prefix)
+        {
+            if (prefix == null) return str;
+            return str.StartsWith(prefix) ? str[prefix.Length..] : str;
+        }
     }
 
     public static class Utils

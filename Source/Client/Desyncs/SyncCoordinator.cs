@@ -1,11 +1,11 @@
-using Multiplayer.Common;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using RimWorld;
-using Verse;
 using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.Util;
+using Multiplayer.Common;
+using RimWorld;
+using Verse;
 
 namespace Multiplayer.Client
 {
@@ -13,32 +13,31 @@ namespace Multiplayer.Client
     {
         public bool ShouldCollect => !Multiplayer.IsReplay;
 
-        private ClientSyncOpinion OpinionInBuilding
-        {
-            get
+        private ClientSyncOpinion OpinionInBuilding =>
+            currentOpinion ??= new ClientSyncOpinion(TickPatch.Timer)
             {
-                if (currentOpinion != null)
-                    return currentOpinion;
-
-                currentOpinion = new ClientSyncOpinion(TickPatch.Timer)
-                {
-                    isLocalClientsOpinion = true
-                };
-
-                return currentOpinion;
-            }
-        }
+                isLocalClientsOpinion = true
+            };
 
         // Contains both local and remote opinions. The first opinion is the oldest one, and the last is the newest one.
         // The host player has only local opinions.
         public readonly List<ClientSyncOpinion> knownClientOpinions = [];
 
-        public ClientSyncOpinion currentOpinion;
+        private ClientSyncOpinion currentOpinion;
 
         public int lastValidTick = -1;
         public bool arbiterWasPlayingOnLastValidTick;
 
         private const int MaxBacklog = 30;
+
+        public ClientSyncOpinion FinishLocalOpinion()
+        {
+            if (!ShouldCollect || currentOpinion == null) return null;
+            currentOpinion.roundMode = RoundMode.GetCurrentRoundMode();
+            var opinion = currentOpinion;
+            currentOpinion = null;
+            return opinion;
+        }
 
         /// <summary>
         /// Adds a client opinion to the <see cref="knownClientOpinions"/> list and checks that it matches the most recent currently in there. If not, a desync event is fired.
@@ -125,19 +124,20 @@ namespace Multiplayer.Client
             var local = oldOpinion.isLocalClientsOpinion ? oldOpinion : newOpinion;
             var remote = !oldOpinion.isLocalClientsOpinion ? oldOpinion : newOpinion;
 
-            var diffAt = FindTraceHashesDiffTick(local, remote);
+            var diffAt = FindTraceHashesDiffTick(local, remote, out var found);
             Multiplayer.Client.Send(Packets.Client_Desynced, local.startTick, diffAt);
             Multiplayer.session.desyncTracesFromHost = null;
 
             MpUI.ClearWindowStack();
             Find.WindowStack.Add(new DesyncedWindow(
                 desyncMessage,
-                new SaveableDesyncInfo(this, local, remote, diffAt)
+                new SaveableDesyncInfo(this, local, remote, diffAt, found)
             ));
         }
 
-        private static int FindTraceHashesDiffTick(ClientSyncOpinion local, ClientSyncOpinion remote)
+        private static int FindTraceHashesDiffTick(ClientSyncOpinion local, ClientSyncOpinion remote, out bool found)
         {
+            found = true;
             //Find the length of whichever stack trace is shorter.
             var localCount = local.desyncStackTraceHashes.Count;
             var remoteCount = remote.desyncStackTraceHashes.Count;
@@ -146,10 +146,9 @@ namespace Multiplayer.Client
             //Find the point at which the hashes differ - this is where the desync occurred.
             for (int i = 0; i < count; i++)
                 if (local.desyncStackTraceHashes[i] != remote.desyncStackTraceHashes[i])
-                {
                     return i;
-                }
 
+            found = false;
             if (localCount != remoteCount)
                 return count - 1;
 
