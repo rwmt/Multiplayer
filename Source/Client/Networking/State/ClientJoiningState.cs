@@ -40,19 +40,16 @@ namespace Multiplayer.Client
 
         [TypedPacketHandler]
         public void HandleInitDataRequest(ServerInitDataRequestPacket packet) =>
-            connection.SendFragmented(Packets.Client_InitData, PackInitData(packet.includeConfigs));
+            connection.SendFragmented(PackInitData(packet.includeConfigs).ToNet().Serialize());
 
-        public static byte[] PackInitData(bool includeConfigs)
-        {
-            return ServerInitData.Serialize(new ServerInitData(
-                JoinData.WriteServerData(includeConfigs),
-                VersionControl.CurrentVersionString,
-                Sync.handlers.Where(h => h.debugOnly).Select(h => h.syncId).ToHashSet(),
-                Sync.handlers.Where(h => h.hostOnly).Select(h => h.syncId).ToHashSet(),
-                (MultiplayerData.modCtorRoundMode, MultiplayerData.staticCtorRoundMode),
-                new Dictionary<string, DefInfo>(MultiplayerData.localDefInfos)
-            ));
-        }
+        public static ServerInitData PackInitData(bool includeConfigs) => new(
+            JoinData.WriteServerData(includeConfigs),
+            VersionControl.CurrentVersionString,
+            Sync.handlers.Where(h => h.debugOnly).Select(h => h.syncId).ToHashSet(),
+            Sync.handlers.Where(h => h.hostOnly).Select(h => h.syncId).ToHashSet(),
+            (MultiplayerData.modCtorRoundMode, MultiplayerData.staticCtorRoundMode),
+            new Dictionary<string, DefInfo>(MultiplayerData.localDefInfos)
+        );
 
         [PacketHandler(Packets.Server_UsernameOk)]
         public void HandleUsernameOk(ByteReader data) =>

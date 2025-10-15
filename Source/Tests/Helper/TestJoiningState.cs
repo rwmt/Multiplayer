@@ -19,15 +19,16 @@ public class TestJoiningState : AsyncConnectionState
         connection.Send(new ClientUsernamePacket(connection.username!));
         await TypedPacket<ServerInitDataRequestPacket>();
 
-        connection.Send(
-            Packets.Client_InitData,
-            Array.Empty<byte>(),
-            RwVersion,
-            Array.Empty<int>(),
-            Array.Empty<int>(),
-            RoundModeEnum.ToNearest, RoundModeEnum.ToNearest,
-            Array.Empty<object>()
-        );
+        connection.Send(new ClientInitDataPacket
+        {
+            rwVersion = RwVersion,
+            debugOnlySyncCmds = [],
+            hostOnlySyncCmds = [],
+            modCtorRoundMode = RoundModeEnum.ToNearest,
+            staticCtorRoundMode = RoundModeEnum.ToNearest,
+            defInfos = [],
+            rawData = []
+        });
 
         var p = await Packet(Packets.Server_UsernameOk);
         p.Seek(p.Length); // Pretend to read to avoid an error about not fully reading a packet

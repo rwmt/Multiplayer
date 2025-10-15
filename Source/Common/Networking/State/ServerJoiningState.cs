@@ -83,20 +83,23 @@ public class ServerJoiningState : AsyncConnectionState
 
     private async Task RequestInitData()
     {
-        ByteReader? initData = null;
+        ClientInitDataPacket? initData = null;
         var completionSource = Server.StartInitData();
         try
         {
             Player.conn.Send(new ServerInitDataRequestPacket(Server.settings.syncConfigs));
 
             ServerLog.Verbose("Sent initial data request");
-            initData = await PacketOrNull(Packets.Client_InitData).Fragmented();
+            initData = await TypedPacketOrNull<ClientInitDataPacket>();
         }
         finally
         {
             // Invoking StartInitData and abandoning the completion source in case of an exception would mean a server
             // restart is necessary to try and set init data again. Make sure the server is more graceful in that case.
-            completionSource.SetResult(initData != null ? ServerInitData.Deserialize(initData) : null);
+            completionSource.SetResult(initData != null
+                // cast to non-nullable, for whatever reason C# isn't able to infer that from the != null check
+                ? ServerInitData.FromNet((ClientInitDataPacket)initData)
+                : null);
         }
     }
 

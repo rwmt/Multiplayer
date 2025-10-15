@@ -10,3 +10,26 @@ public record struct ServerInitDataRequestPacket(bool includeConfigs) : IPacket
         buf.Bind(ref includeConfigs);
     }
 }
+
+[PacketDefinition(Packets.Client_InitData, allowFragmented: true)]
+public record struct ClientInitDataPacket : IPacket
+{
+    public string rwVersion;
+    public int[] debugOnlySyncCmds;
+    public int[] hostOnlySyncCmds;
+    public RoundModeEnum modCtorRoundMode;
+    public RoundModeEnum staticCtorRoundMode;
+    public KeyedDefInfo[] defInfos;
+    public byte[] rawData;
+
+    public void Bind(PacketBuffer buf)
+    {
+        buf.Bind(ref rwVersion);
+        buf.Bind(ref debugOnlySyncCmds, BinderOf.Int());
+        buf.Bind(ref hostOnlySyncCmds, BinderOf.Int());
+        buf.BindEnum(ref modCtorRoundMode);
+        buf.BindEnum(ref staticCtorRoundMode);
+        buf.Bind(ref defInfos, BinderOf.Identity<KeyedDefInfo>());
+        buf.BindRemaining(ref rawData);
+    }
+}

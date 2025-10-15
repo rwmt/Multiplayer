@@ -206,6 +206,21 @@ public class PacketTest
 
         yield return new ServerInitDataRequestPacket(true);
         yield return new ServerInitDataRequestPacket(false);
+
+        yield return new ClientInitDataPacket
+        {
+            rwVersion = "1.0.0",
+            debugOnlySyncCmds = [1, 2, 3, 4],
+            hostOnlySyncCmds = [1],
+            modCtorRoundMode = RoundModeEnum.ToNearest,
+            staticCtorRoundMode = RoundModeEnum.TowardZero,
+            defInfos =
+            [
+                new KeyedDefInfo { name = "key", count = 1, hash = 123 },
+                new KeyedDefInfo { name = "key2", count = 0, hash = 0 }
+            ],
+            rawData = [1, 2, 3, 4, 5]
+        };
     }
 
     [TestCaseSource(nameof(RoundtripPackets))]
