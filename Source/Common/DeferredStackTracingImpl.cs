@@ -1,4 +1,7 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using HarmonyLib;
@@ -6,7 +9,7 @@ using Multiplayer.Common;
 
 namespace Multiplayer.Client.Desyncs;
 
-public struct AddrTable()
+public struct AddrTable() : IEnumerable<AddrInfo>
 {
     private const int StartingN = 10; // 1024
     private const int StartingShift = 64 - StartingN;
@@ -70,6 +73,20 @@ public struct AddrTable()
                 newInfo.stackUsage = oldInfo.stackUsage;
                 newInfo.nameHash = oldInfo.nameHash;
             }
+        }
+    }
+
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+    public IEnumerator<AddrInfo> GetEnumerator()
+    {
+        // AsEnumerable needed to get a generic IEnumerable<AddrInfo>
+        using var enumerator = hashtable.AsEnumerable().GetEnumerator();
+        while (enumerator.MoveNext())
+        {
+            var addr = enumerator.Current;
+            if (addr.addr == 0) continue;
+            yield return addr;
         }
     }
 }
