@@ -1,6 +1,3 @@
-using Multiplayer.Client.Networking;
-using Multiplayer.Common;
-using RimWorld;
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -9,7 +6,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using Multiplayer.Client.AsyncTime;
 using Multiplayer.Client.Comp;
+using Multiplayer.Client.Networking;
 using Multiplayer.Client.Util;
+using Multiplayer.Common;
+using RimWorld;
 using UnityEngine;
 using Verse;
 
@@ -74,8 +74,7 @@ namespace Multiplayer.Client
                 localServer.startingTimer = TickPatch.Timer;
             }
 
-            localServer.StartInitData().SetResult(
-                ServerInitData.Deserialize(new ByteReader(ClientJoiningState.PackInitData(settings.syncConfigs))));
+            localServer.StartInitData().SetResult(ClientJoiningState.PackInitData(settings.syncConfigs));
         }
 
         private static void PrepareGame()

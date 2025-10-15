@@ -1,4 +1,5 @@
 using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
 
 namespace Tests;
 
@@ -12,34 +13,32 @@ public class TestJoiningState : AsyncConnectionState
 
     protected override async Task RunState()
     {
-        connection.Send(Packets.Client_Protocol, MpVersion.Protocol);
-        var p = await Packet(Packets.Server_ProtocolOk);
+        connection.Send(ClientProtocolPacket.Current());
+        await TypedPacket<ServerProtocolOkPacket>();
+
+        connection.Send(new ClientUsernamePacket(connection.username!));
+        await TypedPacket<ServerInitDataRequestPacket>();
+
+        connection.Send(new ClientInitDataPacket
+        {
+            rwVersion = RwVersion,
+            debugOnlySyncCmds = [],
+            hostOnlySyncCmds = [],
+            modCtorRoundMode = RoundModeEnum.ToNearest,
+            staticCtorRoundMode = RoundModeEnum.ToNearest,
+            defInfos = [],
+            rawData = []
+        });
+
+        var p = await Packet(Packets.Server_UsernameOk);
         p.Seek(p.Length); // Pretend to read to avoid an error about not fully reading a packet
 
-        connection.Send(Packets.Client_Username, connection.username!);
-        p = await Packet(Packets.Server_InitDataRequest);
-        p.Seek(p.Length);
+        connection.Send(new ClientJoinDataPacket
+        {
+            modCtorRoundMode = RoundModeEnum.ToNearest, staticCtorRoundMode = RoundModeEnum.ToNearest, defInfos = []
+        });
 
-        connection.Send(
-            Packets.Client_InitData,
-            Array.Empty<byte>(),
-            RwVersion,
-            Array.Empty<int>(),
-            Array.Empty<int>(),
-            RoundModeEnum.ToNearest, RoundModeEnum.ToNearest,
-            Array.Empty<object>()
-        );
-
-        p = await Packet(Packets.Server_UsernameOk);
-        p.Seek(p.Length);
-
-        connection.Send(
-            Packets.Client_JoinData,
-            RoundModeEnum.ToNearest, RoundModeEnum.ToNearest, 0
-        );
-
-        p = await Packet(Packets.Server_JoinData).Fragmented();
-        p.Seek(p.Length);
+        await TypedPacket<ServerJoinDataPacket>();
 
         connection.Send(Packets.Client_WorldRequest);
         p = await Packet(Packets.Server_WorldDataStart);

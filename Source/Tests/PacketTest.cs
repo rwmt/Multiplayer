@@ -166,6 +166,61 @@ public class PacketTest
 
         yield return ClientChatPacket.Create("");
         yield return ClientChatPacket.Create("ABC123!@#");
+
+        yield return new ClientProtocolPacket(50);
+
+        yield return new ServerProtocolOkPacket(true);
+        yield return new ServerProtocolOkPacket(false);
+
+        yield return new ClientUsernamePacket("username");
+        yield return new ClientUsernamePacket("username", "password");
+
+        yield return new ClientJoinDataPacket
+        {
+            modCtorRoundMode = RoundModeEnum.Downward,
+            staticCtorRoundMode = RoundModeEnum.TowardZero,
+            defInfos =
+            [
+                new KeyedDefInfo { name = "key", count = 1, hash = 123 },
+                new KeyedDefInfo { name = "key2", count = 0, hash = 0 }
+            ]
+        };
+
+        yield return new ServerJoinDataPacket
+        {
+            gameName = "GameName",
+            playerId = 1,
+            rwVersion = "1.6.4566",
+            mpVersion = "0.11.0+123456",
+            defStatus =
+            [
+                DefCheckStatus.Ok, DefCheckStatus.Ok, DefCheckStatus.Count_Diff, DefCheckStatus.Hash_Diff,
+                DefCheckStatus.Not_Found
+            ],
+            rawServerInitData = [1, 2, 3, 4, 5]
+        };
+
+        yield return new ClientFrameTimePacket(0f);
+        yield return new ClientFrameTimePacket(0.5f);
+        yield return new ClientFrameTimePacket(123f);
+
+        yield return new ServerInitDataRequestPacket(true);
+        yield return new ServerInitDataRequestPacket(false);
+
+        yield return new ClientInitDataPacket
+        {
+            rwVersion = "1.0.0",
+            debugOnlySyncCmds = [1, 2, 3, 4],
+            hostOnlySyncCmds = [1],
+            modCtorRoundMode = RoundModeEnum.ToNearest,
+            staticCtorRoundMode = RoundModeEnum.TowardZero,
+            defInfos =
+            [
+                new KeyedDefInfo { name = "key", count = 1, hash = 123 },
+                new KeyedDefInfo { name = "key2", count = 0, hash = 0 }
+            ],
+            rawData = [1, 2, 3, 4, 5]
+        };
     }
 
     [TestCaseSource(nameof(RoundtripPackets))]

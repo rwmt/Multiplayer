@@ -1,4 +1,4 @@
-﻿using Multiplayer.Common;
+﻿using Multiplayer.Common.Networking.Packet;
 using Verse;
 
 namespace Multiplayer.Client;
@@ -20,7 +20,7 @@ public class GamePasswordWindow : AbstractTextInputWindow
 
     public override bool Accept()
     {
-        Multiplayer.Client.Send(Packets.Client_Username, curText, Multiplayer.username);
+        Multiplayer.Client.Send(new ClientUsernamePacket(Multiplayer.username, curText));
         Close(false);
         return true;
     }

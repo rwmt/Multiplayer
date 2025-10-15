@@ -1,8 +1,9 @@
 using System.Collections.Generic;
+using System.Linq;
 using HarmonyLib;
 using Multiplayer.Client.Networking;
 using Multiplayer.Common;
-using System.Linq;
+using Multiplayer.Common.Networking.Packet;
 using RimWorld;
 using Verse;
 
@@ -16,16 +17,14 @@ namespace Multiplayer.Client
 
         public override void StartState()
         {
-            connection.Send(Packets.Client_Protocol, MpVersion.Protocol);
+            connection.Send(ClientProtocolPacket.Current());
             ConnectionStatusListeners.TryNotifyAll_Connected();
         }
 
-        [PacketHandler(Packets.Server_ProtocolOk)]
-        public void HandleProtocolOk(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleProtocolOk(ServerProtocolOkPacket packet)
         {
-            bool hasPassword = data.ReadBool();
-
-            if (hasPassword)
+            if (packet.hasPassword)
             {
                 // Delay showing the window for better UX
                 OnMainThread.Schedule(() => Find.WindowStack.Add(new GamePasswordWindow
@@ -35,76 +34,61 @@ namespace Multiplayer.Client
             }
             else
             {
-                connection.Send(Packets.Client_Username, Multiplayer.username);
+                connection.Send(new ClientUsernamePacket(Multiplayer.username));
             }
         }
 
-        [PacketHandler(Packets.Server_InitDataRequest)]
-        public void HandleInitDataRequest(ByteReader data)
-        {
-            var includeConfigs = data.ReadBool();
-            connection.SendFragmented(Packets.Client_InitData, PackInitData(includeConfigs));
-        }
+        [TypedPacketHandler]
+        public void HandleInitDataRequest(ServerInitDataRequestPacket packet) =>
+            connection.SendFragmented(PackInitData(packet.includeConfigs).ToNet().Serialize());
 
-        public static byte[] PackInitData(bool includeConfigs)
-        {
-            return ServerInitData.Serialize(new ServerInitData(
-                JoinData.WriteServerData(includeConfigs),
-                VersionControl.CurrentVersionString,
-                Sync.handlers.Where(h => h.debugOnly).Select(h => h.syncId).ToHashSet(),
-                Sync.handlers.Where(h => h.hostOnly).Select(h => h.syncId).ToHashSet(),
-                (MultiplayerData.modCtorRoundMode, MultiplayerData.staticCtorRoundMode),
-                new Dictionary<string, DefInfo>(MultiplayerData.localDefInfos)
-            ));
-        }
+        public static ServerInitData PackInitData(bool includeConfigs) => new(
+            JoinData.WriteServerData(includeConfigs),
+            VersionControl.CurrentVersionString,
+            Sync.handlers.Where(h => h.debugOnly).Select(h => h.syncId).ToHashSet(),
+            Sync.handlers.Where(h => h.hostOnly).Select(h => h.syncId).ToHashSet(),
+            (MultiplayerData.modCtorRoundMode, MultiplayerData.staticCtorRoundMode),
+            new Dictionary<string, DefInfo>(MultiplayerData.localDefInfos)
+        );
 
         [PacketHandler(Packets.Server_UsernameOk)]
-        public void HandleUsernameOk(ByteReader data)
-        {
-            var writer = new ByteWriter();
-
-            writer.WriteEnum(MultiplayerData.modCtorRoundMode);
-            writer.WriteEnum(MultiplayerData.staticCtorRoundMode);
-            writer.WriteInt32(MultiplayerData.localDefInfos.Count);
-
-            foreach (var kv in MultiplayerData.localDefInfos)
+        public void HandleUsernameOk(ByteReader data) =>
+            connection.SendFragmented(new ClientJoinDataPacket
             {
-                writer.WriteString(kv.Key);
-                writer.WriteInt32(kv.Value.count);
-                writer.WriteInt32(kv.Value.hash);
-            }
+                modCtorRoundMode = MultiplayerData.modCtorRoundMode,
+                staticCtorRoundMode = MultiplayerData.staticCtorRoundMode,
+                defInfos = MultiplayerData.localDefInfos.Select(kv => new KeyedDefInfo
+                    { name = kv.Key, count = kv.Value.count, hash = kv.Value.hash }).ToArray()
+            }.Serialize());
 
-            connection.SendFragmented(Packets.Client_JoinData, writer.ToArray());
-        }
-
-        [PacketHandler(Packets.Server_JoinData, allowFragmented: true)]
-        public void HandleJoinData(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleJoinData(ServerJoinDataPacket packet)
         {
-            Multiplayer.session.gameName = data.ReadString();
-            Multiplayer.session.playerId = data.ReadInt32();
+            Multiplayer.session.gameName = packet.gameName;
+            Multiplayer.session.playerId = packet.playerId;
 
             var remoteInfo = new RemoteData
             {
-                remoteRwVersion = data.ReadString(),
-                remoteMpVersion = data.ReadString(),
+                remoteRwVersion = packet.rwVersion,
+                remoteMpVersion = packet.mpVersion,
                 remoteAddress = Multiplayer.session.address,
                 remotePort = Multiplayer.session.port,
                 remoteSteamHost = Multiplayer.session.steamHost
             };
 
             var defDiff = false;
-            var defsData = new ByteReader(data.ReadPrefixedBytes());
             var defStatusMap = new Dictionary<DefInfo, DefCheckStatus>();
+            var i = 0;
             foreach (var local in MultiplayerData.localDefInfos)
             {
-                var status = defsData.ReadEnum<DefCheckStatus>();
+                var status = packet.defStatus[i++];
                 defStatusMap.Add(local.Value, status);
 
                 if (status != DefCheckStatus.Ok)
                     defDiff = true;
             }
 
-            JoinData.ReadServerData(data.ReadPrefixedBytes(), remoteInfo);
+            JoinData.ReadServerData(packet.rawServerInitData, remoteInfo);
 
             // Delay showing the window for better UX
             OnMainThread.Schedule(Complete, 0.3f);

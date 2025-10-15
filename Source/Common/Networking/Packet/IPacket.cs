@@ -61,6 +61,9 @@ public static class BinderOf
 
     public static Binder<uint> UInt() =>
         (PacketBuffer buf, ref uint obj) => buf.Bind(ref obj);
+
+    public static Binder<T> Enum<T>() where T: Enum =>
+        (PacketBuffer buf, ref T obj) => buf.BindEnum(ref obj);
 }
 
 public static class BinderExtensions

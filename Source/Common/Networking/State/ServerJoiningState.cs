@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
+using Multiplayer.Common.Networking.Packet;
 
 namespace Multiplayer.Common;
 
@@ -11,8 +12,8 @@ public class ServerJoiningState : AsyncConnectionState
 
     protected override async Task RunState()
     {
-        HandleProtocol(await Packet(Packets.Client_Protocol));
-        HandleUsername(await Packet(Packets.Client_Username));
+        HandleProtocol(await TypedPacket<ClientProtocolPacket>());
+        HandleUsername(await TypedPacket<ClientUsernamePacket>());
 
         while (await Server.InitDataTask() is null && await EndIfDead())
             if (Server.InitDataState == InitDataState.Waiting)
@@ -20,7 +21,7 @@ public class ServerJoiningState : AsyncConnectionState
 
         connection.Send(Packets.Server_UsernameOk);
 
-        if (HandleClientJoinData(await Packet(Packets.Client_JoinData).Fragmented()) is false)
+        if (!HandleClientJoinData(await TypedPacket<ClientJoinDataPacket>()))
             return;
 
         if (Server.settings.pauseOnJoin)
@@ -37,21 +38,19 @@ public class ServerJoiningState : AsyncConnectionState
         connection.ChangeState(ConnectionStateEnum.ServerLoading);
     }
 
-    private void HandleProtocol(ByteReader data)
+    private void HandleProtocol(ClientProtocolPacket packet)
     {
-        int clientProtocol = data.ReadInt32();
-
-        if (clientProtocol != MpVersion.Protocol)
+        if (packet.protocolVersion != MpVersion.Protocol)
             Player.Disconnect(MpDisconnectReason.Protocol, ByteWriter.GetBytes(MpVersion.Version, MpVersion.Protocol));
         else
-            Player.SendPacket(Packets.Server_ProtocolOk, new object[] { Server.settings.hasPassword });
+            Player.conn.Send(new ServerProtocolOkPacket(Server.settings.hasPassword));
     }
 
-    private void HandleUsername(ByteReader data)
+    private void HandleUsername(ClientUsernamePacket packet)
     {
         if (Server.settings.hasPassword)
         {
-            string password = data.ReadString();
+            string? password = packet.password;
             if (password != Server.settings.password)
             {
                 Player.Disconnect(MpDisconnectReason.BadGamePassword);
@@ -59,7 +58,7 @@ public class ServerJoiningState : AsyncConnectionState
             }
         }
 
-        string username = data.ReadString();
+        string username = packet.username;
 
         if (username.Length < MultiplayerServer.MinUsernameLength || username.Length > MultiplayerServer.MaxUsernameLength)
         {
@@ -84,77 +83,66 @@ public class ServerJoiningState : AsyncConnectionState
 
     private async Task RequestInitData()
     {
-        ByteReader? initData = null;
+        ClientInitDataPacket? initData = null;
         var completionSource = Server.StartInitData();
         try
         {
-            Player.SendPacket(Packets.Server_InitDataRequest, ByteWriter.GetBytes(Server.settings.syncConfigs));
+            Player.conn.Send(new ServerInitDataRequestPacket(Server.settings.syncConfigs));
 
             ServerLog.Verbose("Sent initial data request");
-            initData = await PacketOrNull(Packets.Client_InitData).Fragmented();
+            initData = await TypedPacketOrNull<ClientInitDataPacket>();
         }
         finally
         {
             // Invoking StartInitData and abandoning the completion source in case of an exception would mean a server
             // restart is necessary to try and set init data again. Make sure the server is more graceful in that case.
-            completionSource.SetResult(initData != null ? ServerInitData.Deserialize(initData) : null);
+            completionSource.SetResult(initData != null
+                // cast to non-nullable, for whatever reason C# isn't able to infer that from the != null check
+                ? ServerInitData.FromNet((ClientInitDataPacket)initData)
+                : null);
         }
     }
 
-    private bool HandleClientJoinData(ByteReader data)
+    private bool HandleClientJoinData(ClientJoinDataPacket packet)
     {
-        var modCtorRoundMode = data.ReadEnum<RoundModeEnum>();
-        var staticCtorRoundMode = data.ReadEnum<RoundModeEnum>();
-
         var serverInitData = Server.InitData ??
                              throw new Exception("Server init data is null during handling of client join data");
-        if ((modCtorRoundMode, staticCtorRoundMode) != serverInitData.RoundModes)
+        if ((packet.modCtorRoundMode, packet.staticCtorRoundMode) != serverInitData.RoundModes)
         {
-            Player.Disconnect($"FP round modes don't match: {(modCtorRoundMode, staticCtorRoundMode)} != {serverInitData.RoundModes}");
+            Player.Disconnect($"FP round modes don't match: {(packet.modCtorRoundMode, packet.staticCtorRoundMode)} != {serverInitData.RoundModes}");
             return false;
         }
 
-        var defTypeCount = data.ReadInt32();
-        if (defTypeCount > 512)
-        {
-            Player.Disconnect("Too many defs");
-            return false;
-        }
-
-        var defsResponse = new ByteWriter();
+        var defStatus = new DefCheckStatus[packet.defInfos.Length];
         var defsMatch = true;
 
-        for (int i = 0; i < defTypeCount; i++)
+        for (var i = 0; i < packet.defInfos.Length; i++)
         {
-            var defType = data.ReadString(128);
-            var defCount = data.ReadInt32();
-            var defHash = data.ReadInt32();
-
             var status = DefCheckStatus.Ok;
 
-            if (!serverInitData.DefInfos.TryGetValue(defType, out DefInfo info))
+            var defInfo = packet.defInfos[i];
+            if (!serverInitData.DefInfos.TryGetValue(defInfo.name, out DefInfo info))
                 status = DefCheckStatus.Not_Found;
-            else if (info.count != defCount)
+            else if (info.count != defInfo.count)
                 status = DefCheckStatus.Count_Diff;
-            else if (info.hash != defHash)
+            else if (info.hash != defInfo.hash)
                 status = DefCheckStatus.Hash_Diff;
 
             if (status != DefCheckStatus.Ok)
                 defsMatch = false;
 
-            defsResponse.WriteEnum(status);
+            defStatus[i] = status;
         }
 
-        connection.SendFragmented(
-            Packets.Server_JoinData,
-            Server.settings.gameName,
-            Player.id,
-            serverInitData.RwVersion,
-            MpVersion.Version,
-            defsResponse.ToArray(),
-            serverInitData.RawData
-        );
-
+        connection.SendFragmented(new ServerJoinDataPacket
+        {
+            gameName = Server.settings.gameName,
+            playerId = Player.id,
+            rwVersion = serverInitData.RwVersion,
+            mpVersion = MpVersion.Version,
+            defStatus = defStatus,
+            rawServerInitData = serverInitData.RawData
+        }.Serialize());
         return defsMatch;
     }
 }

@@ -6,6 +6,7 @@ using HarmonyLib;
 using LudeonTK;
 using Multiplayer.Client.AsyncTime;
 using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
 using RimWorld.Planet;
 using UnityEngine;
 using Verse;
@@ -94,7 +95,7 @@ namespace Multiplayer.Client
 
             if (Time.time - frameTimeSentAt > 32f/1000f)
             {
-                Multiplayer.Client.Send(Packets.Client_FrameTime, avgFrameTime);
+                Multiplayer.Client.Send(new ClientFrameTimePacket(avgFrameTime));
                 frameTimeSentAt = Time.time;
             }
 
