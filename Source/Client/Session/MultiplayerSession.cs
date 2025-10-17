@@ -168,6 +168,9 @@ namespace Multiplayer.Client
 
             disconnectInfo.titleTranslated ??= titleKey?.Translate();
             disconnectInfo.descTranslated ??= descKey?.Translate();
+
+            Log.Message($"Processed disconnect packet. Title: {disconnectInfo.titleTranslated} ({titleKey}), " +
+                        $"description: {disconnectInfo.descTranslated} ({descKey})");
         }
 
         public void Reconnect(string username)
