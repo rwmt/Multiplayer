@@ -27,4 +27,12 @@ public abstract class ClientBaseState(ConnectionBase connection) : MpConnectionS
         Multiplayer.session.remoteSentCmds = packet.sentCmds;
         Multiplayer.session.ProcessTimeControl();
     }
+
+    [TypedPacketHandler]
+    public void HandleDisconnected(ServerDisconnectPacket packet)
+    {
+        ConnectionStatusListeners.TryNotifyAll_Disconnected(SessionDisconnectInfo.From(packet.reason,
+            new ByteReader(packet.data)));
+        Multiplayer.StopMultiplayer();
+    }
 }

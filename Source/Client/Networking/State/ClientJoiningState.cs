@@ -17,6 +17,9 @@ namespace Multiplayer.Client
         {
         }
 
+        [TypedPacketHandler]
+        public new void HandleDisconnected(ServerDisconnectPacket packet) => base.HandleDisconnected(packet);
+
         public override void StartState()
         {
             connection.Send(ClientProtocolPacket.Current());

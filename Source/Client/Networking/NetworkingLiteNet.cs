@@ -44,13 +44,14 @@ namespace Multiplayer.Client.Networking
 
         public void OnDisconnect(MpDisconnectReason reason, ByteReader data)
         {
+            if (State == ConnectionStateEnum.Disconnected) return;
             ConnectionStatusListeners.TryNotifyAll_Disconnected(SessionDisconnectInfo.From(reason, data));
             Multiplayer.StopMultiplayer();
         }
 
-        public override void Close(MpDisconnectReason reason, byte[] data)
+        protected override void OnClose()
         {
-            base.Close(reason, data);
+            base.OnClose();
             netManager.Stop();
         }
 
@@ -81,7 +82,8 @@ namespace Multiplayer.Client.Networking
                 MpDisconnectReason reason;
                 ByteReader reader;
 
-                if (info.AdditionalData.IsNull)
+                // Fallback: should generally be handled by ClientBaseState.HandleDisconnected.
+                if (info.AdditionalData.IsNull || info.AdditionalData.AvailableBytes == 0)
                 {
                     if (info.Reason is DisconnectReason.DisconnectPeerCalled or DisconnectReason.RemoteConnectionClose)
                         reason = MpDisconnectReason.Generic;

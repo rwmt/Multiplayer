@@ -1,5 +1,5 @@
-using Multiplayer.Common;
 using System;
+using Multiplayer.Common;
 using Verse;
 
 namespace Multiplayer.Client.Networking
@@ -46,7 +46,7 @@ namespace Multiplayer.Client.Networking
             });
         }
 
-        public override void Close(MpDisconnectReason reason, byte[] data = null)
+        protected override void OnClose()
         {
         }
 
