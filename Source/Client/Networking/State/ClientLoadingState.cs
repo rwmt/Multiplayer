@@ -4,7 +4,6 @@ using System.Linq;
 using Ionic.Zlib;
 using Multiplayer.Client.Saving;
 using Multiplayer.Common;
-using Multiplayer.Common.Networking.Packet;
 using Verse;
 
 namespace Multiplayer.Client;
@@ -15,6 +14,7 @@ public enum LoadingState
     Downloading
 }
 
+[PacketHandlerClass(inheritHandlers: true)]
 public class ClientLoadingState(ConnectionBase connection) : ClientBaseState(connection)
 {
     public LoadingState subState = LoadingState.Waiting;
@@ -139,10 +139,4 @@ public class ClientLoadingState(ConnectionBase connection) : ClientBaseState(con
         Log.Message($"Loaded game in {loadingMs}ms");
         connection.ChangeState(ConnectionStateEnum.ClientPlaying);
     }
-
-    [TypedPacketHandler]
-    public new void HandleKeepAlive(ServerKeepAlivePacket packet) => base.HandleKeepAlive(packet);
-
-    [TypedPacketHandler]
-    public new void HandleTimeControl(ServerTimeControlPacket packet) => base.HandleTimeControl(packet);
 }

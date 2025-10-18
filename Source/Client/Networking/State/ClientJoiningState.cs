@@ -9,6 +9,8 @@ using Verse;
 
 namespace Multiplayer.Client
 {
+
+    [PacketHandlerClass(inheritHandlers: false)]
     public class ClientJoiningState : ClientBaseState
     {
         public ClientJoiningState(ConnectionBase connection) : base(connection)

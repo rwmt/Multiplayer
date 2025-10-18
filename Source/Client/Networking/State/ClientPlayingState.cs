@@ -9,14 +9,9 @@ using Verse;
 
 namespace Multiplayer.Client
 {
+    [PacketHandlerClass(inheritHandlers: true)]
     public class ClientPlayingState(ConnectionBase connection) : ClientBaseState(connection)
     {
-        [TypedPacketHandler]
-        public new void HandleKeepAlive(ServerKeepAlivePacket packet) => base.HandleKeepAlive(packet);
-
-        [TypedPacketHandler]
-        public new void HandleTimeControl(ServerTimeControlPacket packet) => base.HandleTimeControl(packet);
-
         [TypedPacketHandler]
         public void HandleCommand(ServerCommandPacket packet)
         {

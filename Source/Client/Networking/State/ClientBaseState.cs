@@ -1,3 +1,4 @@
+using Multiplayer.Client.Networking;
 using Multiplayer.Common;
 using Multiplayer.Common.Networking.Packet;
 
@@ -7,7 +8,8 @@ public abstract class ClientBaseState(ConnectionBase connection) : MpConnectionS
 {
     protected MultiplayerSession Session => Multiplayer.session;
 
-    protected void HandleKeepAlive(ServerKeepAlivePacket packet)
+    [TypedPacketHandler]
+    public void HandleKeepAlive(ServerKeepAlivePacket packet)
     {
         int ticksBehind = TickPatch.tickUntil - TickPatch.Timer;
 
@@ -15,7 +17,8 @@ public abstract class ClientBaseState(ConnectionBase connection) : MpConnectionS
             false);
     }
 
-    protected void HandleTimeControl(ServerTimeControlPacket packet)
+    [TypedPacketHandler]
+    public void HandleTimeControl(ServerTimeControlPacket packet)
     {
         if (Multiplayer.session.remoteTickUntil >= packet.tickUntil) return;
 

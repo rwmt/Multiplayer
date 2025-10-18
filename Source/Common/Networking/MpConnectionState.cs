@@ -36,7 +36,14 @@ namespace Multiplayer.Common
 
             stateImpls[(int)state] = type;
 
-            foreach (var method in type.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly))
+            var typeAttr = type.GetAttribute<PacketHandlerClassAttribute>();
+            if (typeAttr == null)
+                ServerLog.Log($"Packet handler {type.FullName} does not have a PacketHandlerClass attribute");
+
+            var bindingFlags = BindingFlags.Instance | BindingFlags.Public;
+            if (typeAttr?.inheritHandlers != true) bindingFlags |= BindingFlags.DeclaredOnly;
+
+            foreach (var method in type.GetMethods(bindingFlags))
             {
                 var attr = method.GetAttribute<PacketHandlerAttribute>();
                 if (attr != null) RegisterPacketHandler(state, method, attr);
