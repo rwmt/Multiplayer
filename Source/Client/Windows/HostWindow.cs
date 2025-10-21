@@ -1,16 +1,16 @@
-using Multiplayer.Common;
-using RimWorld;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Multiplayer.Client.Util;
+using Multiplayer.Common;
+using Multiplayer.Common.Util;
+using RimWorld;
 using UnityEngine;
 using Verse;
 using Verse.Profile;
 using Verse.Sound;
 using Verse.Steam;
-using Multiplayer.Client.Util;
-using Multiplayer.Common.Util;
 
 namespace Multiplayer.Client
 {
@@ -172,11 +172,11 @@ namespace Multiplayer.Client
             entry = entry.Down(30);
 
             // Steam hosting
-            if (SteamManager.Initialized)
-            {
-                MpUI.CheckboxLabeled(entry.Width(CheckboxWidth), $"{"MpSteam".Translate()}:  ", ref serverSettings.steam, order: ElementOrder.Right);
-                entry = entry.Down(30);
-            }
+            var steamRect = entry.Width(CheckboxWidth);
+            if (!SteamManager.Initialized) serverSettings.steam = false;
+            MpUI.CheckboxLabeled(steamRect, $"{"MpSteam".Translate()}:  ", ref serverSettings.steam, order: ElementOrder.Right, disabled: !SteamManager.Initialized);
+            if (!SteamManager.Initialized) TooltipHandler.TipRegion(steamRect, "MpSteamNotAvailable".Translate());
+            entry = entry.Down(30);
 
             // Sync configs
             TooltipHandler.TipRegion(entry.Width(CheckboxWidth), MpUtil.TranslateWithDoubleNewLines("MpSyncConfigsDescNew", 3));
@@ -415,6 +415,12 @@ namespace Multiplayer.Client
 
             if (settings.direct && !TryParseEndpoints(settings))
                 return;
+
+            if (settings.steam && !SteamManager.Initialized)
+            {
+                Messages.Message("MpSteamNotAvailable".Translate(), MessageTypeDefOf.RejectInput, false);
+                return;
+            }
 
             if (settings.gameName.NullOrEmpty())
             {
