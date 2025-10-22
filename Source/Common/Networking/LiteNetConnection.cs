@@ -11,7 +11,7 @@ namespace Multiplayer.Common
             if (peer.ConnectionState == ConnectionState.Connected)
                 peer.Send(raw, reliable ? DeliveryMethod.ReliableOrdered : DeliveryMethod.Unreliable);
             else
-                ServerLog.Error($"SendRaw() called with invalid connection state ({peer.EndPoint}): {peer.ConnectionState}");
+                ServerLog.Error($"SendRaw() called with invalid connection state ({peer}): {peer.ConnectionState}");
         }
 
         public override void Close(MpDisconnectReason reason, byte[]? data)
@@ -29,7 +29,7 @@ namespace Multiplayer.Common
 
         public override string ToString()
         {
-            return $"NetConnection ({peer.EndPoint}) ({username})";
+            return $"NetConnection ({peer}) ({username})";
         }
     }
 }

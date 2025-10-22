@@ -60,7 +60,7 @@ public class ServerTest
             client.Stop();
         });
 
-        Console.WriteLine($"Connected to {peer.EndPoint}");
+        Console.WriteLine($"Connected to {peer}");
 
         new Thread(() =>
         {
