@@ -1,7 +1,5 @@
-using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using LiteNetLib;
 using LudeonTK;
 using Multiplayer.Client.Networking;
 using Multiplayer.Client.Util;
@@ -11,7 +9,6 @@ using Steamworks;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
-using Random = System.Random;
 
 namespace Multiplayer.Client
 {
@@ -43,8 +40,6 @@ namespace Multiplayer.Client
         public bool showTimeline;
 
         public bool desynced;
-
-        public SessionDisconnectInfo disconnectInfo;
 
         public List<CSteamID> pendingSteam = new();
         public List<CSteamID> knownUsers = new();
@@ -104,75 +99,6 @@ namespace Multiplayer.Client
             SoundDefOf.PageChange.PlayOneShotOnCamera();
         }
 
-        public void ProcessDisconnectPacket(MpDisconnectReason reason, ByteReader reader)
-        {
-            string titleKey = null;
-            string descKey = null;
-
-            if (reason == MpDisconnectReason.GenericKeyed) titleKey = reader.ReadString();
-
-            if (reason == MpDisconnectReason.Protocol)
-            {
-                titleKey = "MpWrongProtocol";
-
-                string strVersion = reader.ReadString();
-                int proto = reader.ReadInt32();
-
-                disconnectInfo.wideWindow = true;
-                disconnectInfo.descTranslated = "MpWrongMultiplayerVersionDesc".Translate(strVersion, proto, MpVersion.Version, MpVersion.Protocol);
-
-                if (proto < MpVersion.Protocol)
-                    disconnectInfo.descTranslated += "\n" + "MpWrongVersionUpdateInfoHost".Translate();
-                else
-                    disconnectInfo.descTranslated += "\n" + "MpWrongVersionUpdateInfo".Translate();
-            }
-
-            if (reason == MpDisconnectReason.ConnectingFailed)
-            {
-                var netReason = reader.ReadEnum<DisconnectReason>();
-
-                disconnectInfo.titleTranslated =
-                    netReason == DisconnectReason.ConnectionFailed ?
-                    "MpConnectionFailed".Translate() :
-                    "MpConnectionFailedWithInfo".Translate(netReason.ToString().CamelSpace().ToLowerInvariant());
-            }
-
-            if (reason == MpDisconnectReason.NetFailed)
-            {
-                var netReason = reader.ReadEnum<DisconnectReason>();
-
-                disconnectInfo.titleTranslated =
-                    "MpDisconnectedWithInfo".Translate(netReason.ToString().CamelSpace().ToLowerInvariant());
-            }
-
-            if (reason == MpDisconnectReason.UsernameAlreadyOnline)
-            {
-                titleKey = "MpInvalidUsernameAlreadyPlaying";
-                descKey = "MpChangeUsernameInfo";
-
-                var newName = Multiplayer.username.Substring(0, Math.Min(Multiplayer.username.Length, MultiplayerServer.MaxUsernameLength - 3));
-                newName += new Random().Next(1000);
-
-                disconnectInfo.specialButtonTranslated = "MpConnectAsUsername".Translate(newName);
-                disconnectInfo.specialButtonAction = () => Reconnect(newName);
-            }
-
-            if (reason == MpDisconnectReason.UsernameLength) { titleKey = "MpInvalidUsernameLength"; descKey = "MpChangeUsernameInfo"; }
-            if (reason == MpDisconnectReason.UsernameChars) { titleKey = "MpInvalidUsernameChars"; descKey = "MpChangeUsernameInfo"; }
-            if (reason == MpDisconnectReason.ServerClosed) titleKey = "MpServerClosed";
-            if (reason == MpDisconnectReason.ServerFull) titleKey = "MpServerFull";
-            if (reason == MpDisconnectReason.ServerStarting) titleKey = "MpDisconnectServerStarting";
-            if (reason == MpDisconnectReason.Kick) titleKey = "MpKicked";
-            if (reason == MpDisconnectReason.ServerPacketRead) descKey = "MpPacketErrorRemote";
-            if (reason == MpDisconnectReason.BadGamePassword) descKey = "MpBadGamePassword";
-
-            disconnectInfo.titleTranslated ??= titleKey?.Translate();
-            disconnectInfo.descTranslated ??= descKey?.Translate();
-
-            Log.Message($"Processed disconnect packet. Title: {disconnectInfo.titleTranslated} ({titleKey}), " +
-                        $"description: {disconnectInfo.descTranslated} ({descKey})");
-        }
-
         public void Reconnect(string username)
         {
             Multiplayer.username = username;
@@ -187,11 +113,11 @@ namespace Multiplayer.Client
         {
         }
 
-        public void Disconnected()
+        public void Disconnected(SessionDisconnectInfo info)
         {
             MpUI.ClearWindowStack();
 
-            Find.WindowStack.Add(new DisconnectedWindow(disconnectInfo)
+            Find.WindowStack.Add(new DisconnectedWindow(info)
             {
                 returnToServerBrowser = Multiplayer.Client?.State != ConnectionStateEnum.ClientPlaying
             });

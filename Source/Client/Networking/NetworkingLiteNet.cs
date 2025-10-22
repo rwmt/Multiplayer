@@ -1,9 +1,9 @@
 using System;
-using LiteNetLib;
-using Multiplayer.Common;
 using System.Net;
 using System.Net.Sockets;
+using LiteNetLib;
 using Multiplayer.Client.Util;
+using Multiplayer.Common;
 using Verse;
 
 namespace Multiplayer.Client.Networking
@@ -44,8 +44,7 @@ namespace Multiplayer.Client.Networking
 
         public void OnDisconnect(MpDisconnectReason reason, ByteReader data)
         {
-            Multiplayer.session.ProcessDisconnectPacket(reason, data);
-            ConnectionStatusListeners.TryNotifyAll_Disconnected();
+            ConnectionStatusListeners.TryNotifyAll_Disconnected(SessionDisconnectInfo.From(reason, data));
             Multiplayer.StopMultiplayer();
         }
 

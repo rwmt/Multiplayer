@@ -1,7 +1,7 @@
-using Multiplayer.Client.Networking;
-using Steamworks;
 using System.Linq;
+using Multiplayer.Client.Networking;
 using Multiplayer.Client.Util;
+using Steamworks;
 using UnityEngine;
 using Verse;
 
@@ -124,7 +124,7 @@ namespace Multiplayer.Client
         }
 
         public void Connected() => result = "MpConnected".Translate();
-        public void Disconnected() { }
+        public void Disconnected(SessionDisconnectInfo info) { }
     }
 
     public class RejoiningWindow : BaseConnectingWindow

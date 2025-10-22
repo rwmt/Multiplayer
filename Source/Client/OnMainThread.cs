@@ -1,9 +1,9 @@
-using Multiplayer.Client.DebugUi;
-using Multiplayer.Client.Networking;
-using Multiplayer.Common;
 using System;
 using System.Collections.Generic;
+using Multiplayer.Client.DebugUi;
+using Multiplayer.Client.Networking;
 using Multiplayer.Client.Util;
+using Multiplayer.Common;
 using UnityEngine;
 using Verse;
 using Verse.Steam;
@@ -52,9 +52,8 @@ namespace Multiplayer.Client
                 {
                     Log.Error($"Exception handling packet by {conn}: {e}");
 
-                    Multiplayer.session.disconnectInfo.titleTranslated = "MpPacketErrorLocal".Translate();
-
-                    ConnectionStatusListeners.TryNotifyAll_Disconnected();
+                    ConnectionStatusListeners.TryNotifyAll_Disconnected(new SessionDisconnectInfo
+                        { titleTranslated = "MpPacketErrorLocal".Translate() });
                     Multiplayer.StopMultiplayer();
                 }
             }
