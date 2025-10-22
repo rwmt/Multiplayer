@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using HarmonyLib;
 using Multiplayer.Client.Networking;
@@ -75,6 +76,7 @@ namespace Multiplayer.Client
             }
 
             Log.Message($"Multiplayer version {MpVersion.Version}");
+            Log.Message($"Arch: {RuntimeInformation.ProcessArchitecture}/OS: {RuntimeInformation.OSArchitecture}");
             Log.Message($"Player's username: {Multiplayer.username}");
 
             var persistentObj = new GameObject();
