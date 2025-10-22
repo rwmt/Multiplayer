@@ -7,22 +7,15 @@ using LiteNetLib;
 
 namespace Multiplayer.Common
 {
-    public class LiteNetManager
+    public class LiteNetManager(MultiplayerServer server) : INetManager
     {
-        private MultiplayerServer server;
-
-        public List<(LiteNetEndpoint endpoint, NetManager manager)> netManagers = new();
+        public List<(LiteNetEndpoint endpoint, NetManager manager)> netManagers = [];
         public NetManager? lanManager;
         private NetManager? arbiter;
 
         public int ArbiterPort => arbiter!.LocalPort;
 
         private int broadcastTimer;
-
-        public LiteNetManager(MultiplayerServer server)
-        {
-            this.server = server;
-        }
 
         public void Tick()
         {
@@ -39,7 +32,7 @@ namespace Multiplayer.Common
             broadcastTimer++;
         }
 
-        public bool StartNet()
+        public bool Start()
         {
             var success = true;
             try
@@ -99,7 +92,7 @@ namespace Multiplayer.Common
             }
         }
 
-        public void StopNet()
+        public void Stop()
         {
             foreach (var (_, man) in netManagers)
                 man.Stop();
@@ -115,7 +108,7 @@ namespace Multiplayer.Common
 
         public void OnServerStop()
         {
-            StopNet();
+            Stop();
             arbiter?.Stop();
         }
     }

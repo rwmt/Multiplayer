@@ -87,7 +87,7 @@ public class ServerTest
 
         server.worldData.savedGame = Array.Empty<byte>();
 
-        server.liteNet.StartNet();
+        server.liteNet.Start();
         new Thread(server.Run) { IsBackground = true }.Start();
 
         teardownActions.Add(() => { server.running = false; });

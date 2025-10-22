@@ -31,7 +31,7 @@ var server = MultiplayerServer.instance = new MultiplayerServer(settings)
 var consoleSource = new ConsoleSource();
 
 LoadSave(server, saveFile);
-server.liteNet.StartNet();
+server.liteNet.Start();
 
 new Thread(server.Run) { Name = "Server thread" }.Start();
 

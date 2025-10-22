@@ -464,7 +464,7 @@ namespace Multiplayer.Client
         static bool TryStartLocalServer(ServerSettings settings)
         {
             var localServer = new MultiplayerServer(settings);
-            var success = localServer.liteNet.StartNet();
+            var success = localServer.liteNet.Start();
 
             if (success)
             {
@@ -481,7 +481,7 @@ namespace Multiplayer.Client
             if (localServer.liteNet.lanManager is { IsRunning: false })
                 Messages.Message($"Failed to bind LAN on {settings.lanAddress}", MessageTypeDefOf.RejectInput, false);
 
-            localServer.liteNet.StopNet();
+            localServer.liteNet.Stop();
             return false;
         }
 
