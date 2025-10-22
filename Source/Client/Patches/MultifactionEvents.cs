@@ -8,9 +8,9 @@ namespace Multiplayer.Client;
 
 // Set of patches that forces events to play for a correct player on a correct map
 
-// First patch is for the "SettlementDefeatUtility.IsDefeated", in vanilla it's purpose
-// is to fire events on non-settled enemy faction bases, that player had defeated. 
-// But it doesn account situation where "enemy base" is actually an other player base,
+// First patch is for the "SettlementDefeatUtility.IsDefeated". In vanilla it's purpose
+// is to fire events on a non-settled enemy faction bases that player had defeated. 
+// But it doesn't account for situations, where "enemy base" is actually an other player base,
 // who is friendly with you. Which (I assume) is the most common situation for MP.
 
 [HarmonyPatch(typeof(SettlementDefeatUtility), nameof(SettlementDefeatUtility.IsDefeated), typeof(Map), typeof(Faction))]
@@ -22,15 +22,15 @@ public static class Patch_SettlementDefeatUtility_IsDefeated
 		if (!MP.IsInMultiplayer || !faction.IsPlayer)
 			return true;
 
-		// We skip checking if "enemy" is defeated on any player base (beacuse other players could be friendly)
+		// We skip checking if "enemy" is defeated on any player base (because other players most likely are friendly)
 		__result = false;
 		return false;
 	}
 }
 
 // Second patch forbids from firing an event on an incorrect map.
-// It's uses mostly vanilla logic for incorrect event by sending th "true"
-// as an output for shutdowning events. I left the debug log line to see how many 
+// It's uses mostly vanilla logic for incorrect event by sending "true"
+// as an output to shutdown an event. I left the debug log line to see how many 
 // incorrect events are "lost", but game storyteller should understand correctly
 // that these events were not fired, and will adapt by firing more (correct) events.
 
@@ -39,8 +39,8 @@ public static class Patch_IncidentWorker_TryExecute_ForMultifactionTriggering
 {
 	static bool Prefix(IncidentParms parms, ref bool __result)
 	{
-		// We make some sanity checks and assume, that empty (without any colonists)
-		// factionless maps (such as dungeones) are impossible and instantly abandoned.
+		// We make some sanity checks and assume, that empty (without any player colonists)
+		// factionless maps (such as dungeons) are impossible and instantly abandoned.
 		if (!MP.IsInMultiplayer ||
 			parms.target is not Map map ||
 			map.ParentFaction == Faction.OfPlayer ||
@@ -50,16 +50,16 @@ public static class Patch_IncidentWorker_TryExecute_ForMultifactionTriggering
 			return true;
 		}
 
-		// Skip incidents if we couldn't do it
+		// Skip incidents if we fail previous check
 		Log.Warning($"[Multiplayer] Incident shutdown on a {map}");
 		__result = true;
 		return false;
 	}
 }
 
-// This is (currently) purely debug patch. I used it to see for which faction
-// event was supposed to fire (and thus for whitch faction evetn letter will arrive).
-// I will leave its here just in case. It could be useful, as some event keep firing
+// This is (currently) purely a debug patch. I used it to see for which faction
+// event was supposed to fire (and thus for which faction event notification will arrive).
+// I will leave it here just in case. It could be useful, as some events keep firing
 // for the "Spectator" player, but I didn't notice any gameplay effects from that.
 
 //[HarmonyPatch(typeof(LetterStack), nameof(LetterStack.ReceiveLetter), typeof(Letter), typeof(string), typeof(int), typeof(bool))]
