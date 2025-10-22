@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
+using Multiplayer.Client.Networking;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using Multiplayer.Common.Util;
@@ -464,25 +466,92 @@ namespace Multiplayer.Client
         static bool TryStartLocalServer(ServerSettings settings)
         {
             var localServer = new MultiplayerServer(settings);
-            var success = localServer.liteNet.Start();
+            var success = true;
 
-            if (success)
-            {
-                Multiplayer.LocalServer = localServer;
-                return true;
+            if (settings.direct) {
+                var liteNet = StartLiteNetManager(localServer, settings);
+                if (liteNet == null) success = false;
+                else localServer.netManagers.Add(liteNet);
             }
 
-            foreach (var (endpoint, man) in localServer.liteNet.netManagers)
+            if (settings.lan)
+            {
+                var lan = StartLanManager(localServer, settings);
+                if (lan == null) success = false;
+                else localServer.netManagers.Add(lan);
+            }
+
+            if (settings.steam)
+            {
+                var steam = StartSteamP2PManager(localServer, settings);
+                if (steam == null) success = false;
+                else localServer.netManagers.Add(steam);
+            }
+
+            if (!success)
+            {
+                localServer.netManagers.ForEach(man => man.Stop());
+                return false;
+            }
+
+            Multiplayer.LocalServer = localServer;
+            return true;
+        }
+
+        private static INetManager StartLiteNetManager(MultiplayerServer server, ServerSettings settings)
+        {
+            var invalidEndpoint = settings.TryParseEndpoints(out var endpoints);
+            if (invalidEndpoint != null)
+            {
+                Messages.Message(
+                    "MpInvalidEndpoint".Translate(invalidEndpoint),
+                    MessageTypeDefOf.RejectInput,
+                    false
+                );
+                return null;
+            }
+
+            var liteNet = new LiteNetManager(server, endpoints);
+            var success = liteNet.Start();
+            if (success) return liteNet;
+
+            foreach (var (endpoint, man) in liteNet.netManagers)
             {
                 if (man.IsRunning) continue;
                 Messages.Message($"Failed to bind direct on {endpoint}", MessageTypeDefOf.RejectInput, false);
             }
 
-            if (localServer.liteNet.lanManager is { IsRunning: false })
-                Messages.Message($"Failed to bind LAN on {settings.lanAddress}", MessageTypeDefOf.RejectInput, false);
+            liteNet.Stop();
+            return null;
+        }
 
-            localServer.liteNet.Stop();
-            return false;
+        public static INetManager StartLanManager(MultiplayerServer server, ServerSettings settings)
+        {
+            if (!IPAddress.TryParse(settings.lanAddress, out var ipAddr))
+            {
+                Messages.Message(
+                    "MpInvalidEndpoint".Translate(settings.lanAddress),
+                    MessageTypeDefOf.RejectInput,
+                    false
+                );
+                return null;
+            }
+            var man = new LiteNetLanManager(server, ipAddr);
+            if (man.Start()) return man;
+
+            Messages.Message($"Failed to bind LAN on {settings.lanAddress}", MessageTypeDefOf.RejectInput, false);
+            man.Stop();
+            return null;
+        }
+
+        public static INetManager StartSteamP2PManager(MultiplayerServer server, ServerSettings settings)
+        {
+            var man = new SteamP2PNetManager(server);
+            if (man.Start()) return man;
+
+            Messages.Message("Failed to start Steam networking", MessageTypeDefOf.RejectInput, false);
+            man.Stop();
+            return null;
         }
 
         public override void PostClose()

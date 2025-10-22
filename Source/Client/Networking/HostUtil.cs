@@ -65,9 +65,6 @@ namespace Multiplayer.Client
             localServer.worldData.hostFactionId = Faction.OfPlayer.loadID;
             localServer.worldData.spectatorFactionId = Multiplayer.WorldComp.spectatorFaction.loadID;
 
-            if (settings.steam)
-                localServer.netManagers.Add(new SteamP2PNetManager(localServer));
-
             if (fromReplay)
             {
                 localServer.gameTimer = TickPatch.Timer;

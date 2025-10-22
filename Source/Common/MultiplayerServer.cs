@@ -37,8 +37,6 @@ namespace Multiplayer.Common
         public CommandHandler commands;
         public ChatCmdManager chatCmdManager;
         public PlayerManager playerManager;
-        // Reference to simplify transition. To be removed. Use netManagers instead.
-        public readonly LiteNetManager liteNet;
         public List<INetManager> netManagers = [];
         public IEnumerable<ServerPlayer> JoinedPlayers => playerManager.JoinedPlayers;
         public IEnumerable<ServerPlayer> PlayingPlayers => playerManager.PlayingPlayers;
@@ -83,7 +81,6 @@ namespace Multiplayer.Common
             commands = new CommandHandler(this);
             chatCmdManager = new ChatCmdManager();
             playerManager = new PlayerManager(this);
-            netManagers.Add(liteNet = new LiteNetManager(this));
 
             RegisterChatCmd("joinpoint", new ChatCmdJoinPoint());
             RegisterChatCmd("kick", new ChatCmdKick());
