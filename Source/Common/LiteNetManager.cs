@@ -57,6 +57,18 @@ namespace Multiplayer.Common
             foreach (var (_, man) in netManagers) man.Stop();
             netManagers.Clear();
         }
+
+        public string GetDiagnosticsName() => "Server (LiteNet)";
+        public string GetDiagnosticsInfo()
+        {
+            var text = new StringBuilder();
+            foreach (var (endpoint, man) in netManagers)
+            {
+                text.AppendLine($"{endpoint}");
+                text.AppendLine($"{man.Statistics}");
+            }
+            return text.ToString();
+        }
     }
 
     public class LiteNetArbiterManager(MultiplayerServer server) : INetManager
@@ -73,6 +85,9 @@ namespace Multiplayer.Common
         public void Tick() => arbiter?.PollEvents();
 
         public void Stop() => arbiter?.Stop();
+
+        public string GetDiagnosticsName() => $"Arbiter (LiteNet) {IPAddress.Loopback}:{arbiter?.LocalPort ?? -1}";
+        public string? GetDiagnosticsInfo() => null;
     }
 
     public class LiteNetLanManager(MultiplayerServer server, IPAddress lanAddress) : INetManager
@@ -100,6 +115,9 @@ namespace Multiplayer.Common
         }
 
         public void Stop() => lanManager?.Stop();
+
+        public string GetDiagnosticsName() => $"Lan (LiteNet) {lanAddress}:{lanManager?.LocalPort ?? -1}";
+        public string? GetDiagnosticsInfo() => lanManager?.Statistics.ToString();
     }
 
     public class LiteNetEndpoint

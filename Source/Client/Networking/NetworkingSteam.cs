@@ -182,6 +182,10 @@ namespace Multiplayer.Client.Networking
         {
             // Managed externally by Steamworks
         }
+
+        public string GetDiagnosticsName() => "SteamP2P";
+
+        public string GetDiagnosticsInfo() => null;
     }
 
     public static class SteamP2PIntegration
