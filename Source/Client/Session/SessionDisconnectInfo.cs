@@ -66,7 +66,10 @@ public struct SessionDisconnectInfo
             newName += new Random().Next(1000);
 
             disconnectInfo.specialButtonTranslated = "MpConnectAsUsername".Translate(newName);
-            disconnectInfo.specialButtonAction = () => Multiplayer.session.Reconnect(newName);
+            // Once disconnected, Multiplayer.session is set to null, so we need to keep our own copy to be able to
+            // reconnect.
+            var session = Multiplayer.session;
+            disconnectInfo.specialButtonAction = () => session.Reconnect(newName);
         }
 
         if (reason == MpDisconnectReason.UsernameLength)
