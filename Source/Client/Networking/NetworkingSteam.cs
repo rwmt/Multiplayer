@@ -70,10 +70,7 @@ namespace Multiplayer.Client.Networking
         {
             if (msgId == (int)Packets.Special_Steam_Disconnect)
             {
-                var info = Multiplayer.session.ProcessDisconnectPacket(
-                    reader.ReadEnum<MpDisconnectReason>(),
-                    reader
-                );
+                var info = SessionDisconnectInfo.From(reader.ReadEnum<MpDisconnectReason>(), reader);
                 OnDisconnect(info);
                 return;
             }

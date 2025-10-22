@@ -44,8 +44,7 @@ namespace Multiplayer.Client.Networking
 
         public void OnDisconnect(MpDisconnectReason reason, ByteReader data)
         {
-            var info = Multiplayer.session.ProcessDisconnectPacket(reason, data);
-            ConnectionStatusListeners.TryNotifyAll_Disconnected(info);
+            ConnectionStatusListeners.TryNotifyAll_Disconnected(SessionDisconnectInfo.From(reason, data));
             Multiplayer.StopMultiplayer();
         }
 
