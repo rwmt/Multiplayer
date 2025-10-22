@@ -215,9 +215,9 @@ namespace Multiplayer.Client
         {
             Multiplayer.session.AddMsg("The Arbiter instance is starting...", false);
 
-            var arbiterNet = new LiteNetArbiterManager(Multiplayer.LocalServer);
+            var arbiterNet = LiteNetArbiterManager.Create(Multiplayer.LocalServer);
+            if (arbiterNet == null) throw new Exception("Failed to setup Arbiter network.");
             Multiplayer.LocalServer.netManagers.Add(arbiterNet);
-            arbiterNet.Start();
 
             string args = $"-batchmode -nographics -arbiter -logfile arbiter_log.txt -connect=127.0.0.1:{arbiterNet.Port}";
 

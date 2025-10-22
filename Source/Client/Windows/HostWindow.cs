@@ -511,9 +511,7 @@ namespace Multiplayer.Client
                 return null;
             }
 
-            var liteNet = new LiteNetManager(server, endpoints);
-            var success = liteNet.Start();
-            if (success) return liteNet;
+            if (LiteNetManager.Create(server, endpoints, out var liteNet)) return liteNet;
 
             foreach (var (endpoint, man) in liteNet.netManagers)
             {
@@ -536,21 +534,20 @@ namespace Multiplayer.Client
                 );
                 return null;
             }
-            var man = new LiteNetLanManager(server, ipAddr);
-            if (man.Start()) return man;
+
+            var man = LiteNetLanManager.Create(server, ipAddr);
+            if (man != null) return man;
 
             Messages.Message($"Failed to bind LAN on {settings.lanAddress}", MessageTypeDefOf.RejectInput, false);
-            man.Stop();
             return null;
         }
 
         public static INetManager StartSteamP2PManager(MultiplayerServer server, ServerSettings settings)
         {
-            var man = new SteamP2PNetManager(server);
-            if (man.Start()) return man;
+            var man = SteamP2PNetManager.Create(server);
+            if (man != null) return man;
 
             Messages.Message("Failed to start Steam networking", MessageTypeDefOf.RejectInput, false);
-            man.Stop();
             return null;
         }
 

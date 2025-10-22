@@ -87,7 +87,11 @@ public class ServerTest
 
         server.worldData.savedGame = Array.Empty<byte>();
 
-        server.liteNet.Start();
+        var badEndpoint = server.settings.TryParseEndpoints(out var endpoints);
+        Assert.That(badEndpoint, Is.Null);
+        var success = LiteNetManager.Create(server, endpoints, out var liteNet);
+        Assert.That(success, Is.True);
+        server.netManagers.Add(liteNet);
         new Thread(server.Run) { IsBackground = true }.Start();
 
         teardownActions.Add(() => { server.running = false; });

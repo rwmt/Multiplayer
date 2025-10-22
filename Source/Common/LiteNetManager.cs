@@ -6,16 +6,14 @@ using LiteNetLib;
 
 namespace Multiplayer.Common
 {
-    public class LiteNetManager(MultiplayerServer server, IPEndPoint[] endpoints) : INetManager
+    public class LiteNetManager : INetManager
     {
-        public List<(LiteNetEndpoint endpoint, NetManager manager)> netManagers = [];
+        public List<(LiteNetEndpoint endpoint, NetManager manager)> netManagers;
 
-        public void Tick()
-        {
-            foreach (var (_, man) in netManagers) man.PollEvents();
-        }
+        private LiteNetManager(List<(LiteNetEndpoint endpoint, NetManager manager)> netManagers) =>
+            this.netManagers = netManagers;
 
-        public bool Start()
+        public static bool Create(MultiplayerServer server, IPEndPoint[] endpoints, out LiteNetManager manager)
         {
             var success = true;
 
@@ -28,6 +26,7 @@ namespace Multiplayer.Common
                     liteNetEndpoints.GetOrAddNew(endpoint.Port).ipv6 = endpoint.Address;
             }
 
+            List<(LiteNetEndpoint, NetManager)> netManagers = [];
             foreach (var (port, endpoint) in liteNetEndpoints)
             {
                 endpoint.port = port;
@@ -40,6 +39,7 @@ namespace Multiplayer.Common
                 success &= man.Start(endpoint.ipv4 ?? IPAddress.Any, endpoint.ipv6 ?? IPAddress.IPv6Any, endpoint.port);
             }
 
+            manager = new LiteNetManager(netManagers);
             return success;
 
             NetManager CreateNetManager(bool ipv6)
@@ -50,6 +50,11 @@ namespace Multiplayer.Common
                     IPv6Enabled = ipv6
                 };
             }
+        }
+
+        public void Tick()
+        {
+            foreach (var (_, man) in netManagers) man.PollEvents();
         }
 
         public void Stop()
@@ -71,53 +76,63 @@ namespace Multiplayer.Common
         }
     }
 
-    public class LiteNetArbiterManager(MultiplayerServer server) : INetManager
+    public class LiteNetArbiterManager : INetManager
     {
-        private NetManager? arbiter;
-        public int Port => arbiter!.LocalPort;
+        private NetManager arbiter;
+        public int Port => arbiter.LocalPort;
 
-        public bool Start()
+        private LiteNetArbiterManager(NetManager arbiter) => this.arbiter = arbiter;
+
+        public static LiteNetArbiterManager? Create(MultiplayerServer server)
         {
-            arbiter = new NetManager(new MpServerNetListener(server, true)) { IPv6Enabled = false };
-            return arbiter.Start(IPAddress.Loopback, IPAddress.IPv6Any, 0);
+            var arbiter = new NetManager(new MpServerNetListener(server, true)) { IPv6Enabled = false };
+            if (!arbiter.Start(IPAddress.Loopback, IPAddress.IPv6Any, 0)) return null;
+            return new LiteNetArbiterManager(arbiter);
         }
 
-        public void Tick() => arbiter?.PollEvents();
+        public void Tick() => arbiter.PollEvents();
 
-        public void Stop() => arbiter?.Stop();
+        public void Stop() => arbiter.Stop();
 
-        public string GetDiagnosticsName() => $"Arbiter (LiteNet) {IPAddress.Loopback}:{arbiter?.LocalPort ?? -1}";
+        public string GetDiagnosticsName() => $"Arbiter (LiteNet) {IPAddress.Loopback}:{Port}";
         public string? GetDiagnosticsInfo() => null;
     }
 
-    public class LiteNetLanManager(MultiplayerServer server, IPAddress lanAddress) : INetManager
+    public class LiteNetLanManager : INetManager
     {
-        private NetManager? lanManager;
+        private NetManager lanManager;
+        private readonly IPAddress lanAddress;
         private int broadcastTimer;
 
-        public bool Start()
+        private LiteNetLanManager(NetManager lanManager, IPAddress lanAddress)
         {
-            lanManager = new NetManager(new MpServerNetListener(server, false))
+            this.lanManager = lanManager;
+            this.lanAddress = lanAddress;
+        }
+
+        public static LiteNetLanManager? Create(MultiplayerServer server, IPAddress addr)
+        {
+            var lanManager = new NetManager(new MpServerNetListener(server, false))
             {
                 EnableStatistics = true,
                 IPv6Enabled = false
             };
-            return lanManager.Start(lanAddress, IPAddress.IPv6Any, 0);
+            if (!lanManager.Start(addr, IPAddress.IPv6Any, 0)) return null;
+            return new LiteNetLanManager(lanManager, addr);
         }
 
         public void Tick()
         {
-            if (lanManager == null) return;
             lanManager.PollEvents();
             if (broadcastTimer++ % 60 == 0)
                 lanManager.SendBroadcast(Encoding.UTF8.GetBytes(MultiplayerServer.LanBroadcastName),
                     MultiplayerServer.LanBroadcastPort);
         }
 
-        public void Stop() => lanManager?.Stop();
+        public void Stop() => lanManager.Stop();
 
-        public string GetDiagnosticsName() => $"Lan (LiteNet) {lanAddress}:{lanManager?.LocalPort ?? -1}";
-        public string? GetDiagnosticsInfo() => lanManager?.Statistics.ToString();
+        public string GetDiagnosticsName() => $"Lan (LiteNet) {lanAddress}:{lanManager.LocalPort}";
+        public string GetDiagnosticsInfo() => lanManager.Statistics.ToString();
     }
 
     public class LiteNetEndpoint

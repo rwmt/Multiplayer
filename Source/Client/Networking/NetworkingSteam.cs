@@ -136,9 +136,17 @@ namespace Multiplayer.Client.Networking
         }
     }
 
-    public class SteamP2PNetManager(MultiplayerServer server) : INetManager
+    public class SteamP2PNetManager : INetManager
     {
-        public bool Start() => SteamManager.Initialized;
+        private readonly MultiplayerServer server;
+
+        private SteamP2PNetManager(MultiplayerServer server) => this.server = server;
+
+        public static SteamP2PNetManager Create(MultiplayerServer server)
+        {
+            if (!SteamManager.Initialized) return null;
+            return new SteamP2PNetManager(server);
+        }
 
         public void Tick()
         {
