@@ -61,7 +61,6 @@ namespace Multiplayer.Common
             InitDataState.Requested;
 
         public volatile bool running;
-        public event Action<MultiplayerServer>? TickEvent;
 
         public bool ArbiterPlaying => PlayingPlayers.Any(p => p.IsArbiter && p.status == PlayerStatus.Playing);
         public ServerPlayer HostPlayer => PlayingPlayers.First(p => p.IsHost);
@@ -114,7 +113,6 @@ namespace Multiplayer.Common
 
                     freezeManager.Tick();
                     queue.RunQueue(ServerLog.Error);
-                    TickEvent?.Invoke(this);
                     netManagers.ForEach(manager => manager.Tick());
                     TickNet();
 
