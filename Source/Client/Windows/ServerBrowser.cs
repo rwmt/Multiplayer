@@ -27,6 +27,8 @@ namespace Multiplayer.Client
 
         public ServerBrowser()
         {
+            // establish a relay connection in the background, before connecting to speed up the handshake process
+            if (SteamManager.Initialized) SteamNetworkingUtils.InitRelayNetworkAccess();
             lanListener = new LanListener(expirationMillis: 5000);
             doCloseX = true;
         }
