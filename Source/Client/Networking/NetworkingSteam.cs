@@ -182,11 +182,6 @@ namespace Multiplayer.Client.Networking
         {
             // Managed externally by Steamworks
         }
-
-        public void OnServerStop()
-        {
-            // Managed externally by Steamworks
-        }
     }
 
     public static class SteamP2PIntegration

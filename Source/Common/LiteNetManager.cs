@@ -95,11 +95,6 @@ namespace Multiplayer.Common
             netManagers.Clear();
             lanManager?.Stop();
         }
-
-        public void OnServerStop()
-        {
-            Stop();
-        }
     }
 
     public class LiteNetArbiterManager(MultiplayerServer server) : INetManager
@@ -116,8 +111,6 @@ namespace Multiplayer.Common
         public void Tick() => arbiter?.PollEvents();
 
         public void Stop() => arbiter?.Stop();
-
-        public void OnServerStop() => Stop();
     }
 
     public class LiteNetEndpoint

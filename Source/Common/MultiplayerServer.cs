@@ -205,7 +205,7 @@ namespace Multiplayer.Common
             ServerLog.Detail("Server shutting down...");
 
             playerManager.OnServerStop();
-            netManagers.ForEach(manager => manager.OnServerStop());
+            netManagers.ForEach(manager => manager.Stop());
 
             instance = null;
         }
