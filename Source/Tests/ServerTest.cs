@@ -31,8 +31,7 @@ public class ServerTest
     {
         MpConnectionState.SetImplementation(ConnectionStateEnum.ClientJoining, typeof(TestJoiningState));
 
-        int port = GetFreePort();
-        var server = MakeServer(port);
+        var server = MakeServer(out var port);
         ConnectClient(port);
 
         var timeoutWatch = Stopwatch.StartNew();
@@ -72,17 +71,17 @@ public class ServerTest
         }) { IsBackground = true }.Start();
     }
 
-    private MultiplayerServer MakeServer(int port)
+    private MultiplayerServer MakeServer(out int port)
     {
-        var server = MultiplayerServer.instance = new MultiplayerServer(new ServerSettings()
+        var server = MultiplayerServer.instance = new MultiplayerServer(new ServerSettings
         {
             gameName = "Test",
             direct = true,
-            directAddress = $"127.0.0.1:{port}",
+            directAddress = "127.0.0.1:0", // 0 makes the OS choose any free port
             lan = false
         })
         {
-            running = true,
+            running = true
         };
 
         server.worldData.savedGame = Array.Empty<byte>();
@@ -92,19 +91,13 @@ public class ServerTest
         var success = LiteNetManager.Create(server, endpoints, out var liteNet);
         Assert.That(success, Is.True);
         server.netManagers.Add(liteNet);
+
+        port = liteNet.netManagers[0].manager.LocalPort;
+
         new Thread(server.Run) { IsBackground = true }.Start();
 
         teardownActions.Add(() => { server.running = false; });
 
         return server;
-    }
-
-    private static int GetFreePort()
-    {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        return port;
     }
 }
