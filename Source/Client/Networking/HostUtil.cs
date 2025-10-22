@@ -218,9 +218,11 @@ namespace Multiplayer.Client
         {
             Multiplayer.session.AddMsg("The Arbiter instance is starting...", false);
 
-            Multiplayer.LocalServer.liteNet.SetupArbiterConnection();
+            var arbiterNet = new LiteNetArbiterManager(Multiplayer.LocalServer);
+            Multiplayer.LocalServer.netManagers.Add(arbiterNet);
+            arbiterNet.Start();
 
-            string args = $"-batchmode -nographics -arbiter -logfile arbiter_log.txt -connect=127.0.0.1:{Multiplayer.LocalServer.liteNet.ArbiterPort}";
+            string args = $"-batchmode -nographics -arbiter -logfile arbiter_log.txt -connect=127.0.0.1:{arbiterNet.Port}";
 
             if (GenCommandLine.TryGetCommandLineArg("savedatafolder", out string saveDataFolder))
                 args += $" \"-savedatafolder={saveDataFolder}\"";

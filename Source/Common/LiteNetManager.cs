@@ -11,9 +11,6 @@ namespace Multiplayer.Common
     {
         public List<(LiteNetEndpoint endpoint, NetManager manager)> netManagers = [];
         public NetManager? lanManager;
-        private NetManager? arbiter;
-
-        public int ArbiterPort => arbiter!.LocalPort;
 
         private int broadcastTimer;
 
@@ -23,7 +20,6 @@ namespace Multiplayer.Common
                 man.PollEvents();
 
             lanManager?.PollEvents();
-            arbiter?.PollEvents();
 
             if (lanManager != null && broadcastTimer % 60 == 0)
                 lanManager.SendBroadcast(Encoding.UTF8.GetBytes(MultiplayerServer.LanBroadcastName),
@@ -100,17 +96,28 @@ namespace Multiplayer.Common
             lanManager?.Stop();
         }
 
-        public void SetupArbiterConnection()
-        {
-            arbiter = new NetManager(new MpServerNetListener(server, true)) { IPv6Enabled = false };
-            arbiter.Start(IPAddress.Loopback, IPAddress.IPv6Any, 0);
-        }
-
         public void OnServerStop()
         {
             Stop();
-            arbiter?.Stop();
         }
+    }
+
+    public class LiteNetArbiterManager(MultiplayerServer server) : INetManager
+    {
+        private NetManager? arbiter;
+        public int Port => arbiter!.LocalPort;
+
+        public bool Start()
+        {
+            arbiter = new NetManager(new MpServerNetListener(server, true)) { IPv6Enabled = false };
+            return arbiter.Start(IPAddress.Loopback, IPAddress.IPv6Any, 0);
+        }
+
+        public void Tick() => arbiter?.PollEvents();
+
+        public void Stop() => arbiter?.Stop();
+
+        public void OnServerStop() => Stop();
     }
 
     public class LiteNetEndpoint
