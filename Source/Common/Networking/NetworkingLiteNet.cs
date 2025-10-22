@@ -35,7 +35,18 @@ namespace Multiplayer.Common
         public void OnPeerDisconnected(NetPeer peer, DisconnectInfo disconnectInfo)
         {
             ConnectionBase conn = peer.GetConnection();
-            server.playerManager.SetDisconnected(conn, MpDisconnectReason.ClientLeft);
+            var reason = disconnectInfo.Reason switch
+            {
+                // we (the server) closed the connection
+                DisconnectReason.DisconnectPeerCalled => MpDisconnectReason.ClientLeft,
+                // the client closed the connection
+                DisconnectReason.RemoteConnectionClose => MpDisconnectReason.ClientLeft,
+                _ => MpDisconnectReason.NetFailed
+            };
+            if (reason != MpDisconnectReason.ClientLeft)
+                ServerLog.Log($"Peer {conn} disconnected unexpectedly: " +
+                              $"{disconnectInfo.Reason}/{disconnectInfo.SocketErrorCode}");
+            server.playerManager.SetDisconnected(conn, reason);
         }
 
         public void OnNetworkLatencyUpdate(NetPeer peer, int latency)
