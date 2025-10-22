@@ -44,8 +44,6 @@ namespace Multiplayer.Client
 
         public bool desynced;
 
-        public SessionDisconnectInfo disconnectInfo;
-
         public List<CSteamID> pendingSteam = new();
         public List<CSteamID> knownUsers = new();
 
@@ -104,8 +102,9 @@ namespace Multiplayer.Client
             SoundDefOf.PageChange.PlayOneShotOnCamera();
         }
 
-        public void ProcessDisconnectPacket(MpDisconnectReason reason, ByteReader reader)
+        public SessionDisconnectInfo ProcessDisconnectPacket(MpDisconnectReason reason, ByteReader reader)
         {
+            var disconnectInfo = new SessionDisconnectInfo();
             string titleKey = null;
             string descKey = null;
 
@@ -171,6 +170,8 @@ namespace Multiplayer.Client
 
             Log.Message($"Processed disconnect packet. Title: {disconnectInfo.titleTranslated} ({titleKey}), " +
                         $"description: {disconnectInfo.descTranslated} ({descKey})");
+
+            return disconnectInfo;
         }
 
         public void Reconnect(string username)
@@ -187,11 +188,11 @@ namespace Multiplayer.Client
         {
         }
 
-        public void Disconnected()
+        public void Disconnected(SessionDisconnectInfo info)
         {
             MpUI.ClearWindowStack();
 
-            Find.WindowStack.Add(new DisconnectedWindow(disconnectInfo)
+            Find.WindowStack.Add(new DisconnectedWindow(info)
             {
                 returnToServerBrowser = Multiplayer.Client?.State != ConnectionStateEnum.ClientPlaying
             });

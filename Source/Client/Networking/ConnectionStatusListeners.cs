@@ -8,7 +8,7 @@ namespace Multiplayer.Client.Networking
     public interface IConnectionStatusListener
     {
         void Connected();
-        void Disconnected();
+        void Disconnected(SessionDisconnectInfo info);
     }
 
     public static class ConnectionStatusListeners
@@ -45,13 +45,13 @@ namespace Multiplayer.Client.Networking
             }
         }
 
-        public static void TryNotifyAll_Disconnected()
+        public static void TryNotifyAll_Disconnected(SessionDisconnectInfo info)
         {
             foreach (var listener in All)
             {
                 try
                 {
-                    listener.Disconnected();
+                    listener.Disconnected(info);
                 }
                 catch (Exception e)
                 {

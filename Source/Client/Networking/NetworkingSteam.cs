@@ -70,11 +70,11 @@ namespace Multiplayer.Client.Networking
         {
             if (msgId == (int)Packets.Special_Steam_Disconnect)
             {
-                Multiplayer.session.ProcessDisconnectPacket(
+                var info = Multiplayer.session.ProcessDisconnectPacket(
                     reader.ReadEnum<MpDisconnectReason>(),
                     reader
                 );
-                OnDisconnect();
+                OnDisconnect(info);
                 return;
             }
 
@@ -83,16 +83,16 @@ namespace Multiplayer.Client.Networking
 
         public override void OnError(EP2PSessionError error)
         {
-            Multiplayer.session.disconnectInfo.titleTranslated = error == EP2PSessionError.k_EP2PSessionErrorTimeout
+            var title = error == EP2PSessionError.k_EP2PSessionErrorTimeout
                 ? "MpSteamTimedOut".Translate()
                 : "MpSteamGenericError".Translate();
 
-            OnDisconnect();
+            OnDisconnect(new SessionDisconnectInfo { titleTranslated = title });
         }
 
-        private void OnDisconnect()
+        private void OnDisconnect(SessionDisconnectInfo info)
         {
-            ConnectionStatusListeners.TryNotifyAll_Disconnected();
+            ConnectionStatusListeners.TryNotifyAll_Disconnected(info);
             Multiplayer.StopMultiplayer();
         }
     }
