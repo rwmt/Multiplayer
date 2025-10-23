@@ -1,6 +1,4 @@
 ﻿using System.Diagnostics;
-using System.Net;
-using System.Net.Sockets;
 using LiteNetLib;
 using Multiplayer.Common;
 
@@ -52,18 +50,15 @@ public class ServerTest
         var clientListener = new TestNetListener();
         var client = new NetManager(clientListener);
         client.Start();
-        var peer = client.Connect($"127.0.0.1", port, "");
+        var peer = client.Connect("127.0.0.1", port, "");
 
-        teardownActions.Add(() =>
-        {
-            client.Stop();
-        });
+        teardownActions.Add(() => client.Stop());
 
         Console.WriteLine($"Connected to {peer}");
 
         new Thread(() =>
         {
-            while (true)
+            while (client.IsRunning)
             {
                 client.PollEvents();
                 Thread.Sleep(50);
