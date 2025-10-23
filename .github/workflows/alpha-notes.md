@@ -8,7 +8,7 @@
    * **Steam**: Right-click RimWorld in your Steam library → `Manage` → `Browse local Files`
    * Or navigate directly to:
      - Windows: `C:\Program Files (x86)\Steam\steamapps\common\RimWorld\Mods`
-     - Mac: `~/Library/Application Support/Steam/steamapps/common/RimWorld/Mods`
+     - Mac: `~/Library/Application Support/Steam/steamapps/common/RimWorld/RimWorldMac.app/Mods` (Right-click on `RimWorldMac.app`, then click `Show Package Contents` to see the `Mods` folder)
      - Linux: `~/.steam/steam/steamapps/common/RimWorld/Mods`
 3. Extract the zip file into the `Mods` folder.
    * You should have a `Multiplayer` folder in the `Mods` folder (`Mods/Multiplayer`)
