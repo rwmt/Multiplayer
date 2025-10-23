@@ -164,6 +164,43 @@ namespace Multiplayer.Client
         }
     }
 
+    // Patch to remove endless (every tick!) condition duplicates from the condition causers
+    [HarmonyPatch(typeof(CompCauseGameCondition), nameof(CompCauseGameCondition.GetConditionInstance))]
+    public static class Patch_CompCauseGameCondition_GetConditionInstance
+    {
+        public static void Postfix(Map map, CompCauseGameCondition __instance, ref GameCondition __result)
+        {
+            // Sanity and MP checks. We only checking for conditions that are able to stack
+            if (Multiplayer.Client == null
+                    || __instance.Props.preventConditionStacking
+                    || __result != null
+                    || map == null)
+                return;
+
+            // Look for an existing active condition on this map that matches both def and causer
+            var active = map.GameConditionManager.ActiveConditions
+                .FirstOrDefault(c =>
+                    c.def == __instance.Props.conditionDef &&
+                    c.conditionCauser == __instance.parent);
+
+            if (active != null)
+                __result = active;
+        }
+    }
+
+    // This exists purely to fix load issues. Some fake ticks cause condition duplication on load.
+    [HarmonyPatch(typeof(CompCauseGameCondition), nameof(CompCauseGameCondition.CompTick))]
+    public static class Patch_CompCauseGameCondition_CompTick
+    {
+        public static bool Prefix()
+        {
+            if (Multiplayer.Client == null || !Multiplayer.GameComp.asyncTime)
+                return true; // vanilla
+
+            return Multiplayer.LocalServer.FullyStarted;
+        }
+    }
+
     [HarmonyPatch(typeof(CompCauseGameCondition), nameof(CompCauseGameCondition.EnforceConditionOn))]
     static class MapConditionCauserMapTime
     {
