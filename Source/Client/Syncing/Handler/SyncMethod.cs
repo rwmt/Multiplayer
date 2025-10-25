@@ -1,16 +1,22 @@
-using HarmonyLib;
-using Multiplayer.API;
-using Multiplayer.Common;
 using System;
 using System.Linq;
 using System.Reflection;
+using HarmonyLib;
+using Multiplayer.API;
 using Multiplayer.Client.Util;
+using Multiplayer.Common;
 using MultiplayerLoader;
 using Verse;
 
 namespace Multiplayer.Client
 {
-    public record SyncTransformer(Type LiveType, Type NetworkType, Delegate Writer, Delegate Reader);
+    public class SyncTransformer(Type liveType, Type networkType, Delegate writer, Delegate reader)
+    {
+        public Type liveType = liveType;
+        public Type networkType = networkType;
+        public Delegate writer = writer;
+        public Delegate reader = reader;
+    }
 
     public delegate void SyncMethodWriter(object obj, SyncType type, string debugInfo);
 
@@ -108,7 +114,7 @@ namespace Multiplayer.Client
             }
 
             if (targetTransformer != null)
-                SyncObj(targetTransformer.Writer.DynamicInvoke(target, target, args), targetTransformer.NetworkType, "Target (transformed)");
+                SyncObj(targetTransformer.writer.DynamicInvoke(target, target, args), targetTransformer.networkType, "Target (transformed)");
             else
                 WriteTarget(target, args, SyncObj);
 
@@ -118,7 +124,7 @@ namespace Multiplayer.Client
 
             for (int i = 0; i < argTypes.Length; i++)
                 if (argTransformers[i] is { } trans)
-                    SyncObj(trans.Writer.DynamicInvoke(args[i], target, args), trans.NetworkType, $"Arg {i} {argNames[i]} (transformed)");
+                    SyncObj(trans.writer.DynamicInvoke(args[i], target, args), trans.networkType, $"Arg {i} {argNames[i]} (transformed)");
 
             int mapId = map?.uniqueID ?? ScheduledCommand.Global;
             writer.Log.Node("Map id: " + mapId);
@@ -142,7 +148,7 @@ namespace Multiplayer.Client
             object target;
 
             if (targetTransformer != null)
-                target = targetTransformer.Reader.DynamicInvoke(SyncSerialization.ReadSyncObject(data, targetTransformer.NetworkType));
+                target = targetTransformer.reader.DynamicInvoke(SyncSerialization.ReadSyncObject(data, targetTransformer.networkType));
             else
                 target = ReadTarget(data);
 
@@ -163,7 +169,7 @@ namespace Multiplayer.Client
 
             for (int i = 0; i < argTypes.Length; i++)
                 if (argTransformers[i] is { } trans)
-                    args[i] = trans.Reader.DynamicInvoke(SyncSerialization.ReadSyncObject(data, trans.NetworkType));
+                    args[i] = trans.reader.DynamicInvoke(SyncSerialization.ReadSyncObject(data, trans.networkType));
 
             if (cancelIfAnyArgNull && args.Any(a => a == null))
                 return;
@@ -305,10 +311,10 @@ namespace Multiplayer.Client
 
         public override void Validate()
         {
-            ValidateType("Target type", targetTransformer?.NetworkType ?? targetType);
+            ValidateType("Target type", targetTransformer?.networkType ?? targetType);
 
             for (int i = 0; i < argTypes.Length; i++)
-                ValidateType($"Arg {i} type", argTransformers[i]?.NetworkType ?? argTypes[i]);
+                ValidateType($"Arg {i} type", argTransformers[i]?.networkType ?? argTypes[i]);
         }
 
         public override string ToString()
