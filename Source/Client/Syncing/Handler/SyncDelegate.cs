@@ -1,12 +1,12 @@
-﻿using HarmonyLib;
-using Multiplayer.API;
-using Multiplayer.Common;
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using HarmonyLib;
+using Multiplayer.API;
 using Multiplayer.Client.Util;
+using Multiplayer.Common;
 using Verse;
 
 namespace Multiplayer.Client
@@ -68,7 +68,7 @@ namespace Multiplayer.Client
                 var path = fieldPaths[i];
 
                 if (fieldTransformers[i] is SyncTransformer tr)
-                    writer(tr.Writer.DynamicInvoke(val, target, args), tr.NetworkType, path);
+                    writer(tr.writer.DynamicInvoke(val, target, args), tr.networkType, path);
                 else if (!fieldTypes[i].IsCompilerGenerated())
                 {
                     var type = (SyncType)fieldTypes[i];
@@ -92,7 +92,7 @@ namespace Multiplayer.Client
                 object value;
 
                 if (fieldTransformers[i] is SyncTransformer tr)
-                    value = tr.Reader.DynamicInvoke(SyncSerialization.ReadSyncObject(data, tr.NetworkType));
+                    value = tr.reader.DynamicInvoke(SyncSerialization.ReadSyncObject(data, tr.networkType));
                 else if (fieldType.IsCompilerGenerated())
                     value = Activator.CreateInstance(fieldType);
                 else
@@ -149,7 +149,7 @@ namespace Multiplayer.Client
             if (!skipTypeCheck && fieldTypes[index] != typeof(Live))
                 throw new Exception($"Field transformer type mismatch for {this}: {fieldTypes[index]} != {typeof(Live)}");
 
-            fieldTransformers[index] = new(typeof(Live), typeof(Networked), serializer.Writer, serializer.Reader);
+            fieldTransformers[index] = new(typeof(Networked), serializer.Writer, serializer.Reader);
             return this;
         }
 
@@ -188,12 +188,12 @@ namespace Multiplayer.Client
         {
             for (int i = 0; i < fieldTypes.Length; i++)
                 if (fieldTransformers[i] is SyncTransformer tr)
-                    ValidateType($"Field {fieldPaths[i]} type", tr.NetworkType);
+                    ValidateType($"Field {fieldPaths[i]} type", tr.networkType);
                 else if (!fieldTypes[i].IsCompilerGenerated())
                     ValidateType($"Field {fieldPaths[i]} type", fieldTypes[i]);
 
             for (int i = 0; i < argTypes.Length; i++)
-                ValidateType($"Arg {i} type", argTransformers[i]?.NetworkType ?? argTypes[i]);
+                ValidateType($"Arg {i} type", argTransformers[i]?.networkType ?? argTypes[i]);
         }
 
         public override string ToString()
