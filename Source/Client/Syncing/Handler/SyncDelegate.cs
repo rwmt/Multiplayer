@@ -149,7 +149,7 @@ namespace Multiplayer.Client
             if (!skipTypeCheck && fieldTypes[index] != typeof(Live))
                 throw new Exception($"Field transformer type mismatch for {this}: {fieldTypes[index]} != {typeof(Live)}");
 
-            fieldTransformers[index] = new(typeof(Live), typeof(Networked), serializer.Writer, serializer.Reader);
+            fieldTransformers[index] = new(typeof(Networked), serializer.Writer, serializer.Reader);
             return this;
         }
 

@@ -10,9 +10,8 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    public class SyncTransformer(Type liveType, Type networkType, Delegate writer, Delegate reader)
+    public class SyncTransformer(Type networkType, Delegate writer, Delegate reader)
     {
-        public Type liveType = liveType;
         public Type networkType = networkType;
         public Delegate writer = writer;
         public Delegate reader = reader;
@@ -267,7 +266,7 @@ namespace Multiplayer.Client
             if (!skipTypeCheck && argTypes[index].type != typeof(Live))
                 throw new Exception($"Arg transformer type mismatch for {this}: {argTypes[index].type} != {typeof(Live)}");
 
-            argTransformers[index] = new(typeof(Live), typeof(Networked), serializer.Writer, serializer.Reader);
+            argTransformers[index] = new(typeof(Networked), serializer.Writer, serializer.Reader);
             return this;
         }
 
@@ -276,7 +275,7 @@ namespace Multiplayer.Client
             if (!skipTypeCheck && targetType != typeof(Live))
                 throw new Exception($"Target transformer type mismatch for {this}: {targetType} != {typeof(Live)}");
 
-            targetTransformer = new(typeof(Live), typeof(Networked), serializer.Writer, serializer.Reader);
+            targetTransformer = new(typeof(Networked), serializer.Writer, serializer.Reader);
             return this;
         }
 
