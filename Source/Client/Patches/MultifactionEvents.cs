@@ -1,5 +1,4 @@
 using HarmonyLib;
-using Multiplayer.API;
 using RimWorld;
 using RimWorld.Planet;
 using Verse;
@@ -19,7 +18,7 @@ public static class Patch_SettlementDefeatUtility_IsDefeated
 	static bool Prefix(Faction faction, ref bool __result)
 	{
 		// We run original if's not MP, or faction owning the map is not any player
-		if (!MP.IsInMultiplayer || !faction.IsPlayer)
+		if (Multiplayer.Client == null || !faction.IsPlayer)
 			return true;
 
 		// We skip checking if "enemy" is defeated on any player base (because other players most likely are friendly)
@@ -41,7 +40,7 @@ public static class Patch_IncidentWorker_TryExecute_ForMultifactionTriggering
 	{
 		// We make some sanity checks and assume, that empty (without any player colonists)
 		// factionless maps (such as dungeons) are impossible and instantly abandoned.
-		if (!MP.IsInMultiplayer ||
+		if (Multiplayer.Client == null ||
 			parms.target is not Map map ||
 			map.ParentFaction == Faction.OfPlayer ||
 			map.mapPawns.AnyColonistSpawned)
