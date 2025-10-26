@@ -1,11 +1,11 @@
-using HarmonyLib;
-using RimWorld;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using HarmonyLib;
 using Multiplayer.API;
+using RimWorld;
 using RimWorld.Planet;
 using UnityEngine;
 using Verse;
@@ -246,7 +246,7 @@ namespace Multiplayer.Client.Patches
             }
         }
 
-        [SyncMethod(exposeParameters = [1])]
+        [SyncMethod(exposeParameters = [1], context = SyncContext.QueueOrder_Down)]
         static bool CustomTryTakeOrderedJob(Pawn_JobTracker self, Job job, JobTag? tag = JobTag.Misc,
             bool requestQueueing = false)
         {
