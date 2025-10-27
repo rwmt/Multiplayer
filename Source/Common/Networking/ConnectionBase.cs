@@ -264,7 +264,15 @@ namespace Multiplayer.Common
             }
         }
 
-        public abstract void Close(MpDisconnectReason reason, byte[]? data = null);
+        public void Close(MpDisconnectReason reason, byte[]? data = null)
+        {
+            // State.IsServer check only used when disconnecting from a self-hosted local server
+            if (State != ConnectionStateEnum.Disconnected && State.IsServer())
+                Send(new ServerDisconnectPacket { reason = reason, data = data ?? [] });
+            OnClose();
+        }
+
+        protected abstract void OnClose();
 
         /// Invoked after a keep alive timer arrives. Only used by the server
         public virtual void OnKeepAliveArrived(bool idMatched)

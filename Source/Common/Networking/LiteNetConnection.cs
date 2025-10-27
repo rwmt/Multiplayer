@@ -14,10 +14,10 @@ namespace Multiplayer.Common
                 ServerLog.Error($"SendRaw() called with invalid connection state ({peer}): {peer.ConnectionState}");
         }
 
-        public override void Close(MpDisconnectReason reason, byte[]? data)
+        protected override void OnClose()
         {
             peer.NetManager.TriggerUpdate(); // todo: is this needed?
-            peer.NetManager.DisconnectPeer(peer, GetDisconnectBytes(reason, data));
+            peer.NetManager.DisconnectPeer(peer);
         }
 
         public override void OnKeepAliveArrived(bool idMatched)

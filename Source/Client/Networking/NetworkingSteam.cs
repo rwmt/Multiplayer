@@ -38,18 +38,13 @@ namespace Multiplayer.Client.Networking
             ServerLog.Error($"Failed to send packet (len: {raw.Length}): {hex}");
         }
 
-        public override void Close(MpDisconnectReason reason, byte[] data = null)
-        {
-            if (State != ConnectionStateEnum.ClientSteam)
-                Send(Packets.Special_Steam_Disconnect, GetDisconnectBytes(reason, data));
-        }
-
         public abstract void OnError(EP2PSessionError error);
 
-        public override string ToString()
+        protected override void OnClose()
         {
-            return $"SteamP2P ({remoteId}:{username})";
         }
+
+        public override string ToString() => $"SteamP2P ({remoteId}:{username})";
     }
 
     public class SteamClientConn(CSteamID remoteId) : SteamBaseConn(remoteId, RandomChannelId(), 0), ITickableConnection
@@ -66,30 +61,12 @@ namespace Multiplayer.Client.Networking
             }
         }
 
-        protected override void HandleReceiveMsg(int msgId, int fragState, ByteReader reader, bool reliable)
-        {
-            if (msgId == (int)Packets.Special_Steam_Disconnect)
-            {
-                var info = SessionDisconnectInfo.From(reader.ReadEnum<MpDisconnectReason>(), reader);
-                OnDisconnect(info);
-                return;
-            }
-
-            base.HandleReceiveMsg(msgId, fragState, reader, reliable);
-        }
-
         public override void OnError(EP2PSessionError error)
         {
             var title = error == EP2PSessionError.k_EP2PSessionErrorTimeout
                 ? "MpSteamTimedOut".Translate()
                 : "MpSteamGenericError".Translate();
-
-            OnDisconnect(new SessionDisconnectInfo { titleTranslated = title });
-        }
-
-        private void OnDisconnect(SessionDisconnectInfo info)
-        {
-            ConnectionStatusListeners.TryNotifyAll_Disconnected(info);
+            ConnectionStatusListeners.TryNotifyAll_Disconnected(new SessionDisconnectInfo { titleTranslated = title });
             Multiplayer.StopMultiplayer();
         }
     }
@@ -102,17 +79,6 @@ namespace Multiplayer.Client.Networking
         {
             if (id == Packets.Server_KeepAlive) keepAliveTimer.Restart();
             base.Send(id, message, reliable);
-        }
-
-        protected override void HandleReceiveMsg(int msgId, int fragState, ByteReader reader, bool reliable)
-        {
-            if (msgId == (int)Packets.Special_Steam_Disconnect)
-            {
-                OnDisconnect();
-                return;
-            }
-
-            base.HandleReceiveMsg(msgId, fragState, reader, reliable);
         }
 
         public override void OnError(EP2PSessionError error)

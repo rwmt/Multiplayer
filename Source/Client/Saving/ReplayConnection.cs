@@ -30,7 +30,7 @@ public class ReplayConnection : ConnectionBase
     {
     }
 
-    public override void Close(MpDisconnectReason reason, byte[] data)
+    protected override void OnClose()
     {
     }
 }

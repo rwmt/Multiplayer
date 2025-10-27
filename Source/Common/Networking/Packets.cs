@@ -62,6 +62,9 @@ public enum Packets : byte
     Server_Traces,
     Server_SetFaction,
 
+    // All states (Joining, Loading, Playing)
+    Server_Disconnect,
+
     Count,
-    Special_Steam_Disconnect = 63 // Also the max packet id
+    Max = 63 // max packet id
 }

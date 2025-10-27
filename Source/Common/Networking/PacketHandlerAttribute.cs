@@ -16,6 +16,12 @@ namespace Multiplayer.Common
     [AttributeUsage(AttributeTargets.Method)]
     public class TypedPacketHandlerAttribute : Attribute;
 
+    [AttributeUsage(AttributeTargets.Class)]
+    public class PacketHandlerClassAttribute(bool inheritHandlers = false) : Attribute
+    {
+        public readonly bool inheritHandlers = inheritHandlers;
+    }
+
     [MeansImplicitUse]
     [AttributeUsage(AttributeTargets.Method)]
     public class FragmentedPacketHandlerAttribute(Packets packet) : Attribute

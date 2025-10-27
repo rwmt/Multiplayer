@@ -94,7 +94,7 @@ public struct SessionDisconnectInfo
         disconnectInfo.titleTranslated ??= titleKey?.Translate();
         disconnectInfo.descTranslated ??= descKey?.Translate();
 
-        Log.Message($"Processed disconnect packet. Title: {disconnectInfo.titleTranslated} ({titleKey}), " +
+        Log.Message($"Processed disconnect packet ({reason}). Title: {disconnectInfo.titleTranslated} ({titleKey}), " +
                     $"description: {disconnectInfo.descTranslated} ({descKey})");
 
         return disconnectInfo;
