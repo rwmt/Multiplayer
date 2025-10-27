@@ -65,9 +65,6 @@ namespace Multiplayer.Client
             localServer.worldData.hostFactionId = Faction.OfPlayer.loadID;
             localServer.worldData.spectatorFactionId = Multiplayer.WorldComp.spectatorFaction.loadID;
 
-            if (settings.steam)
-                localServer.TickEvent += SteamP2PIntegration.ServerSteamNetTick;
-
             if (fromReplay)
             {
                 localServer.gameTimer = TickPatch.Timer;
@@ -218,9 +215,11 @@ namespace Multiplayer.Client
         {
             Multiplayer.session.AddMsg("The Arbiter instance is starting...", false);
 
-            Multiplayer.LocalServer.liteNet.SetupArbiterConnection();
+            var arbiterNet = LiteNetArbiterManager.Create(Multiplayer.LocalServer);
+            if (arbiterNet == null) throw new Exception("Failed to setup Arbiter network.");
+            Multiplayer.LocalServer.netManagers.Add(arbiterNet);
 
-            string args = $"-batchmode -nographics -arbiter -logfile arbiter_log.txt -connect=127.0.0.1:{Multiplayer.LocalServer.liteNet.ArbiterPort}";
+            string args = $"-batchmode -nographics -arbiter -logfile arbiter_log.txt -connect=127.0.0.1:{arbiterNet.Port}";
 
             if (GenCommandLine.TryGetCommandLineArg("savedatafolder", out string saveDataFolder))
                 args += $" \"-savedatafolder={saveDataFolder}\"";

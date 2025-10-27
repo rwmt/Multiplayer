@@ -1,6 +1,4 @@
 ﻿using System.Diagnostics;
-using System.Net;
-using System.Net.Sockets;
 using LiteNetLib;
 using Multiplayer.Common;
 
@@ -31,8 +29,7 @@ public class ServerTest
     {
         MpConnectionState.SetImplementation(ConnectionStateEnum.ClientJoining, typeof(TestJoiningState));
 
-        int port = GetFreePort();
-        var server = MakeServer(port);
+        var server = MakeServer(out var port);
         ConnectClient(port);
 
         var timeoutWatch = Stopwatch.StartNew();
@@ -53,18 +50,15 @@ public class ServerTest
         var clientListener = new TestNetListener();
         var client = new NetManager(clientListener);
         client.Start();
-        var peer = client.Connect($"127.0.0.1", port, "");
+        var peer = client.Connect("127.0.0.1", port, "");
 
-        teardownActions.Add(() =>
-        {
-            client.Stop();
-        });
+        teardownActions.Add(() => client.Stop());
 
         Console.WriteLine($"Connected to {peer}");
 
         new Thread(() =>
         {
-            while (true)
+            while (client.IsRunning)
             {
                 client.PollEvents();
                 Thread.Sleep(50);
@@ -72,35 +66,33 @@ public class ServerTest
         }) { IsBackground = true }.Start();
     }
 
-    private MultiplayerServer MakeServer(int port)
+    private MultiplayerServer MakeServer(out int port)
     {
-        var server = MultiplayerServer.instance = new MultiplayerServer(new ServerSettings()
+        var server = MultiplayerServer.instance = new MultiplayerServer(new ServerSettings
         {
             gameName = "Test",
             direct = true,
-            directAddress = $"127.0.0.1:{port}",
+            directAddress = "127.0.0.1:0", // 0 makes the OS choose any free port
             lan = false
         })
         {
-            running = true,
+            running = true
         };
 
         server.worldData.savedGame = Array.Empty<byte>();
 
-        server.liteNet.StartNet();
+        var badEndpoint = server.settings.TryParseEndpoints(out var endpoints);
+        Assert.That(badEndpoint, Is.Null);
+        var success = LiteNetManager.Create(server, endpoints, out var liteNet);
+        Assert.That(success, Is.True);
+        server.netManagers.Add(liteNet);
+
+        port = liteNet.netManagers[0].manager.LocalPort;
+
         new Thread(server.Run) { IsBackground = true }.Start();
 
         teardownActions.Add(() => { server.running = false; });
 
         return server;
-    }
-
-    private static int GetFreePort()
-    {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        return port;
     }
 }

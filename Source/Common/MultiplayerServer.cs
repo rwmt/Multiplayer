@@ -37,7 +37,7 @@ namespace Multiplayer.Common
         public CommandHandler commands;
         public ChatCmdManager chatCmdManager;
         public PlayerManager playerManager;
-        public LiteNetManager liteNet;
+        public List<INetManager> netManagers = [];
         public IEnumerable<ServerPlayer> JoinedPlayers => playerManager.JoinedPlayers;
         public IEnumerable<ServerPlayer> PlayingPlayers => playerManager.PlayingPlayers;
         public IEnumerable<ServerPlayer> PlayingIngamePlayers => playerManager.PlayingPlayers.Where(p => p.status == PlayerStatus.Playing);
@@ -59,7 +59,6 @@ namespace Multiplayer.Common
             InitDataState.Requested;
 
         public volatile bool running;
-        public event Action<MultiplayerServer>? TickEvent;
 
         public bool ArbiterPlaying => PlayingPlayers.Any(p => p.IsArbiter && p.status == PlayerStatus.Playing);
         public ServerPlayer HostPlayer => PlayingPlayers.First(p => p.IsHost);
@@ -82,7 +81,6 @@ namespace Multiplayer.Common
             commands = new CommandHandler(this);
             chatCmdManager = new ChatCmdManager();
             playerManager = new PlayerManager(this);
-            liteNet = new LiteNetManager(this);
 
             RegisterChatCmd("joinpoint", new ChatCmdJoinPoint());
             RegisterChatCmd("kick", new ChatCmdKick());
@@ -112,8 +110,7 @@ namespace Multiplayer.Common
 
                     freezeManager.Tick();
                     queue.RunQueue(ServerLog.Error);
-                    TickEvent?.Invoke(this);
-                    liteNet.Tick();
+                    netManagers.ForEach(manager => manager.Tick());
                     TickNet();
 
                     int ticked = 0;
@@ -205,7 +202,7 @@ namespace Multiplayer.Common
             ServerLog.Detail("Server shutting down...");
 
             playerManager.OnServerStop();
-            liteNet.OnServerStop();
+            netManagers.ForEach(manager => manager.Stop());
 
             instance = null;
         }

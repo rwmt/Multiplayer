@@ -383,11 +383,11 @@ namespace Multiplayer.Client
 
             if (Multiplayer.LocalServer != null)
             {
-                if (Multiplayer.LocalServer.liteNet.lanManager != null)
-                    LogNetData("Lan Server", Multiplayer.LocalServer.liteNet.lanManager.Statistics);
-
-                //if (Multiplayer.LocalServer.net.netManager != null)
-                //    LogNetData("Net Server", Multiplayer.LocalServer.net.netManager.Statistics);
+                foreach (var man in Multiplayer.LocalServer.netManagers)
+                {
+                    text.AppendLine(man.GetDiagnosticsName());
+                    text.AppendLine(man.GetDiagnosticsInfo() ?? "<no info>");
+                }
 
                 // todo thread problems?
                 // foreach (var p in Multiplayer.LocalServer.players.ToList())

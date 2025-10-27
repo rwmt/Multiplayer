@@ -5,6 +5,7 @@ using System.Linq;
 using Multiplayer.Common;
 using Steamworks;
 using Verse;
+using Verse.Steam;
 
 namespace Multiplayer.Client.Networking
 {
@@ -101,6 +102,66 @@ namespace Multiplayer.Client.Networking
         }
     }
 
+    public class SteamP2PNetManager : INetManager
+    {
+        private readonly MultiplayerServer server;
+
+        private SteamP2PNetManager(MultiplayerServer server) => this.server = server;
+
+        public static SteamP2PNetManager Create(MultiplayerServer server)
+        {
+            if (!SteamManager.Initialized) return null;
+            return new SteamP2PNetManager(server);
+        }
+
+        public void Tick()
+        {
+            foreach (var packet in SteamP2PIntegration.ReadPackets(0))
+            {
+                var playerManager = server.playerManager;
+                var player = playerManager.Players
+                    .FirstOrDefault(p => p.conn is SteamBaseConn conn && conn.remoteId == packet.remote);
+
+                if (packet.joinPacket && player == null)
+                {
+                    ConnectionBase conn = new SteamServerConn(packet.remote, packet.channel);
+
+                    var preConnect = playerManager.OnPreConnect(packet.remote);
+                    if (preConnect != null)
+                    {
+                        conn.Close(preConnect.Value);
+                        continue;
+                    }
+
+                    conn.ChangeState(ConnectionStateEnum.ServerJoining);
+                    player = playerManager.OnConnected(conn);
+                    player.type = PlayerType.Steam;
+
+                    player.steamId = (ulong)packet.remote;
+                    player.steamPersonaName = SteamFriends.GetFriendPersonaName(packet.remote);
+                    if (player.steamPersonaName.Length == 0)
+                        player.steamPersonaName = "[unknown]";
+
+                    conn.Send(Packets.Server_SteamAccept);
+                }
+
+                if (!packet.joinPacket && player != null)
+                {
+                    player.HandleReceive(packet.data, packet.reliable);
+                }
+            }
+        }
+
+        public void Stop()
+        {
+            // Managed externally by Steamworks
+        }
+
+        public string GetDiagnosticsName() => "SteamP2P";
+
+        public string GetDiagnosticsInfo() => null;
+    }
+
     public static class SteamP2PIntegration
     {
         private static Callback<P2PSessionConnectFail_t> p2pFail;
@@ -159,44 +220,6 @@ namespace Multiplayer.Client.Networking
                 {
                     remote = remote, data = reader, joinPacket = joinPacket, reliable = reliable, channel = channel
                 };
-            }
-        }
-
-        public static void ServerSteamNetTick(MultiplayerServer server)
-        {
-            foreach (var packet in ReadPackets(0))
-            {
-                var playerManager = server.playerManager;
-                var player = playerManager.Players
-                    .FirstOrDefault(p => p.conn is SteamBaseConn conn && conn.remoteId == packet.remote);
-
-                if (packet.joinPacket && player == null)
-                {
-                    ConnectionBase conn = new SteamServerConn(packet.remote, packet.channel);
-
-                    var preConnect = playerManager.OnPreConnect(packet.remote);
-                    if (preConnect != null)
-                    {
-                        conn.Close(preConnect.Value);
-                        continue;
-                    }
-
-                    conn.ChangeState(ConnectionStateEnum.ServerJoining);
-                    player = playerManager.OnConnected(conn);
-                    player.type = PlayerType.Steam;
-
-                    player.steamId = (ulong)packet.remote;
-                    player.steamPersonaName = SteamFriends.GetFriendPersonaName(packet.remote);
-                    if (player.steamPersonaName.Length == 0)
-                        player.steamPersonaName = "[unknown]";
-
-                    conn.Send(Packets.Server_SteamAccept);
-                }
-
-                if (!packet.joinPacket && player != null)
-                {
-                    player.HandleReceive(packet.data, packet.reliable);
-                }
             }
         }
     }

@@ -1,4 +1,5 @@
 ﻿using System.IO.Compression;
+using System.Net;
 using Multiplayer.Common;
 using Multiplayer.Common.Util;
 using Server;
@@ -20,7 +21,7 @@ if (File.Exists(settingsFile))
 else
     TomlSettings.Save(settings, settingsFile); // Save default settings
 
-if (settings.steam) ServerLog.Error("Arbiter is not supported in standalone server.");
+if (settings.steam) ServerLog.Error("Steam is not supported in standalone server.");
 if (settings.arbiter) ServerLog.Error("Arbiter is not supported in standalone server.");
 
 var server = MultiplayerServer.instance = new MultiplayerServer(settings)
@@ -31,7 +32,39 @@ var server = MultiplayerServer.instance = new MultiplayerServer(settings)
 var consoleSource = new ConsoleSource();
 
 LoadSave(server, saveFile);
-server.liteNet.StartNet();
+
+if (settings.direct) {
+    var badEndpoint = settings.TryParseEndpoints(out var endpoints);
+    if (badEndpoint != null)
+    {
+        ServerLog.Error($"Failed to parse endpoint: {badEndpoint}");
+        return;
+    }
+
+    if (!LiteNetManager.Create(server, endpoints, out var liteNet))
+    {
+        ServerLog.Error("Failed to start net manager");
+        return;
+    }
+    server.netManagers.Add(liteNet);
+}
+
+if (settings.lan)
+{
+    if (!IPAddress.TryParse(settings.lanAddress, out var ipAddr))
+    {
+        ServerLog.Error($"Failed to parse lan address: {settings.lanAddress}");
+        return;
+    }
+
+    var lan = LiteNetLanManager.Create(server, ipAddr);
+    if (lan == null)
+    {
+        ServerLog.Error("Failed to start lan manager");
+        return;
+    }
+    server.netManagers.Add(lan);
+}
 
 new Thread(server.Run) { Name = "Server thread" }.Start();
 
