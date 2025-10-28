@@ -188,19 +188,6 @@ namespace Multiplayer.Client
         }
     }
 
-    // This exists purely to fix load issues. Some fake ticks cause condition duplication on load.
-    [HarmonyPatch(typeof(CompCauseGameCondition), nameof(CompCauseGameCondition.CompTick))]
-    public static class Patch_CompCauseGameCondition_CompTick
-    {
-        public static bool Prefix()
-        {
-            if (Multiplayer.Client == null || !Multiplayer.GameComp.asyncTime)
-                return true; // vanilla
-
-            return Multiplayer.LocalServer.FullyStarted;
-        }
-    }
-
     [HarmonyPatch(typeof(CompCauseGameCondition), nameof(CompCauseGameCondition.EnforceConditionOn))]
     static class MapConditionCauserMapTime
     {
