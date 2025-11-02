@@ -665,4 +665,23 @@ namespace Multiplayer.Client.Patches
         }
     }
 
+    [HarmonyPatch(typeof(MainTabWindow), nameof(MainTabWindow.SetInitialSizeAndPosition))]
+    static class MainTabWindow_NoResizingInSimulation
+    {
+        static bool Prefix()
+        {
+            return Multiplayer.Client == null || Multiplayer.InInterface;
+        }
+    }
+
+    [HarmonyPatch(typeof(MainTabWindow_PawnTable), nameof(MainTabWindow_PawnTable.DoWindowContents))]
+    static class MainTabWindow_ResizeIfDirty
+    {
+        static void Prefix(MainTabWindow_PawnTable __instance)
+        {
+            if (__instance.table.dirty)
+                __instance.SetInitialSizeAndPosition();
+        }
+    }
+
 }
