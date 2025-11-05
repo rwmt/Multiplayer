@@ -18,7 +18,7 @@ namespace Multiplayer.Common
         protected override void OnClose(ServerDisconnectPacket? goodbye)
         {
             if (goodbye.HasValue)
-                peer.Disconnect(GetDisconnectBytes(goodbye.Value.reason, goodbye.Value.data));
+                peer.Disconnect(goodbye.Value.Serialize().data);
             else
                 peer.Disconnect();
         }

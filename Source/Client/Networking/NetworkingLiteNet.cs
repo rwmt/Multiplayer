@@ -43,10 +43,10 @@ namespace Multiplayer.Client.Networking
 
         public void Tick() => netManager.PollEvents();
 
-        public void OnDisconnect(MpDisconnectReason reason, ByteReader data)
+        public void OnDisconnect(SessionDisconnectInfo disconnectInfo)
         {
             if (State == ConnectionStateEnum.Disconnected) return;
-            ConnectionStatusListeners.TryNotifyAll_Disconnected(SessionDisconnectInfo.From(reason, data));
+            ConnectionStatusListeners.TryNotifyAll_Disconnected(disconnectInfo);
             Multiplayer.StopMultiplayer();
         }
 
@@ -83,8 +83,7 @@ namespace Multiplayer.Client.Networking
                 MpDisconnectReason reason;
                 ByteReader reader;
 
-                // Fallback: should generally be handled by ClientBaseState.HandleDisconnected.
-                if (info.AdditionalData.IsNull || info.AdditionalData.AvailableBytes == 0)
+                if (info.AdditionalData.EndOfData)
                 {
                     if (info.Reason is DisconnectReason.DisconnectPeerCalled or DisconnectReason.RemoteConnectionClose)
                         reason = MpDisconnectReason.Generic;
@@ -101,7 +100,7 @@ namespace Multiplayer.Client.Networking
                     reason = reader.ReadEnum<MpDisconnectReason>();
                 }
 
-                GetConnection(peer).OnDisconnect(reason, reader);
+                GetConnection(peer).OnDisconnect(SessionDisconnectInfo.From(reason, reader));
                 MpLog.Log($"Net client disconnected {info.Reason}");
             }
 

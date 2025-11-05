@@ -283,13 +283,5 @@ namespace Multiplayer.Common
         public virtual void OnKeepAliveArrived(bool idMatched)
         {
         }
-
-        public static byte[] GetDisconnectBytes(MpDisconnectReason reason, byte[]? data = null)
-        {
-            var writer = new ByteWriter();
-            writer.WriteEnum(reason);
-            writer.WriteRaw(data ?? []);
-            return writer.ToArray();
-        }
     }
 }
