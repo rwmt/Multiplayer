@@ -4,6 +4,7 @@ using System.Net.Sockets;
 using LiteNetLib;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
 using Verse;
 
 namespace Multiplayer.Client.Networking
@@ -49,9 +50,9 @@ namespace Multiplayer.Client.Networking
             Multiplayer.StopMultiplayer();
         }
 
-        protected override void OnClose()
+        protected override void OnClose(ServerDisconnectPacket? goodbye)
         {
-            base.OnClose();
+            base.OnClose(goodbye);
             netManager.Stop();
         }
 

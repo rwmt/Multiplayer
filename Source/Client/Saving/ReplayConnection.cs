@@ -1,5 +1,6 @@
 ﻿using System;
 using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
 
 namespace Multiplayer.Client;
 
@@ -30,7 +31,7 @@ public class ReplayConnection : ConnectionBase
     {
     }
 
-    protected override void OnClose()
+    protected override void OnClose(ServerDisconnectPacket? goodbye)
     {
     }
 }

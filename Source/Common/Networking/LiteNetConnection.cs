@@ -1,4 +1,5 @@
 ﻿using LiteNetLib;
+using Multiplayer.Common.Networking.Packet;
 
 namespace Multiplayer.Common
 {
@@ -14,10 +15,12 @@ namespace Multiplayer.Common
                 ServerLog.Error($"SendRaw() called with invalid connection state ({peer}): {peer.ConnectionState}");
         }
 
-        protected override void OnClose()
+        protected override void OnClose(ServerDisconnectPacket? goodbye)
         {
-            peer.NetManager.TriggerUpdate(); // todo: is this needed?
-            peer.NetManager.DisconnectPeer(peer);
+            if (goodbye.HasValue)
+                peer.Disconnect(GetDisconnectBytes(goodbye.Value.reason, goodbye.Value.data));
+            else
+                peer.Disconnect();
         }
 
         public override void OnKeepAliveArrived(bool idMatched)
