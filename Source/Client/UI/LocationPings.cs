@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Multiplayer.Client.Util;
 using Multiplayer.Common.Networking.Packet;
 using RimWorld;
@@ -23,9 +24,19 @@ public class LocationPings
             if (MultiplayerStatic.PingKeyDef.JustPressed || KeyDown(Multiplayer.settings.sendPingButton))
             {
                 if (WorldRendererUtility.WorldSelected)
-                    PingLocation(-1, GenWorld.MouseTile(), Vector3.zero);
+                {
+                    // Grab the tile under mouse
+                    var tile = GenWorld.MouseTile();
+                    // If the tile is not valid, snap to expandable world objects (handles orbital locations)
+                    if (!tile.Valid)
+                        tile = GenWorld.MouseTile(true);
+
+                    // Make sure the tile is valid and that we didn't ping with the mouse outside of map bounds or in space
+                    if (tile.Valid)
+                        PingLocation(-1, tile, Vector3.zero);
+                }
                 else if (Find.CurrentMap != null)
-                    PingLocation(Find.CurrentMap.uniqueID, 0, UI.MouseMapPosition());
+                    PingLocation(Find.CurrentMap.uniqueID, PlanetTile.Invalid, UI.MouseMapPosition());
             }
 
         for (int i = pings.Count - 1; i >= 0; i--)
@@ -69,11 +80,16 @@ public class LocationPings
         if (!Multiplayer.settings.enablePings) return;
 
         var data = packet.data;
+        var planetTile = new PlanetTile(data.planetTileId, data.planetTileLayer);
+        // Return early if both the map and planet tile are invalid
+        if (data.mapId == -1 && !planetTile.Valid)
+            return;
+
         pings.RemoveAll(p => p.player == packet.playerId);
         pings.Add(new PingInfo {
             player = packet.playerId,
             mapId = data.mapId,
-            planetTile = new PlanetTile(data.planetTileId, data.planetTileLayer),
+            planetTile = planetTile,
             mapLoc = new Vector3(data.x, data.y, data.z)
         });
         alertHidden = false;

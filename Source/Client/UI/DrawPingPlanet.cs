@@ -16,6 +16,8 @@ namespace Multiplayer.Client
             {
                 if (ping.mapId != -1) continue;
                 if (ping.PlayerInfo is not { } player) continue;
+                // Only display pings on the current layer
+                if (ping.planetTile.Layer != Find.WorldSelector.SelectedLayer) continue;
 
                 var tileCenter = GenWorldUI.WorldToUIPosition(Find.WorldGrid.GetTileCenter(ping.planetTile));
                 const float size = 30f;
