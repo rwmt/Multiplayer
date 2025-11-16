@@ -684,4 +684,45 @@ namespace Multiplayer.Client.Patches
         }
     }
 
+    [HarmonyPatch(typeof(PawnsArrivalModeWorker_EmergeFromWater), nameof(PawnsArrivalModeWorker_EmergeFromWater.Arrive))]
+    static class PawnsArrivalModeWorker_EmergeFromWater_FixCurrentMapUsage
+    {
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instr)
+        {
+            // Due to an oversight, the vanilla method is using Find.CurrentMap rather than using (Map)parms.target.
+            // This causes bugs in the game, like mechanoids emerging from void/sand/random locations rather than water.
+            // For us, it currently causes desyncs with multiple maps active, so we need to fix it.
+
+            var currentMapMethod = typeof(Find).DeclaredPropertyGetter(nameof(Find.CurrentMap));
+            var targetField = typeof(IncidentParms).DeclaredField(nameof(IncidentParms.target));
+
+            var patched = 0;
+
+            foreach (var ci in instr)
+            {
+                yield return ci;
+
+                // Replace the Find.CurrentMap calls with (Map)parms.target
+                if (ci.Calls(currentMapMethod))
+                {
+                    // Change the current instruction to load the 2nd argument (IncidentParms)
+                    ci.opcode = OpCodes.Ldarg_2;
+                    ci.operand = null;
+
+                    // Load the IncidentParms.target field
+                    yield return new CodeInstruction(OpCodes.Ldfld, targetField);
+
+                    // Cast the field's value to Map
+                    yield return new CodeInstruction(OpCodes.Castclass, typeof(Map));
+
+                    patched++;
+                }
+            }
+
+            const int expectedPatches = 2;
+            if (patched != expectedPatches)
+                Log.Error($"Patching emerge from water arrival mode failed. Expected patches: {expectedPatches}, actual patches: {patched}. There was either an issue or the bug was fixed in RimWorld itself.");
+        }
+    }
+
 }
