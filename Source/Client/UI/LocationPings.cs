@@ -89,4 +89,4 @@ public class LocationPings
         if (player != Multiplayer.session.playerId)
             SoundDefOf.TinyBell.PlayOneShotOnCamera();
     }
-}   
+}
