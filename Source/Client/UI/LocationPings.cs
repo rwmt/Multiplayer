@@ -82,6 +82,7 @@ public class LocationPings
     public void ReceivePing(int player, int map, PlanetTile tile, Vector3 loc)
     {
         if (!Multiplayer.settings.enablePings) return;
+
         pings.RemoveAll(p => p.player == player);
         pings.Add(new PingInfo { player = player, mapId = map, planetTile = tile, mapLoc = loc });
         alertHidden = false;
