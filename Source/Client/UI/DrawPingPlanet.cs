@@ -17,8 +17,6 @@ namespace Multiplayer.Client
                 if (ping.mapId != -1) continue;
                 if (ping.PlayerInfo is not { } player) continue;
 
-                Log.Message("planetlayer: " + ping.planetTile.Layer.def.defName);
-
                 var tileCenter = GenWorldUI.WorldToUIPosition(Find.WorldGrid.GetTileCenter(ping.planetTile));
                 const float size = 30f;
 
