@@ -22,10 +22,7 @@ namespace Multiplayer.Client
 
                 //Only draw pings for layers that are on the layer we're at or lower
                 if (PlanetLayer.Selected.layerId >= ping.planetTile.layerId)
-                {
-
                     ping.DrawAt(tileCenter, player.color, size);
-                }
             }
         }
     }

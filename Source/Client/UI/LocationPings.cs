@@ -24,19 +24,15 @@ public class LocationPings
             {
                 if (WorldRendererUtility.WorldSelected)
                 {
-                    //Get the tile under the mouse and snap it to the nearest valid item (asteroid if in space, etc)
+                    //Get the tile under the mouse and snap it to the nearest valid item. (i.e. An asteroid if in space, etc)
                     var mouseTile = GenWorld.MouseTile(true);
 
-                    //If the tileId == -1, mouseTile is invalid (eg. mouse is over ocean or in space) and out of range.
+                    //If the tileId == -1, mouseTile is invalid (i.e. the mouse is over ocean or in space) and out of range.
                     if (mouseTile.tileId != -1)
-                    {
                         PingLocation(-1, mouseTile, Vector3.zero);
-                    }
                 }
                 else if (Find.CurrentMap != null)
-                {
                     PingLocation(Find.CurrentMap.uniqueID, 0, UI.MouseMapPosition());
-                }
             }
 
         for (int i = pings.Count - 1; i >= 0; i--)
@@ -93,4 +89,4 @@ public class LocationPings
         if (player != Multiplayer.session.playerId)
             SoundDefOf.TinyBell.PlayOneShotOnCamera();
     }
-}
+}   
