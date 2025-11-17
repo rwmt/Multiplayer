@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ModMetaData>
-  <packageId>rwmt.Multiplayer.testing</packageId>
+  <packageId>rwmt.Multiplayer</packageId>
   <name>Multiplayer</name>
   <supportedVersions>
     <li>1.6</li>
