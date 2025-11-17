@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld;
@@ -23,9 +24,20 @@ public class LocationPings
             if (MultiplayerStatic.PingKeyDef.JustPressed || KeyDown(Multiplayer.settings.sendPingButton))
             {
                 if (WorldRendererUtility.WorldSelected)
-                    PingLocation(-1, GenWorld.MouseTile(), Vector3.zero);
+                {
+                    //Get the tile under the mouse and snap it to the nearest valid item (asteroid if in space, etc)
+                    var mouseTile = GenWorld.MouseTile(true);
+
+                    //If the tileId == -1, mouseTile is invalid (eg. mouse is over ocean or in space) and out of range.
+                    if (mouseTile.tileId != -1)
+                    {
+                        PingLocation(-1, mouseTile, Vector3.zero);
+                    }
+                }
                 else if (Find.CurrentMap != null)
+                {
                     PingLocation(Find.CurrentMap.uniqueID, 0, UI.MouseMapPosition());
+                }
             }
 
         for (int i = pings.Count - 1; i >= 0; i--)
@@ -75,7 +87,6 @@ public class LocationPings
     public void ReceivePing(int player, int map, PlanetTile tile, Vector3 loc)
     {
         if (!Multiplayer.settings.enablePings) return;
-
         pings.RemoveAll(p => p.player == player);
         pings.Add(new PingInfo { player = player, mapId = map, planetTile = tile, mapLoc = loc });
         alertHidden = false;
