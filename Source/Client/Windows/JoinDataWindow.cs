@@ -167,7 +167,7 @@ namespace Multiplayer.Client
                 }
             }
 
-            var localConfigs = JoinData.GetSyncableConfigContents(remote.RemoteModIds.ToList());
+            var localConfigs = SyncConfigs.GetSyncableConfigContents(remote.RemoteModIds.ToList());
 
             if (remote.hasConfigs)
             {
