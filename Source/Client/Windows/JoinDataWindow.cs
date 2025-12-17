@@ -756,7 +756,7 @@ namespace Multiplayer.Client
                 tempDir.Create();
 
                 foreach (var config in data.remoteModConfigs)
-                    File.WriteAllText(Path.Combine(tempPath, $"{config.ModId}-{config.FileName}"), config.Contents);
+                    File.WriteAllText(Path.Combine(tempPath, $"Mod_{config.ModId}_{config.FileName}.xml"), config.Contents);
             }
 
             var connectTo = data.remoteSteamHost != null
