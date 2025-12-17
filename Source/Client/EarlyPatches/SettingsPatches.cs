@@ -132,10 +132,9 @@ namespace Multiplayer.Client.EarlyPatches
             if (JoinData.ignoredConfigsModIds.Contains(mod.ModMetaData.PackageIdNonUnique))
                 return;
 
-            // Example: MultiplayerTempConfigs/rwmt.multiplayer-Multiplayer
             var newPath = Path.Combine(
                 GenFilePaths.FolderUnderSaveData(JoinData.TempConfigsDir),
-                GenText.SanitizeFilename(mod.PackageIdPlayerFacing.ToLowerInvariant() + "-" + modHandleName)
+                GenText.SanitizeFilename($"Mod_{mod.PackageIdPlayerFacing.ToLowerInvariant()}_{modHandleName}.xml")
             );
 
             __result = newPath;
