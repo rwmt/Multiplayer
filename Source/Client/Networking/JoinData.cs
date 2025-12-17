@@ -1,7 +1,5 @@
-using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using HarmonyLib;
@@ -49,7 +47,7 @@ namespace Multiplayer.Client
             data.WriteBool(writeConfigs);
             if (writeConfigs)
             {
-                var configs = GetSyncableConfigContents(
+                var configs = SyncConfigs.GetSyncableConfigContents(
                     activeModsSnapshot.Select(m => m.PackageIdNonUnique).ToList()
                 );
 
@@ -126,93 +124,13 @@ namespace Multiplayer.Client
             return ModLister.GetModWithIdentifier(id);
         }
 
-        [SuppressMessage("ReSharper", "StringLiteralTypo")]
-        public static string[] ignoredConfigsModIds =
-        {
-            // todo unhardcode it
-            "rwmt.multiplayer",
-            "hodlhodl.twitchtoolkit", // contains username
-            "dubwise.dubsmintmenus",
-            "dubwise.dubsmintminimap",
-            "arandomkiwi.rimthemes",
-            "brrainz.cameraplus",
-            "giantspacehamster.moody",
-            "fluffy.modmanager",
-            "jelly.modswitch",
-            "betterscenes.rimconnect", // contains secret key for streamer
-            "jaxe.rimhud",
-            "telefonmast.graphicssettings",
-            "derekbickley.ltocolonygroupsfinal",
-            "dra.multiplayercustomtickrates", // syncs its own settings
-            "merthsoft.designatorshapes", // settings for UI and stuff meaningless for MP
-            //"zetrith.prepatcher",
-        };
-
-        public const string TempConfigsDir = "MultiplayerTempConfigs";
-        public const string HugsLibId = "unlimitedhugs.hugslib";
-        public const string HugsLibSettingsFile = "ModSettings";
-
-        public static List<ModConfig> GetSyncableConfigContents(List<string> modIds)
-        {
-            var list = new List<ModConfig>();
-
-            foreach (var modId in modIds)
-            {
-                if (ignoredConfigsModIds.Contains(modId)) continue;
-
-                var mod = LoadedModManager.RunningModsListForReading.FirstOrDefault(m => m.PackageIdPlayerFacing.ToLowerInvariant() == modId);
-                if (mod == null) continue;
-
-                foreach (var modInstance in LoadedModManager.runningModClasses.Values)
-                {
-                    if (modInstance.modSettings == null) continue;
-                    if (!mod.assemblies.loadedAssemblies.Contains(modInstance.GetType().Assembly)) continue;
-
-                    var instanceName = modInstance.GetType().Name;
-
-                    // This path may point to configs downloaded from the server
-                    var file = LoadedModManager.GetSettingsFilename(mod.FolderName, instanceName);
-
-                    if (File.Exists(file))
-                        list.Add(GetConfigCatchError(file, modId, instanceName));
-                }
-            }
-
-            // Special case for HugsLib
-            if (modIds.Contains(HugsLibId) && GetInstalledMod(HugsLibId) is { Active: true })
-            {
-                var hugsConfig =
-                    HugsLib_OverrideConfigsPatch.HugsLibConfigOverridenPath ??
-                    Path.Combine(GenFilePaths.SaveDataFolderPath, "HugsLib", "ModSettings.xml");
-
-                if (File.Exists(hugsConfig))
-                    list.Add(GetConfigCatchError(hugsConfig, HugsLibId, HugsLibSettingsFile));
-            }
-
-            return list;
-
-            ModConfig GetConfigCatchError(string path, string id, string file)
-            {
-                try
-                {
-                    var configContents = File.ReadAllText(path);
-                    return new ModConfig(id, file, configContents);
-                }
-                catch (Exception e)
-                {
-                    Log.Error($"Exception getting config contents {file}: {e}");
-                    return new ModConfig(id, "ERROR", "");
-                }
-            }
-        }
-
         public static bool CompareToLocal(RemoteData remote)
         {
             return
                 remote.remoteRwVersion == VersionControl.CurrentVersionString &&
                 remote.CompareMods(activeModsSnapshot) == ModListDiff.None &&
                 remote.remoteFiles.DictsEqual(modFilesSnapshot) &&
-                (!remote.hasConfigs || remote.remoteModConfigs.EqualAsSets(GetSyncableConfigContents(remote.RemoteModIds.ToList())));
+                (!remote.hasConfigs || remote.remoteModConfigs.EqualAsSets(SyncConfigs.GetSyncableConfigContents(remote.RemoteModIds.ToList())));
         }
 
         internal static void TakeModDataSnapshot()
