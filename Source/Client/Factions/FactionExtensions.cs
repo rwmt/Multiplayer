@@ -1,6 +1,6 @@
+using System.Linq;
 using RimWorld;
 using RimWorld.Planet;
-using System.Linq;
 using Verse;
 
 namespace Multiplayer.Client.Factions;
@@ -25,10 +25,7 @@ public static class FactionExtensions
         map.PushFaction(faction);
     }
 
-    public static Faction PopFaction()
-    {
-        return PopFaction(null);
-    }
+    public static Faction PopFaction() => PopFaction(null);
 
     public static Faction PopFaction(this Map map)
     {

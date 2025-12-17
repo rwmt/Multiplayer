@@ -175,7 +175,11 @@ namespace Multiplayer.Client
                     ScheduledCommand cmd = tickable.Cmds.Dequeue();
                     // Minimal code impact fix for #733. Having all the commands be added to a single queue gets rid of
                     // the out-of-order execution problem. With a proper fix, this can be reverted to tickable.ExecuteCmd
-                    TickableById(cmd.mapId).ExecuteCmd(cmd);
+                    var target = TickableById(cmd.mapId);
+                    if (target == null)
+                    {
+                        Log.Error($"!!! Tickable of {cmd.mapId} not found! {cmd}");
+                    } else target.ExecuteCmd(cmd);
 
                     if (LongEventHandler.eventQueue.Count > 0) return true; // Yield to e.g. join-point creation
                 }
@@ -290,10 +294,7 @@ namespace Multiplayer.Client
             return rate;
         }
 
-        public static void ClearSimulating()
-        {
-            simulating = null;
-        }
+        public static void ClearSimulating() => simulating = null;
 
         public static void Reset()
         {
@@ -309,15 +310,9 @@ namespace Multiplayer.Client
             TimeControlPatch.prePauseTimeSpeed = null;
         }
 
-        public static void SetTimer(int value)
-        {
-            Timer = value;
-        }
+        public static void SetTimer(int value) => Timer = value;
 
-        public static ITickable TickableById(int tickableId)
-        {
-            return AllTickables.FirstOrDefault(t => t.TickableId == tickableId);
-        }
+        public static ITickable TickableById(int tickableId) => AllTickables.FirstOrDefault(t => t.TickableId == tickableId);
     }
 
     public class SimulatingData

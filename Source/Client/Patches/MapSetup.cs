@@ -9,17 +9,12 @@ namespace Multiplayer.Client;
 [HarmonyPatch(typeof(MapGenerator), nameof(MapGenerator.GenerateMap))]
 public static class MapSetup
 {
-    public static bool SetupNextMapFromTickZero = false;
+    public static bool SetupNextMapFromTickZero;
 
     static void Prefix(ref Action<Map> extraInitBeforeContentGen)
     {
         if (Multiplayer.Client == null) return;
-        extraInitBeforeContentGen += SetupMap;
-    }
-
-    public static void SetupMap(Map map)
-    {
-        SetupMap(map, false);
+        extraInitBeforeContentGen += map => SetupMap(map);
     }
 
     public static void SetupMap(Map map, bool usingMapTimeFromSingleplayer = false)
@@ -48,7 +43,6 @@ public static class MapSetup
         int startingMapTicks;
         int gameStartAbsTick;
         TimeSpeed startingTimeSpeed;
-        AsyncTimeComp asyncTimeCompForMap;
 
         bool startingMapTimeFromBeginning =
             Multiplayer.GameComp.multifaction &&
@@ -77,9 +71,11 @@ public static class MapSetup
         if (!Multiplayer.GameComp.asyncTime)
             startingTimeSpeed = Find.TickManager.CurTimeSpeed;
 
-        asyncTimeCompForMap = new AsyncTimeComp(map, gameStartAbsTick);
-        asyncTimeCompForMap.mapTicks = startingMapTicks;
-        asyncTimeCompForMap.DesiredTimeSpeed = startingTimeSpeed;
+        var asyncTimeCompForMap = new AsyncTimeComp(map, gameStartAbsTick)
+        {
+            mapTicks = startingMapTicks,
+            DesiredTimeSpeed = startingTimeSpeed
+        };
 
         SetupNextMapFromTickZero = false;
 

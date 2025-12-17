@@ -173,9 +173,9 @@ namespace Multiplayer.Client
         public void PreContext()
         {
             map.PushFaction(
-                map.ParentFaction is { IsPlayer: true }
-                ? map.ParentFaction
-                : Multiplayer.WorldComp.spectatorFaction,
+                !Multiplayer.GameComp.multifaction || map.ParentFaction is { IsPlayer: true }
+                    ? map.ParentFaction
+                    : Multiplayer.WorldComp.spectatorFaction,
                 force: true);
 
             prevTime = TimeSnapshot.GetAndSetFromMap(map);
