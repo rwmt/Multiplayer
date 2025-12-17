@@ -1,8 +1,8 @@
+using System;
 using HarmonyLib;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld.Planet;
-using System;
 using Verse;
 
 namespace Multiplayer.Client.Patches
@@ -46,7 +46,7 @@ namespace Multiplayer.Client.Patches
             if (__instance is Gravship or TravellingTransporters)
                 __result = VTRSync.MinimumVtr;
             else
-                __result = VTRSync.MaximumVtr;
+                __result = Multiplayer.AsyncWorldTime.VTR;
 
             return false;
         }
@@ -54,7 +54,7 @@ namespace Multiplayer.Client.Patches
 
     static class VTRSync
     {
-        // Special identifier for world map (since it doesn't have a uniqueID like regular maps)
+        // Special identifier for the world map (since it doesn't have a uniqueID like regular maps)
         public const int WorldMapId = -2;
         public const int InvalidMapId = -1;
         public static int lastMovedToMapId = InvalidMapId;

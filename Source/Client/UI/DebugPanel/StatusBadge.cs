@@ -1,3 +1,5 @@
+using Multiplayer.Client.Patches;
+using RimWorld.Planet;
 using UnityEngine;
 using Verse;
 
@@ -32,20 +34,20 @@ namespace Multiplayer.Client.DebugUi
         public static StatusBadge GetPerformanceStatus()
         {
             float tps = IngameUIPatch.tps;
-            
+
             if (PerformanceCalculator.IsInStabilizationPeriod())
             {
                 return new StatusBadge("▲", Color.yellow, "STAB", "Stabilizing after speed change");
             }
-            
+
             float normalizedTps = PerformanceCalculator.GetNormalizedTPS(tps);
-            
-            string tooltip = normalizedTps >= 90f ? "Performance is excellent" : 
-                            normalizedTps >= 70f ? "Performance is good" : 
-                            normalizedTps >= 50f ? "Performance is moderate" : 
-                            normalizedTps >= 25f ? "Performance is poor" : 
+
+            string tooltip = normalizedTps >= 90f ? "Performance is excellent" :
+                            normalizedTps >= 70f ? "Performance is good" :
+                            normalizedTps >= 50f ? "Performance is moderate" :
+                            normalizedTps >= 25f ? "Performance is poor" :
                             "Performance is very poor";
-            
+
             return new StatusBadge("▲", PerformanceCalculator.GetPerformanceColor(normalizedTps, 90f, 70f), $"{normalizedTps:F0}%", tooltip);
         }
 
@@ -60,15 +62,19 @@ namespace Multiplayer.Client.DebugUi
 
         public static StatusBadge GetVtrStatus()
         {
-            int rate = Find.CurrentMap?.AsyncTime()?.VTR ?? Patches.VTRSync.MaximumVtr;
+            int rate = (WorldRendererUtility.WorldSelected
+                ? Multiplayer.AsyncWorldTime?.VTR
+                : Find.CurrentMap.AsyncTime()?.VTR) ?? VTRSync.MaximumVtr;
             return new StatusBadge("V", rate == 15 ? Color.red : Color.green, rate.ToString(), $"Variable Tick Rate: Things update every {rate} tick(s)");
         }
 
         public static StatusBadge GetNumOfPlayersStatus()
         {
-            int playerCount = Find.CurrentMap?.AsyncTime()?.CurrentPlayerCount ?? 0;
+            int playerCount = (WorldRendererUtility.WorldSelected
+                ? Multiplayer.AsyncWorldTime?.CurrentPlayerCount
+                : Find.CurrentMap.AsyncTime()?.CurrentPlayerCount) ?? 0;
             return new StatusBadge("P", playerCount > 0 ? Color.green : Color.red, $"{playerCount}", "Active players in the current map");
         }
 
     }
-} 
+}

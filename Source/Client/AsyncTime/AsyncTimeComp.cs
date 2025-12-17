@@ -1,16 +1,15 @@
-using HarmonyLib;
-using Multiplayer.Common;
-using RimWorld;
-using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
-using Verse;
+using HarmonyLib;
 using Multiplayer.Client.Comp;
 using Multiplayer.Client.Factions;
 using Multiplayer.Client.Patches;
 using Multiplayer.Client.Saving;
 using Multiplayer.Client.Util;
-using System.Linq;
+using Multiplayer.Common;
+using RimWorld;
+using RimWorld.Planet;
+using Verse;
 
 namespace Multiplayer.Client
 {
@@ -99,7 +98,7 @@ namespace Multiplayer.Client
 
         public Queue<ScheduledCommand> cmds = new();
 
-        public int CurrentPlayerCount { get; private set; } = 0;
+        public int CurrentPlayerCount { get; private set; }
         public int VTR => CurrentPlayerCount > 0 ? VTRSync.MinimumVtr : VTRSync.MaximumVtr;
 
         public AsyncTimeComp(Map map, int gameStartAbsTick = 0)
@@ -232,8 +231,10 @@ namespace Multiplayer.Client
             Scribe_Custom.LookULong(ref randState, "randState", 1);
         }
 
-        public void IncreasePlayerCount() => CurrentPlayerCount++;
-        public void DecreasePlayerCount() => CurrentPlayerCount = Math.Max(0, CurrentPlayerCount - 1);
+        public int IncreasePlayerCount() => CurrentPlayerCount += 1;
+        // This should never go below 0, this is just defensive programming. Hopefully not needed anymore, but
+        // nevertheless still left.
+        public int DecreasePlayerCount() => CurrentPlayerCount = Math.Max(0, CurrentPlayerCount - 1);
 
         public void FinalizeInit()
         {
