@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using HarmonyLib;
 using Multiplayer.Client.Patches;
+using Multiplayer.Client.Util;
 using Verse;
 
 namespace Multiplayer.Client.EarlyPatches
@@ -132,12 +133,7 @@ namespace Multiplayer.Client.EarlyPatches
             if (JoinData.ignoredConfigsModIds.Contains(mod.ModMetaData.PackageIdNonUnique))
                 return;
 
-            var newPath = Path.Combine(
-                GenFilePaths.FolderUnderSaveData(JoinData.TempConfigsDir),
-                GenText.SanitizeFilename($"Mod_{mod.PackageIdPlayerFacing.ToLowerInvariant()}_{modHandleName}.xml")
-            );
-
-            __result = newPath;
+            __result = SyncConfigs.GetConfigPath(mod.PackageIdPlayerFacing.ToLowerInvariant(), modHandleName);
         }
     }
 

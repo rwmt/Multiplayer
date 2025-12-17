@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
 using System.Linq;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
@@ -750,13 +749,7 @@ namespace Multiplayer.Client
 
             if (applyConfigs)
             {
-                var tempPath = GenFilePaths.FolderUnderSaveData(JoinData.TempConfigsDir);
-                var tempDir = new DirectoryInfo(tempPath);
-                tempDir.Delete(true);
-                tempDir.Create();
-
-                foreach (var config in data.remoteModConfigs)
-                    File.WriteAllText(Path.Combine(tempPath, $"Mod_{config.ModId}_{config.FileName}.xml"), config.Contents);
+                SyncConfigs.SaveConfigs(data.remoteModConfigs);
             }
 
             // The env variables will get inherited by the child process started in GenCommandLine.Restart
