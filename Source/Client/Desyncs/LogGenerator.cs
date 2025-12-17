@@ -35,12 +35,10 @@ namespace Multiplayer.Client
 
                 return logSection;
             }
-            catch
+            catch(Exception e)
             {
-                // ignored
+                return $"Failed to generate log data: {e}";
             }
-
-            return null;
         }
 
         private static string NormalizeLineEndings(string log)
