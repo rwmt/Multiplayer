@@ -19,7 +19,8 @@ public static class SyncConfigs
     public static bool Applicable { private set; get; }
 
     // The env variable will get inherited by the child process started in GenCommandLine.Restart
-    public static void MarkApplicableForChildProcess() => Environment.SetEnvironmentVariable(RestartConfigsVariable, "true");
+    public static void MarkApplicableForChildProcess() =>
+        Environment.SetEnvironmentVariable(RestartConfigsVariable, "true");
 
     public static void Init()
     {
@@ -66,12 +67,10 @@ public static class SyncConfigs
     {
         var list = new List<ModConfig>();
 
-        foreach (var modId in modIds)
+        foreach (var modId in modIds.Except(ignoredConfigsModIds))
         {
-            if (ignoredConfigsModIds.Contains(modId)) continue;
-
-            var mod = LoadedModManager.RunningMods.FirstOrDefault(m =>
-                m.PackageIdPlayerFacing.ToLowerInvariant() == modId);
+            var mod = LoadedModManager.RunningMods
+                .FirstOrDefault(m => m.PackageIdPlayerFacing.EqualsIgnoreCase(modId));
             if (mod == null) continue;
 
             foreach (var modInstance in LoadedModManager.runningModClasses.Values)
@@ -129,9 +128,7 @@ static class OverrideConfigsPatch
 
     static void Postfix(string modIdentifier, string modHandleName, ref string __result)
     {
-        if (!SyncConfigs.Applicable)
-            return;
-
+        if (!SyncConfigs.Applicable) return;
         if (!modCache.TryGetValue((modIdentifier, modHandleName), out var mod))
         {
             mod = modCache[(modIdentifier, modHandleName)] =
@@ -141,11 +138,8 @@ static class OverrideConfigsPatch
                 );
         }
 
-        if (mod == null)
-            return;
-
-        if (SyncConfigs.ignoredConfigsModIds.Contains(mod.ModMetaData.PackageIdNonUnique))
-            return;
+        if (mod == null) return;
+        if (SyncConfigs.ignoredConfigsModIds.Contains(mod.ModMetaData.PackageIdNonUnique)) return;
 
         __result = SyncConfigs.GetConfigPath(mod.PackageIdPlayerFacing.ToLowerInvariant(), modHandleName);
     }
