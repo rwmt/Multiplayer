@@ -6,7 +6,7 @@ using System.IO;
 using System.Linq;
 using HarmonyLib;
 using Ionic.Zlib;
-using Multiplayer.Client.EarlyPatches;
+using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld;
 using Steamworks;

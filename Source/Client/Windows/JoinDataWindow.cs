@@ -750,11 +750,11 @@ namespace Multiplayer.Client
             if (applyConfigs)
             {
                 SyncConfigs.SaveConfigs(data.remoteModConfigs);
+                SyncConfigs.MarkApplicableForChildProcess();
             }
 
             // The env variables will get inherited by the child process started in GenCommandLine.Restart
             Environment.SetEnvironmentVariable(EarlyInit.RestartConnectVariable, data.connectionString);
-            Environment.SetEnvironmentVariable(EarlyInit.RestartConfigsVariable, applyConfigs ? "true" : "false");
 
             GenCommandLine.Restart();
         }
