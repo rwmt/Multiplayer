@@ -76,9 +76,7 @@ namespace Multiplayer.Client
             {
                 remoteRwVersion = packet.rwVersion,
                 remoteMpVersion = packet.mpVersion,
-                remoteAddress = Multiplayer.session.address,
-                remotePort = Multiplayer.session.port,
-                remoteSteamHost = Multiplayer.session.steamHost
+                connectionString = Multiplayer.session.connector.GetConnectionString()
             };
 
             var defDiff = false;

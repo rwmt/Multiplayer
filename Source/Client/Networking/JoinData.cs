@@ -290,9 +290,7 @@ namespace Multiplayer.Client
 
         public IEnumerable<string> RemoteModIds => remoteMods.Select(m => m.packageId);
 
-        public string remoteAddress;
-        public int remotePort;
-        public CSteamID? remoteSteamHost;
+        public string connectionString;
 
         public ModListDiff CompareMods(List<ModMetaData> localMods)
         {

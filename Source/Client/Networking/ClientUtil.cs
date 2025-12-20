@@ -1,7 +1,5 @@
-using Multiplayer.Common;
-using Steamworks;
+using Multiplayer.Client.Util;
 using Verse;
-using Multiplayer.Client.Networking;
 
 namespace Multiplayer.Client
 {
@@ -12,36 +10,20 @@ namespace Multiplayer.Client
 
     public static class ClientUtil
     {
-        public static void TryConnectWithWindow(string address, int port, bool returnToServerBrowser = true)
+        public static void TryConnectWithWindow(IConnector connector, bool returnToServerBrowser = true)
         {
-            Find.WindowStack.Add(new ConnectingWindow(address, port) { returnToServerBrowser = returnToServerBrowser });
-
-            Multiplayer.session = new MultiplayerSession
-            {
-                address = address,
-                port = port
-            };
-
-            var conn = ClientLiteNetConnection.Connect(address, port);
+            var (conn, window) = connector.Connect();
             conn.username = Multiplayer.username;
-            Multiplayer.session.client = conn;
-            Multiplayer.session.ReapplyPrefs();
-        }
-
-        public static void TrySteamConnectWithWindow(CSteamID user, bool returnToServerBrowser = true)
-        {
-            Log.Message("Connecting through Steam");
 
             Multiplayer.session = new MultiplayerSession
             {
-                client = new SteamClientConn(user) { username = Multiplayer.username },
-                steamHost = user
+                client = conn,
+                connector = connector
             };
-
-            Find.WindowStack.Add(new SteamConnectingWindow(user) { returnToServerBrowser = returnToServerBrowser });
-
             Multiplayer.session.ReapplyPrefs();
-            Multiplayer.Client.ChangeState(ConnectionStateEnum.ClientSteam);
+
+            window.returnToServerBrowser = returnToServerBrowser;
+            Find.WindowStack.Add(window);
         }
     }
 }

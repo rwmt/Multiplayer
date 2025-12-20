@@ -52,9 +52,7 @@ namespace Multiplayer.Client
         public Process arbiter;
         public bool ArbiterPlaying => players.Any(p => p.type == PlayerType.Arbiter && p.status == PlayerStatus.Playing);
 
-        public string address;
-        public int port;
-        public CSteamID? steamHost;
+        public IConnector connector;
 
         public void Stop()
         {
@@ -102,11 +100,7 @@ namespace Multiplayer.Client
         public void Reconnect(string username)
         {
             Multiplayer.username = username;
-
-            if (steamHost is { } host)
-                ClientUtil.TrySteamConnectWithWindow(host);
-            else
-                ClientUtil.TryConnectWithWindow(address, port);
+            ClientUtil.TryConnectWithWindow(connector);
         }
 
         public void Connected()
