@@ -43,7 +43,13 @@ public class ServerJoiningState : AsyncConnectionState
         if (packet.protocolVersion != MpVersion.Protocol)
             Player.Disconnect(MpDisconnectReason.Protocol, ByteWriter.GetBytes(MpVersion.Version, MpVersion.Protocol));
         else
+        {
             Player.conn.Send(new ServerProtocolOkPacket(Server.settings.hasPassword));
+
+            // Let the client know early when the server is in bootstrap mode so it can switch
+            // to server-configuration flow while keeping the connection open.
+            Player.conn.Send(new ServerBootstrapPacket(Server.BootstrapMode));
+        }
     }
 
     private void HandleUsername(ClientUsernamePacket packet)

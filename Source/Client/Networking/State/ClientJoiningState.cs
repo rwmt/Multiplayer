@@ -18,6 +18,15 @@ namespace Multiplayer.Client
         }
 
         [TypedPacketHandler]
+        public void HandleBootstrap(ServerBootstrapPacket packet)
+        {
+            // Server informs us early that it's in bootstrap/configuration mode.
+            // Full UI/flow is handled on the client side; for now we just persist the flag
+            // so receiving the packet doesn't error during join (tests rely on this).
+            Multiplayer.session.serverIsInBootstrap = packet.bootstrap;
+        }
+
+        [TypedPacketHandler]
         public new void HandleDisconnected(ServerDisconnectPacket packet) => base.HandleDisconnected(packet);
 
         public override void StartState()

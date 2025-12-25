@@ -56,6 +56,9 @@ namespace Multiplayer.Client
         public int port;
         public CSteamID? steamHost;
 
+    // Set during handshake (see Server_Bootstrap packet) to indicate the server is waiting for configuration/upload.
+    public bool serverIsInBootstrap;
+
         public void Stop()
         {
             if (client != null)

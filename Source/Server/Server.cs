@@ -43,6 +43,7 @@ else
     ServerLog.Log($"Bootstrap mode: '{saveFile}' not found. Server will start without a loaded save.");
     ServerLog.Log("Waiting for a client to upload world data.");
 }
+            server.BootstrapMode = bootstrap;
 
 if (bootstrap)
     ServerLog.Detail("Bootstrap flag is enabled.");

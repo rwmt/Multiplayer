@@ -8,6 +8,7 @@ public enum ConnectionStateEnum : byte
     ClientSteam,
 
     ServerJoining,
+    ServerBootstrap,
     ServerLoading,
     ServerPlaying,
     ServerSteam, // unused

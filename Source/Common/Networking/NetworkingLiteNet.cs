@@ -21,7 +21,9 @@ namespace Multiplayer.Common
         public void OnPeerConnected(NetPeer peer)
         {
             var conn = new LiteNetConnection(peer);
-            conn.ChangeState(ConnectionStateEnum.ServerJoining);
+            conn.ChangeState(server.BootstrapMode
+                ? ConnectionStateEnum.ServerBootstrap
+                : ConnectionStateEnum.ServerJoining);
             peer.SetConnection(conn);
 
             var player = server.playerManager.OnConnected(conn);

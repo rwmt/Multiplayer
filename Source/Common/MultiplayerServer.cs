@@ -16,6 +16,7 @@ namespace Multiplayer.Common
         {
             MpConnectionState.SetImplementation(ConnectionStateEnum.ServerSteam, typeof(ServerSteamState));
             MpConnectionState.SetImplementation(ConnectionStateEnum.ServerJoining, typeof(ServerJoiningState));
+            MpConnectionState.SetImplementation(ConnectionStateEnum.ServerBootstrap, typeof(ServerBootstrapState));
             MpConnectionState.SetImplementation(ConnectionStateEnum.ServerLoading, typeof(ServerLoadingState));
             MpConnectionState.SetImplementation(ConnectionStateEnum.ServerPlaying, typeof(ServerPlayingState));
         }
@@ -60,10 +61,16 @@ namespace Multiplayer.Common
 
         public volatile bool running;
 
+    /// <summary>
+    /// True when the server is running without an initial save loaded.
+    /// In this mode the first connected client is expected to configure/upload the world.
+    /// </summary>
+    public bool BootstrapMode { get; set; }
+
         public bool ArbiterPlaying => PlayingPlayers.Any(p => p.IsArbiter && p.status == PlayerStatus.Playing);
         public ServerPlayer HostPlayer => PlayingPlayers.First(p => p.IsHost);
 
-        public bool FullyStarted => running && worldData.savedGame != null;
+    public bool FullyStarted => running && worldData.savedGame != null;
 
         public const float StandardTimePerTick = 1000.0f / 60.0f;
 

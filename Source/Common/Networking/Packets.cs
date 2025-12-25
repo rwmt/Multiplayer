@@ -35,6 +35,13 @@ public enum Packets : byte
     Client_SetFaction,
     Client_FrameTime,
 
+    // Bootstrap
+    Client_BootstrapUploadStart,
+    Client_BootstrapUploadData,
+    Client_BootstrapUploadFinish,
+    Server_Bootstrap,
+    Server_BootstrapComplete,
+
     // Joining
     Server_ProtocolOk,
     Server_InitDataRequest,

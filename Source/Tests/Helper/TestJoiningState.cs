@@ -16,6 +16,10 @@ public class TestJoiningState : AsyncConnectionState
         connection.Send(ClientProtocolPacket.Current());
         await TypedPacket<ServerProtocolOkPacket>();
 
+        // Newer protocol: server can additionally inform us during handshake that it's in bootstrap mode.
+        // Consume it to keep the test handshake robust across versions.
+        await TypedPacket<ServerBootstrapPacket>();
+
         connection.Send(new ClientUsernamePacket(connection.username!));
         await TypedPacket<ServerInitDataRequestPacket>();
 
