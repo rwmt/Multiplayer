@@ -88,6 +88,11 @@ new Thread(server.Run) { Name = "Server thread" }.Start();
 if (bootstrap)
     BootstrapMode.WaitForClient(server, CancellationToken.None);
 
+// If bootstrap mode completed (a client uploaded save.zip) the server thread will have set
+// server.running = false. In that case, exit so the user can restart the server normally.
+if (bootstrap && !server.running)
+    return;
+
 while (true)
 {
     var cmd = Console.ReadLine();
