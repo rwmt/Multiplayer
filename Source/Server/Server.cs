@@ -29,9 +29,23 @@ var server = MultiplayerServer.instance = new MultiplayerServer(settings)
     running = true,
 };
 
+var bootstrap = false;
+
 var consoleSource = new ConsoleSource();
 
-LoadSave(server, saveFile);
+if (File.Exists(saveFile))
+{
+    LoadSave(server, saveFile);
+}
+else
+{
+    bootstrap = true;
+    ServerLog.Log($"Bootstrap mode: '{saveFile}' not found. Server will start without a loaded save.");
+    ServerLog.Log("Waiting for a client to upload world data.");
+}
+
+if (bootstrap)
+    ServerLog.Detail("Bootstrap flag is enabled.");
 
 if (settings.direct) {
     var badEndpoint = settings.TryParseEndpoints(out var endpoints);
@@ -67,6 +81,11 @@ if (settings.lan)
 }
 
 new Thread(server.Run) { Name = "Server thread" }.Start();
+
+// In bootstrap mode we keep the server alive and wait for any client to connect.
+// The actual world data upload is handled by the normal networking code paths.
+if (bootstrap)
+    BootstrapMode.WaitForClient(server, CancellationToken.None);
 
 while (true)
 {
