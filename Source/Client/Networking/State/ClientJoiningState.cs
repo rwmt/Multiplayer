@@ -27,6 +27,14 @@ namespace Multiplayer.Client
         }
 
         [TypedPacketHandler]
+        public void HandleBootstrapFlag(ServerBootstrapPacket packet)
+        {
+            // Some codepaths (tests included) can receive the bootstrap flag while still in joining.
+            // Keep it lenient: store the info and continue the normal join flow.
+            Multiplayer.session.serverIsInBootstrap = packet.bootstrap;
+        }
+
+        [TypedPacketHandler]
         public new void HandleDisconnected(ServerDisconnectPacket packet) => base.HandleDisconnected(packet);
 
         public override void StartState()

@@ -19,7 +19,7 @@ var settings = new ServerSettings
 if (File.Exists(settingsFile))
     settings = TomlSettings.Load(settingsFile);
 else
-    TomlSettings.Save(settings, settingsFile); // Save default settings
+    ServerLog.Log($"Bootstrap mode: '{settingsFile}' not found. Waiting for a client to upload it.");
 
 if (settings.steam) ServerLog.Error("Steam is not supported in standalone server.");
 if (settings.arbiter) ServerLog.Error("Arbiter is not supported in standalone server.");
@@ -29,11 +29,11 @@ var server = MultiplayerServer.instance = new MultiplayerServer(settings)
     running = true,
 };
 
-var bootstrap = false;
+var bootstrap = !File.Exists(settingsFile);
 
 var consoleSource = new ConsoleSource();
 
-if (File.Exists(saveFile))
+if (!bootstrap && File.Exists(saveFile))
 {
     LoadSave(server, saveFile);
 }
@@ -43,7 +43,7 @@ else
     ServerLog.Log($"Bootstrap mode: '{saveFile}' not found. Server will start without a loaded save.");
     ServerLog.Log("Waiting for a client to upload world data.");
 }
-            server.BootstrapMode = bootstrap;
+server.BootstrapMode = bootstrap;
 
 if (bootstrap)
     ServerLog.Detail("Bootstrap flag is enabled.");

@@ -36,6 +36,9 @@ public enum Packets : byte
     Client_FrameTime,
 
     // Bootstrap
+    Client_BootstrapSettingsUploadStart,
+    Client_BootstrapSettingsUploadData,
+    Client_BootstrapSettingsUploadFinish,
     Client_BootstrapUploadStart,
     Client_BootstrapUploadData,
     Client_BootstrapUploadFinish,

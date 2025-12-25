@@ -16,6 +16,14 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
     // Only one configurator at a time.
     private static int? configuratorPlayerId;
 
+    private const int MaxSettingsTomlBytes = 64 * 1024;
+
+    // Settings upload (settings.toml)
+    private static string? pendingSettingsFileName;
+    private static int pendingSettingsLength;
+    private static byte[]? pendingSettingsBytes;
+
+    // Save upload (save.zip)
     private static string? pendingFileName;
     private static int pendingLength;
     private static byte[]? pendingZipBytes;
@@ -39,7 +47,16 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
 
         configuratorPlayerId = Player.id;
         connection.Send(new ServerBootstrapPacket(true));
-        ServerLog.Log($"Bootstrap: configurator connected (playerId={Player.id}). Waiting for upload...");
+
+        var settingsPath = Path.Combine(AppContext.BaseDirectory, "settings.toml");
+        var savePath = Path.Combine(AppContext.BaseDirectory, "save.zip");
+
+        if (!File.Exists(settingsPath))
+            ServerLog.Log($"Bootstrap: configurator connected (playerId={Player.id}). Waiting for 'settings.toml' upload...");
+        else if (!File.Exists(savePath))
+            ServerLog.Log($"Bootstrap: configurator connected (playerId={Player.id}). settings.toml already present; waiting for 'save.zip' upload...");
+        else
+            ServerLog.Log($"Bootstrap: configurator connected (playerId={Player.id}). All files already present; waiting for shutdown.");
     }
 
     public override void OnDisconnect()
@@ -53,10 +70,92 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
     }
 
     [TypedPacketHandler]
+    public void HandleSettingsUploadStart(ClientBootstrapSettingsUploadStartPacket packet)
+    {
+        if (!IsConfigurator())
+            return;
+
+        var settingsPath = Path.Combine(AppContext.BaseDirectory, "settings.toml");
+        if (File.Exists(settingsPath))
+        {
+            ServerLog.Log("Bootstrap: settings.toml already exists; ignoring settings upload start.");
+            return;
+        }
+
+        if (packet.length <= 0 || packet.length > MaxSettingsTomlBytes)
+            throw new PacketReadException($"Bootstrap settings upload has invalid length ({packet.length})");
+
+        pendingSettingsFileName = packet.fileName;
+        pendingSettingsLength = packet.length;
+        pendingSettingsBytes = null;
+
+        ServerLog.Log($"Bootstrap: settings upload start '{pendingSettingsFileName}' ({pendingSettingsLength} bytes)");
+    }
+
+    [TypedPacketHandler]
+    public void HandleSettingsUploadData(ClientBootstrapSettingsUploadDataPacket packet)
+    {
+        if (!IsConfigurator())
+            return;
+
+        var settingsPath = Path.Combine(AppContext.BaseDirectory, "settings.toml");
+        if (File.Exists(settingsPath))
+            return;
+
+        pendingSettingsBytes = packet.data;
+        ServerLog.Log($"Bootstrap: settings upload data received ({pendingSettingsBytes?.Length ?? 0} bytes)");
+    }
+
+    [TypedPacketHandler]
+    public void HandleSettingsUploadFinish(ClientBootstrapSettingsUploadFinishPacket packet)
+    {
+        if (!IsConfigurator())
+            return;
+
+        var settingsPath = Path.Combine(AppContext.BaseDirectory, "settings.toml");
+        if (File.Exists(settingsPath))
+        {
+            ServerLog.Log("Bootstrap: settings.toml already exists; ignoring settings upload finish.");
+            return;
+        }
+
+        if (pendingSettingsBytes == null)
+            throw new PacketReadException("Bootstrap settings upload finish without data");
+
+        if (pendingSettingsLength > 0 && pendingSettingsBytes.Length != pendingSettingsLength)
+            ServerLog.Log($"Bootstrap: warning - expected {pendingSettingsLength} settings bytes but got {pendingSettingsBytes.Length}");
+
+        var actualHash = ComputeSha256Hex(pendingSettingsBytes);
+        if (!string.IsNullOrWhiteSpace(packet.sha256Hex) &&
+            !actualHash.Equals(packet.sha256Hex, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new PacketReadException($"Bootstrap settings upload hash mismatch. expected={packet.sha256Hex} actual={actualHash}");
+        }
+
+        // Persist settings.toml
+        var tempPath = settingsPath + ".tmp";
+        Directory.CreateDirectory(Path.GetDirectoryName(settingsPath)!);
+        File.WriteAllBytes(tempPath, pendingSettingsBytes);
+        if (File.Exists(settingsPath))
+            File.Delete(settingsPath);
+        File.Move(tempPath, settingsPath);
+
+        ServerLog.Log($"Bootstrap: wrote '{settingsPath}'. Waiting for save.zip upload...");
+
+        pendingSettingsFileName = null;
+        pendingSettingsLength = 0;
+        pendingSettingsBytes = null;
+    }
+
+    [TypedPacketHandler]
     public void HandleUploadStart(ClientBootstrapUploadStartPacket packet)
     {
         if (!IsConfigurator())
             return;
+
+        var settingsPath = Path.Combine(AppContext.BaseDirectory, "settings.toml");
+        if (!File.Exists(settingsPath))
+            throw new PacketReadException("Bootstrap requires settings.toml before save.zip");
 
         if (packet.length <= 0)
             throw new PacketReadException("Bootstrap upload has invalid length");
@@ -84,6 +183,10 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
     {
         if (!IsConfigurator())
             return;
+
+        var settingsPath = Path.Combine(AppContext.BaseDirectory, "settings.toml");
+        if (!File.Exists(settingsPath))
+            throw new PacketReadException("Bootstrap requires settings.toml before save.zip");
 
         if (pendingZipBytes == null)
             throw new PacketReadException("Bootstrap upload finish without data");
@@ -122,6 +225,10 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
 
     private static void ResetUploadState()
     {
+        pendingSettingsFileName = null;
+        pendingSettingsLength = 0;
+        pendingSettingsBytes = null;
+
         pendingFileName = null;
         pendingLength = 0;
         pendingZipBytes = null;
