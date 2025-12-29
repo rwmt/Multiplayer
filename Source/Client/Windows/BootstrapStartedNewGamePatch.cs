@@ -26,8 +26,6 @@ namespace Multiplayer.Client
             // Run on main thread: close landing popups and proceed to save pipeline.
             OnMainThread.Enqueue(() =>
             {
-                window.TryClearStartingLettersOnce();
-                window.TryCloseLandingDialogsOnce();
                 window.OnBootstrapMapInitialized();
             });
 
