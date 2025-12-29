@@ -10,7 +10,9 @@ using Verse;
 namespace Multiplayer.Client
 {
 
-    [PacketHandlerClass(inheritHandlers: false)]
+    // We want to inherit the shared typed packet handlers from ClientBaseState (keepalive, time control, disconnect).
+    // Disabling inheritance can cause missing core handlers during joining and lead to early disconnects / broken UI.
+    [PacketHandlerClass(inheritHandlers: true)]
     public class ClientJoiningState : ClientBaseState
     {
         public ClientJoiningState(ConnectionBase connection) : base(connection)
@@ -24,18 +26,8 @@ namespace Multiplayer.Client
             // Full UI/flow is handled on the client side; for now we just persist the flag
             // so receiving the packet doesn't error during join (tests rely on this).
             Multiplayer.session.serverIsInBootstrap = packet.bootstrap;
+            Multiplayer.session.serverBootstrapSettingsMissing = packet.settingsMissing;
         }
-
-        [TypedPacketHandler]
-        public void HandleBootstrapFlag(ServerBootstrapPacket packet)
-        {
-            // Some codepaths (tests included) can receive the bootstrap flag while still in joining.
-            // Keep it lenient: store the info and continue the normal join flow.
-            Multiplayer.session.serverIsInBootstrap = packet.bootstrap;
-        }
-
-        [TypedPacketHandler]
-        public new void HandleDisconnected(ServerDisconnectPacket packet) => base.HandleDisconnected(packet);
 
         public override void StartState()
         {
@@ -139,6 +131,15 @@ namespace Multiplayer.Client
 
                 void StartDownloading()
                 {
+                    if (Multiplayer.session.serverIsInBootstrap)
+                    {
+                        // Server is in bootstrap/configuration mode: don't request world data.
+                        // Instead, show a dedicated configuration UI.
+                        connection.ChangeState(ConnectionStateEnum.ClientBootstrap);
+                        Find.WindowStack.Add(new BootstrapConfiguratorWindow(connection));
+                        return;
+                    }
+
                     connection.Send(Packets.Client_WorldRequest);
                     connection.ChangeState(ConnectionStateEnum.ClientLoading);
                 }

@@ -21,12 +21,16 @@ namespace Multiplayer.Common
         public void OnPeerConnected(NetPeer peer)
         {
             var conn = new LiteNetConnection(peer);
-            conn.ChangeState(server.BootstrapMode
-                ? ConnectionStateEnum.ServerBootstrap
-                : ConnectionStateEnum.ServerJoining);
-            peer.SetConnection(conn);
 
+            // The connection state constructors (and StartState) often rely on connection.serverPlayer / Player.id.
+            // Ensure the ServerPlayer is created before we enter any server state.
             var player = server.playerManager.OnConnected(conn);
+
+            // Always start with the standard joining handshake (protocol/username/join-data).
+            // ServerJoiningState already sends ServerBootstrapPacket early when BootstrapMode is enabled,
+            // so a configurator client can switch UI flows without us skipping the handshake.
+            conn.ChangeState(ConnectionStateEnum.ServerJoining);
+            peer.SetConnection(conn);
             if (arbiter)
             {
                 player.type = PlayerType.Arbiter;
@@ -53,13 +57,30 @@ namespace Multiplayer.Common
 
         public void OnNetworkLatencyUpdate(NetPeer peer, int latency)
         {
-            peer.GetConnection().Latency = latency;
+            // LiteNetLib can emit latency updates very early or during shutdown.
+            // At that time the NetPeer might not yet have our ConnectionBase attached.
+            var conn = peer.GetConnection();
+            if (conn == null)
+                return;
+
+            conn.Latency = latency;
         }
 
         public void OnNetworkReceive(NetPeer peer, NetPacketReader reader, byte channelNumber, DeliveryMethod method)
         {
             byte[] data = reader.GetRemainingBytes();
-            peer.GetConnection().serverPlayer.HandleReceive(new ByteReader(data), method == DeliveryMethod.ReliableOrdered);
+
+            var conn = peer.GetConnection();
+            var player = conn?.serverPlayer;
+            if (player == null)
+            {
+                // Shouldn't normally happen because we create the ServerPlayer before changing state,
+                // but guard anyway to avoid taking down the server tick.
+                ServerLog.Error($"Received packet from peer without a bound ServerPlayer ({peer}). Dropping {data.Length} bytes");
+                return;
+            }
+
+            player.HandleReceive(new ByteReader(data), method == DeliveryMethod.ReliableOrdered);
         }
 
         public void OnNetworkError(IPEndPoint endPoint, SocketError socketError) { }

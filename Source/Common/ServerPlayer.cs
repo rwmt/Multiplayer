@@ -57,7 +57,8 @@ namespace Multiplayer.Common
             }
             catch (Exception e)
             {
-                ServerLog.Error($"Error handling packet by {conn}: {e}");
+                // Include state to make packet/state mismatches easier to diagnose.
+                ServerLog.Error($"Error handling packet by {conn} (state={conn.State}): {e}");
                 Disconnect(MpDisconnectReason.ServerPacketRead);
             }
         }

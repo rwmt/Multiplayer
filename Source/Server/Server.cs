@@ -107,6 +107,10 @@ static void LoadSave(MultiplayerServer server, string path)
 {
     using var zip = ZipFile.OpenRead(path);
 
+    ServerLog.Detail($"Bootstrap: loading save from {path}. Zip contains {zip.Entries.Count} entries:");
+    foreach (var entry in zip.Entries)
+        ServerLog.Detail($"  - {entry.FullName} ({entry.Length} bytes)");
+
     var replayInfo = ReplayInfo.Read(zip.GetBytes("info"));
     ServerLog.Detail($"Loading {path} saved in RW {replayInfo.rwVersion} with {replayInfo.modNames.Count} mods");
 
@@ -122,9 +126,12 @@ static void LoadSave(MultiplayerServer server, string path)
     server.startingTimer = replayInfo.sections[0].start;
 
 
-    server.worldData.savedGame = Compress(zip.GetBytes("world/000_save"));
+    var worldSaveData = zip.GetBytes("world/000_save");
+    server.worldData.savedGame = Compress(worldSaveData);
+    ServerLog.Detail($"Bootstrap: loaded world/000_save ({worldSaveData.Length} bytes), compressed to {server.worldData.savedGame.Length} bytes");
 
     // Parse cmds entry for each map
+    int mapCmdsCount = 0;
     foreach (var entry in zip.GetEntries("maps/*_cmds"))
     {
         var parts = entry.FullName.Split('_');
@@ -132,11 +139,15 @@ static void LoadSave(MultiplayerServer server, string path)
         if (parts.Length == 3)
         {
             int mapNumber = int.Parse(parts[1]);
-            server.worldData.mapCmds[mapNumber] = ScheduledCommand.DeserializeCmds(zip.GetBytes(entry.FullName)).Select(ScheduledCommand.Serialize).ToList();
+            var cmds = ScheduledCommand.DeserializeCmds(zip.GetBytes(entry.FullName)).Select(ScheduledCommand.Serialize).ToList();
+            server.worldData.mapCmds[mapNumber] = cmds;
+            ServerLog.Detail($"Bootstrap: loaded {entry.FullName} ({entry.Length} bytes) -> {cmds.Count} commands for map {mapNumber}");
+            mapCmdsCount++;
         }
     }
 
     // Parse save entry for each map
+    int mapDataCount = 0;
     foreach (var entry in zip.GetEntries("maps/*_save"))
     {
         var parts = entry.FullName.Split('_');
@@ -144,13 +155,19 @@ static void LoadSave(MultiplayerServer server, string path)
         if (parts.Length == 3)
         {
             int mapNumber = int.Parse(parts[1]);
-            server.worldData.mapData[mapNumber] = Compress(zip.GetBytes(entry.FullName));
+            var mapSaveData = zip.GetBytes(entry.FullName);
+            server.worldData.mapData[mapNumber] = Compress(mapSaveData);
+            ServerLog.Detail($"Bootstrap: loaded {entry.FullName} ({mapSaveData.Length} bytes), compressed to {server.worldData.mapData[mapNumber].Length} bytes");
+            mapDataCount++;
         }
     }
 
+    var worldCmds = zip.GetBytes("world/000_cmds");
+    server.worldData.mapCmds[-1] = ScheduledCommand.DeserializeCmds(worldCmds).Select(ScheduledCommand.Serialize).ToList();
+    ServerLog.Detail($"Bootstrap: loaded world/000_cmds ({worldCmds.Length} bytes) -> {server.worldData.mapCmds[-1].Count} world commands");
 
-    server.worldData.mapCmds[-1] = ScheduledCommand.DeserializeCmds(zip.GetBytes("world/000_cmds")).Select(ScheduledCommand.Serialize).ToList();
     server.worldData.sessionData = Array.Empty<byte>();
+    ServerLog.Detail($"Bootstrap: loaded {mapDataCount} maps with {mapCmdsCount} map command entries. SessionData is empty (vanilla save)");
 }
 
 static byte[] Compress(byte[] input)

@@ -4,6 +4,7 @@ public enum ConnectionStateEnum : byte
 {
     ClientJoining,
     ClientLoading,
+    ClientBootstrap,
     ClientPlaying,
     ClientSteam,
 

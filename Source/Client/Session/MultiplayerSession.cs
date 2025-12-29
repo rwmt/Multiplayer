@@ -14,8 +14,9 @@ namespace Multiplayer.Client
 {
     public class MultiplayerSession : IConnectionStatusListener
     {
-        public string gameName;
         public int playerId;
+
+        public string gameName;
 
         public int receivedCmds;
         public int remoteTickUntil;
@@ -56,8 +57,9 @@ namespace Multiplayer.Client
         public int port;
         public CSteamID? steamHost;
 
-    // Set during handshake (see Server_Bootstrap packet) to indicate the server is waiting for configuration/upload.
-    public bool serverIsInBootstrap;
+        // Set during handshake (see Server_Bootstrap packet) to indicate the server is waiting for configuration/upload.
+        public bool serverIsInBootstrap;
+        public bool serverBootstrapSettingsMissing;
 
         public void Stop()
         {

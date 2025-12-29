@@ -13,8 +13,8 @@ namespace Multiplayer.Common;
 /// </summary>
 public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
 {
-    // Only one configurator at a time.
-    private static int? configuratorPlayerId;
+    // Only one configurator at a time (always playerId=0 in bootstrap)
+    private static bool configuratorActive;
 
     private const int MaxSettingsTomlBytes = 64 * 1024;
 
@@ -38,15 +38,17 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
         }
 
         // If someone already is configuring, keep this connection idle.
-        if (configuratorPlayerId != null && configuratorPlayerId != Player.id)
+        if (configuratorActive)
         {
             // Still tell them we're in bootstrap, so clients can show a helpful UI.
-            connection.Send(new ServerBootstrapPacket(true));
+            var settingsMissing = !File.Exists(Path.Combine(AppContext.BaseDirectory, "settings.toml"));
+            connection.Send(new ServerBootstrapPacket(true, settingsMissing));
             return;
         }
 
-        configuratorPlayerId = Player.id;
-        connection.Send(new ServerBootstrapPacket(true));
+        configuratorActive = true;
+        var settingsMissing2 = !File.Exists(Path.Combine(AppContext.BaseDirectory, "settings.toml"));
+        connection.Send(new ServerBootstrapPacket(true, settingsMissing2));
 
         var settingsPath = Path.Combine(AppContext.BaseDirectory, "settings.toml");
         var savePath = Path.Combine(AppContext.BaseDirectory, "save.zip");
@@ -61,11 +63,11 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
 
     public override void OnDisconnect()
     {
-        if (configuratorPlayerId == Player.id)
+        if (configuratorActive && Player.id == 0)
         {
             ServerLog.Log("Bootstrap: configurator disconnected; returning to waiting state.");
             ResetUploadState();
-            configuratorPlayerId = null;
+            configuratorActive = false;
         }
     }
 
@@ -102,8 +104,23 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
         if (File.Exists(settingsPath))
             return;
 
-        pendingSettingsBytes = packet.data;
-        ServerLog.Log($"Bootstrap: settings upload data received ({pendingSettingsBytes?.Length ?? 0} bytes)");
+        // Accumulate fragmented upload data
+        if (pendingSettingsBytes == null)
+        {
+            pendingSettingsBytes = packet.data;
+        }
+        else
+        {
+            // Append new chunk to existing data
+            var oldLen = pendingSettingsBytes.Length;
+            var newChunk = packet.data;
+            var combined = new byte[oldLen + newChunk.Length];
+            Buffer.BlockCopy(pendingSettingsBytes, 0, combined, 0, oldLen);
+            Buffer.BlockCopy(newChunk, 0, combined, oldLen, newChunk.Length);
+            pendingSettingsBytes = combined;
+        }
+        
+        ServerLog.Log($"Bootstrap: settings upload data received ({packet.data?.Length ?? 0} bytes, total: {pendingSettingsBytes?.Length ?? 0}/{pendingSettingsLength})");
     }
 
     [TypedPacketHandler]
@@ -173,9 +190,23 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
         if (!IsConfigurator())
             return;
 
-        // Expect the full zip bytes in this packet (delivered fragmented).
-        pendingZipBytes = packet.data;
-        ServerLog.Log($"Bootstrap: upload data received ({pendingZipBytes?.Length ?? 0} bytes)");
+        // Accumulate fragmented upload data
+        if (pendingZipBytes == null)
+        {
+            pendingZipBytes = packet.data;
+        }
+        else
+        {
+            // Append new chunk to existing data
+            var oldLen = pendingZipBytes.Length;
+            var newChunk = packet.data;
+            var combined = new byte[oldLen + newChunk.Length];
+            Buffer.BlockCopy(pendingZipBytes, 0, combined, 0, oldLen);
+            Buffer.BlockCopy(newChunk, 0, combined, oldLen, newChunk.Length);
+            pendingZipBytes = combined;
+        }
+        
+        ServerLog.Log($"Bootstrap: upload data received ({packet.data?.Length ?? 0} bytes, total: {pendingZipBytes?.Length ?? 0}/{pendingLength})");
     }
 
     [TypedPacketHandler]
@@ -221,7 +252,7 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
         Server.running = false;
     }
 
-    private bool IsConfigurator() => configuratorPlayerId == Player.id;
+    private bool IsConfigurator() => configuratorActive && Player.id == 0;
 
     private static void ResetUploadState()
     {

@@ -33,6 +33,9 @@ public class ServerLoadingState : AsyncConnectionState
         writer.WritePrefixedBytes(Server.worldData.savedGame);
         writer.WritePrefixedBytes(Server.worldData.sessionData);
 
+        ServerLog.Detail($"SendWorldData: worldData.savedGame = {Server.worldData.savedGame.Length} bytes, sessionData = {Server.worldData.sessionData.Length} bytes");
+        ServerLog.Detail($"SendWorldData: mapCmds entries = {Server.worldData.mapCmds.Count}, mapData entries = {Server.worldData.mapData.Count}");
+
         writer.WriteInt32(Server.worldData.mapCmds.Count);
 
         foreach (var kv in Server.worldData.mapCmds)
@@ -48,6 +51,8 @@ public class ServerLoadingState : AsyncConnectionState
             writer.WriteInt32(mapCmds.Count);
             foreach (var arr in mapCmds)
                 writer.WritePrefixedBytes(arr);
+
+            ServerLog.Detail($"SendWorldData: sent mapCmds[{mapId}] = {mapCmds.Count} commands");
         }
 
         writer.WriteInt32(Server.worldData.mapData.Count);
@@ -59,6 +64,8 @@ public class ServerLoadingState : AsyncConnectionState
 
             writer.WriteInt32(mapId);
             writer.WritePrefixedBytes(mapData);
+
+            ServerLog.Detail($"SendWorldData: sent mapData[{mapId}] = {mapData.Length} bytes");
         }
 
         writer.WriteInt32(Server.worldData.syncInfos.Count);
@@ -68,6 +75,6 @@ public class ServerLoadingState : AsyncConnectionState
         byte[] packetData = writer.ToArray();
         connection.SendFragmented(Packets.Server_WorldData, packetData);
 
-        ServerLog.Log("World response sent: " + packetData.Length);
+        ServerLog.Log("World response sent: " + packetData.Length + " bytes");
     }
 }
