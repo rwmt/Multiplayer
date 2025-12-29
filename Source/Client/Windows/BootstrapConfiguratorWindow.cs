@@ -1,0 +1,1682 @@
+using System;
+using System.IO;
+using System.Text;
+using System.Security.Cryptography;
+using Multiplayer.Client.Comp;
+using Multiplayer.Client.Networking;
+using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
+using Multiplayer.Common.Util;
+using RimWorld;
+using RimWorld.Planet;
+using UnityEngine;
+using Verse;
+
+namespace Multiplayer.Client
+{
+    /// <summary>
+    /// Shown when connecting to a server that's in bootstrap/configuration mode.
+    /// This window will guide the user through uploading settings.toml (if needed)
+    /// and then save.zip.
+    /// 
+    /// NOTE: This is currently a minimal placeholder to wire the new join-flow.
+    /// </summary>
+    public class BootstrapConfiguratorWindow : Window
+    {
+        private readonly ConnectionBase connection;
+           private string serverAddress;
+           private int serverPort;
+                 private bool isReconnecting;
+                 private int reconnectCheckTimer;
+                 private ConnectionBase reconnectingConn;
+
+        private ServerSettings settings;
+
+        private enum Step
+        {
+            Settings,
+            GenerateMap
+        }
+
+        private Step step;
+
+        private Vector2 scroll;
+
+        // numeric buffers
+        private string maxPlayersBuffer;
+        private string autosaveIntervalBuffer;
+
+        // toml preview
+        private string tomlPreview;
+        private Vector2 tomlScroll;
+
+    private bool isUploadingToml;
+    private float uploadProgress;
+    private string statusText;
+    private bool settingsUploaded;
+
+        // Save.zip upload
+        private bool isUploadingSave;
+    private float saveUploadProgress;
+    private string saveUploadStatus;
+    private static string lastSavedReplayPath;
+    private static bool lastSaveReady;
+
+        // Autosave trigger (once) during bootstrap map generation
+        private bool saveReady;
+        private string savedReplayPath;
+
+    private const string BootstrapSaveName = "Bootstrap";
+    private bool saveUploadAutoStarted;
+    private bool autoUploadAttempted;
+        
+        // Vanilla page auto-advance during bootstrap
+        private bool autoAdvanceArmed;
+        private float nextPressCooldown;
+        private float randomTileCooldown;
+        private const float NextPressCooldownSeconds = 0.45f;
+        private const float RandomTileCooldownSeconds = 0.9f;
+        private const float AutoAdvanceTimeoutSeconds = 180f;
+        private float autoAdvanceElapsed;
+    private bool worldGenDetected;
+    private float worldGenDelayRemaining;
+    private const float WorldGenDelaySeconds = 1f;
+
+    // Diagnostics for the vanilla page driver. Throttled to avoid spamming logs.
+    // Kept always-on because bootstrap issues are commonly hit by non-DevMode users.
+    private float autoAdvanceDiagCooldown;
+    private const float AutoAdvanceDiagCooldownSeconds = 2.0f;
+
+    // Comprehensive tracing (opt-in via Prefs.DevMode OR always-on during bootstrap if needed).
+    // We keep it enabled during bootstrap because it's a one-off flow and helps diagnose stuck states.
+    private bool bootstrapTraceEnabled = false;
+    private float bootstrapTraceSnapshotCooldown;
+    private const float BootstrapTraceSnapshotSeconds = 2.5f;
+    private string lastTraceKey;
+    private string lastPageName;
+
+    // Delay before saving after entering the map
+    private float postMapEnterSaveDelayRemaining;
+    private const float PostMapEnterSaveDelaySeconds = 1f;
+
+    // Ensure we don't queue multiple saves.
+    private bool bootstrapSaveQueued;
+
+    // After entering a map, also wait until at least one controllable colonist pawn exists.
+    // This is a more reliable "we're really in the map" signal than FinalizeInit alone,
+    // especially with heavy modlists/long spawns.
+    private bool awaitingControllablePawns;
+    private float awaitingControllablePawnsElapsed;
+    private const float AwaitControllablePawnsTimeoutSeconds = 30f;
+        private bool startingLettersCleared;
+        private bool landingDialogsCleared;
+    
+        // Static flag to track bootstrap map initialization
+        public static bool AwaitingBootstrapMapInit = false;
+        public static BootstrapConfiguratorWindow Instance;
+
+        private const float LabelWidth = 210f;
+        private const float RowHeight = 28f;
+        private const float GapY = 6f;
+
+        public override Vector2 InitialSize => new(700f, 520f);
+
+        public BootstrapConfiguratorWindow(ConnectionBase connection)
+        {
+            this.connection = connection;
+                Instance = this;
+
+               // Save server address for reconnection after world generation
+               serverAddress = Multiplayer.session?.address;
+               serverPort = Multiplayer.session?.port ?? 0;
+
+            doCloseX = true;
+            closeOnClickedOutside = false;
+            absorbInputAroundWindow = false;
+            forcePause = false;
+
+            // Defaults aimed at standalone/headless:
+            settings = new ServerSettings
+            {
+                direct = true,
+                lan = false,
+                steam = false,
+                arbiter = false
+            };
+
+            // Choose the initial step based on what the server told us.
+            // If we don't have an explicit "settings missing" signal, assume settings are already configured
+            // and proceed to map generation.
+            step = Multiplayer.session?.serverBootstrapSettingsMissing == true ? Step.Settings : Step.GenerateMap;
+
+            statusText = step == Step.Settings
+                ? "Server settings.toml is missing. Configure and upload it."
+                : "Server settings.toml is already configured.";
+
+            if (Prefs.DevMode)
+            {
+                Log.Message($"[Bootstrap UI] Window created - step={step}, serverBootstrapSettingsMissing={Multiplayer.session?.serverBootstrapSettingsMissing}");
+                Log.Message($"[Bootstrap UI] Initial status: {statusText}");
+            }
+
+            Trace("WindowCreated");
+
+            // Check if we have a previously saved Bootstrap.zip from this session (reconnect case)
+            if (!autoUploadAttempted && lastSaveReady && !string.IsNullOrEmpty(lastSavedReplayPath) && File.Exists(lastSavedReplayPath))
+            {
+                Log.Message($"[Bootstrap] Found previous Bootstrap.zip at {lastSavedReplayPath}, auto-uploading...");
+                savedReplayPath = lastSavedReplayPath;
+                saveReady = true;
+                saveUploadStatus = "Save ready from previous session. Uploading...";
+                saveUploadAutoStarted = true;
+                autoUploadAttempted = true;
+                StartUploadSaveZip();
+            }
+
+            RebuildTomlPreview();
+        }
+
+        public override void DoWindowContents(Rect inRect)
+        {
+            var headerRect = inRect.TopPartPixels(120f);
+            Rect bodyRect;
+            Rect buttonsRect = default;
+
+            if (step == Step.Settings)
+            {
+                buttonsRect = inRect.BottomPartPixels(40f);
+                bodyRect = new Rect(inRect.x, headerRect.yMax + 6f, inRect.width, inRect.height - headerRect.height - buttonsRect.height - 12f);
+            }
+            else
+            {
+                bodyRect = new Rect(inRect.x, headerRect.yMax + 6f, inRect.width, inRect.height - headerRect.height - 6f);
+            }
+
+            Text.Font = GameFont.Medium;
+            Widgets.Label(headerRect.TopPartPixels(32f), "Server bootstrap configuration");
+            Text.Font = GameFont.Small;
+
+            var infoRect = headerRect.BottomPartPixels(80f);
+            var info =
+                "The server is running in bootstrap mode (no settings.toml and/or save.zip).\n" +
+                "Fill out the settings below to generate a complete settings.toml.\n" +
+                "After applying settings, you'll upload save.zip in the next step.";
+            Widgets.Label(infoRect, info);
+
+            Rect leftRect;
+            Rect rightRect;
+
+            if (step == Step.Settings)
+            {
+                leftRect = bodyRect.LeftPart(0.58f).ContractedBy(4f);
+                rightRect = bodyRect.RightPart(0.42f).ContractedBy(4f);
+
+                DrawSettings(leftRect);
+                DrawTomlPreview(rightRect);
+                DrawSettingsButtons(buttonsRect);
+            }
+            else
+            {
+                // Single-column layout for map generation; remove the right-side steps box
+                leftRect = bodyRect.ContractedBy(4f);
+                rightRect = Rect.zero;
+                DrawGenerateMap(leftRect, rightRect);
+            }
+        }
+
+        private void DrawGenerateMap(Rect leftRect, Rect rightRect)
+        {
+            Widgets.DrawMenuSection(leftRect);
+
+            var left = leftRect.ContractedBy(10f);
+            Text.Font = GameFont.Medium;
+            Widgets.Label(left.TopPartPixels(32f), "Server settings configured");
+            Text.Font = GameFont.Small;
+
+            // Important notice about faction ownership
+            var noticeRect = new Rect(left.x, left.y + 40f, left.width, 80f);
+            GUI.color = new Color(1f, 0.85f, 0.5f); // Warning yellow
+            Widgets.DrawBoxSolid(noticeRect, new Color(0.3f, 0.25f, 0.1f, 0.5f));
+            GUI.color = Color.white;
+            
+            var noticeTextRect = noticeRect.ContractedBy(8f);
+            Text.Font = GameFont.Tiny;
+            GUI.color = new Color(1f, 0.9f, 0.6f);
+            Widgets.Label(noticeTextRect,
+                "IMPORTANT: The user who generates this map will own the main faction (colony).\n" +
+                "When setting up the server, make sure this user's username is listed as the host.\n" +
+                "Other players connecting to the server will be assigned as spectators or secondary factions.");
+            GUI.color = Color.white;
+            Text.Font = GameFont.Small;
+
+            Widgets.Label(new Rect(left.x, noticeRect.yMax + 10f, left.width, 110f),
+                "Click 'Generate map' to automatically create a world and settlement.\n" +
+                "The process will:\n" +
+                "1) Start vanilla world generation (you'll see the scenario/world pages)\n" +
+                "2) After you complete world setup, automatically select a suitable tile\n" +
+                "3) Generate a colony map and host a temporary multiplayer session\n" +
+                "4) Save the game as a replay and upload save.zip to the server");
+
+            // Hide the 'Generate map' button once the vanilla generation flow has started
+            var btn = new Rect(left.x, noticeRect.yMax + 130f, 200f, 40f);
+            bool showGenerateButton = !(autoAdvanceArmed || AwaitingBootstrapMapInit || saveReady || isUploadingSave || isReconnecting);
+            if (showGenerateButton && Widgets.ButtonText(btn, "Generate map"))
+            {
+                saveUploadAutoStarted = false;
+                StartVanillaNewColonyFlow();
+            }
+
+            var saveStatusY = (showGenerateButton ? btn.yMax : btn.y) + 10f;
+            var statusRect = new Rect(left.x, saveStatusY, left.width, 60f);
+            Widgets.Label(statusRect, saveUploadStatus ?? statusText ?? "");
+
+            if (autoAdvanceArmed)
+            {
+                var barRect = new Rect(left.x, statusRect.yMax + 4f, left.width, 18f);
+                Widgets.FillableBar(barRect, 0.1f);
+            }
+
+            if (isUploadingSave)
+            {
+                var barRect = new Rect(left.x, statusRect.yMax + 4f, left.width, 18f);
+                Widgets.FillableBar(barRect, saveUploadProgress);
+            }
+
+            // Auto-start upload when save is ready
+            if (saveReady && !isUploadingSave && !saveUploadAutoStarted)
+            {
+                saveUploadAutoStarted = true;
+                   ReconnectAndUploadSave();
+            }
+
+            // Right-side steps box removed per request
+        }
+
+        private void DrawSettings(Rect inRect)
+        {
+            Widgets.DrawMenuSection(inRect);
+            var inner = inRect.ContractedBy(10f);
+
+            // Status + progress
+            var statusRect = new Rect(inner.x, inner.y, inner.width, 54f);
+            Widgets.Label(statusRect.TopPartPixels(28f), statusText ?? "");
+            if (isUploadingToml)
+            {
+                var barRect = statusRect.BottomPartPixels(20f);
+                Widgets.FillableBar(barRect, uploadProgress);
+            }
+
+            var contentRect = new Rect(inner.x, inner.y + 60f, inner.width, inner.height - 60f);
+
+            // Keep the layout stable with a scroll view.
+            var viewRect = new Rect(0f, 0f, contentRect.width - 16f, 760f);
+            
+            Widgets.BeginScrollView(contentRect, ref scroll, viewRect);
+
+            float y = 0f;
+            void Gap() => y += GapY;
+            Rect Row() => new Rect(0f, y, viewRect.width, RowHeight);
+
+            void Header(string label)
+            {
+                Text.Font = GameFont.Medium;
+                Widgets.Label(new Rect(0f, y, viewRect.width, 32f), label);
+                Text.Font = GameFont.Small;
+                y += 34f;
+            }
+
+            Header("Networking");
+
+            // direct
+            {
+                var r = Row();
+                TooltipHandler.TipRegion(r, "Enable Direct hosting (recommended for standalone/headless).");
+                CheckboxLabeled(r, "Direct", ref settings.direct);
+                y += RowHeight;
+
+                r = Row();
+                TooltipHandler.TipRegion(r, "One or more endpoints, separated by ';'. Example: 0.0.0.0:30502");
+                TextFieldLabeled(r, "Direct address", ref settings.directAddress);
+                y += RowHeight;
+                Gap();
+            }
+
+            // lan
+            {
+                var r = Row();
+                TooltipHandler.TipRegion(r, "Enable LAN broadcasting (typically off for headless servers).");
+                CheckboxLabeled(r, "LAN", ref settings.lan);
+                y += RowHeight;
+                Gap();
+            }
+
+            // steam
+            {
+                var r = Row();
+                TooltipHandler.TipRegion(r, "Steam hosting is not supported by the standalone server.");
+                CheckboxLabeled(r, "Steam", ref settings.steam);
+                y += RowHeight;
+                Gap();
+            }
+
+            Header("Server limits");
+
+            // max players
+            {
+                var r = Row();
+                TooltipHandler.TipRegion(r, "Maximum number of players allowed to connect.");
+                TextFieldNumericLabeled(r, "Max players", ref settings.maxPlayers, ref maxPlayersBuffer, 1, 999);
+                y += RowHeight;
+                Gap();
+            }
+
+            // password
+            {
+                var r = Row();
+                TooltipHandler.TipRegion(r, "Require a password to join.");
+                CheckboxLabeled(r, "Has password", ref settings.hasPassword);
+                y += RowHeight;
+
+                r = Row();
+                TooltipHandler.TipRegion(r, "Password (only used if Has password is enabled).");
+                TextFieldLabeled(r, "Password", ref settings.password);
+                y += RowHeight;
+                Gap();
+            }
+
+            Header("Saves / autosaves");
+
+            // autosave interval + unit
+            {
+                var r = Row();
+                TooltipHandler.TipRegion(r, "Autosave interval. Unit is configured separately below.");
+                TextFieldNumericLabeled(r, "Autosave interval", ref settings.autosaveInterval, ref autosaveIntervalBuffer, 0f, 999f);
+                y += RowHeight;
+
+                r = Row();
+                TooltipHandler.TipRegion(r, "Autosave unit.");
+                EnumDropdownLabeled(r, "Autosave unit", settings.autosaveUnit, v => settings.autosaveUnit = v);
+                y += RowHeight;
+                Gap();
+            }
+
+            Header("Gameplay options");
+
+            // async time
+            {
+                var r = Row();
+                TooltipHandler.TipRegion(r, "Allow async time. (Once enabled in a save, usually can't be disabled.)");
+                CheckboxLabeled(r, "Async time", ref settings.asyncTime);
+                y += RowHeight;
+            }
+
+            // multifaction
+            {
+                var r = Row();
+                TooltipHandler.TipRegion(r, "Enable multi-faction play.");
+                CheckboxLabeled(r, "Multifaction", ref settings.multifaction);
+                y += RowHeight;
+                Gap();
+            }
+
+            // time control
+            {
+                var r = Row();
+                TooltipHandler.TipRegion(r, "Who controls game speed.");
+                EnumDropdownLabeled(r, "Time control", settings.timeControl, v => settings.timeControl = v);
+                y += RowHeight;
+                Gap();
+            }
+
+            // auto join point
+            {
+                var r = Row();
+                TooltipHandler.TipRegion(r, "When clients automatically join (flags). Stored as a string in TOML.");
+                TextFieldLabeled(r, "Auto join point (flags)", ref settings.autoJoinPoint);
+                y += RowHeight;
+                Gap();
+            }
+
+            // pause behavior
+            {
+                var r = Row();
+                TooltipHandler.TipRegion(r, "When to automatically pause on letters.");
+                EnumDropdownLabeled(r, "Pause on letter", settings.pauseOnLetter, v => settings.pauseOnLetter = v);
+                y += RowHeight;
+
+                r = Row();
+                TooltipHandler.TipRegion(r, "Pause when a player joins.");
+                CheckboxLabeled(r, "Pause on join", ref settings.pauseOnJoin);
+                y += RowHeight;
+
+                r = Row();
+                TooltipHandler.TipRegion(r, "Pause on desync.");
+                CheckboxLabeled(r, "Pause on desync", ref settings.pauseOnDesync);
+                y += RowHeight;
+                Gap();
+            }
+
+            Header("Debug / development");
+
+            // debug mode
+            {
+                var r = Row();
+                TooltipHandler.TipRegion(r, "Enable debug mode.");
+                CheckboxLabeled(r, "Debug mode", ref settings.debugMode);
+                y += RowHeight;
+
+                r = Row();
+                TooltipHandler.TipRegion(r, "Include desync traces to help debugging.");
+                CheckboxLabeled(r, "Desync traces", ref settings.desyncTraces);
+                y += RowHeight;
+
+                r = Row();
+                TooltipHandler.TipRegion(r, "Sync mod configs to clients.");
+                CheckboxLabeled(r, "Sync configs", ref settings.syncConfigs);
+                y += RowHeight;
+
+                r = Row();
+                TooltipHandler.TipRegion(r, "Dev mode scope.");
+                EnumDropdownLabeled(r, "Dev mode scope", settings.devModeScope, v => settings.devModeScope = v);
+                y += RowHeight;
+                Gap();
+            }
+
+            // unsupported settings but still in schema
+            Header("Standalone limitations");
+            {
+                var r = Row();
+                TooltipHandler.TipRegion(r, "Arbiter is not supported in standalone server.");
+                CheckboxLabeled(r, "Arbiter (unsupported)", ref settings.arbiter);
+                y += RowHeight;
+            }
+
+            Widgets.EndScrollView();
+        }
+
+        private void DrawSettingsButtons(Rect inRect)
+        {
+            var buttons = inRect.ContractedBy(4f);
+            
+            var copyRect = buttons.LeftPart(0.5f).ContractedBy(2f);
+            if (Widgets.ButtonText(copyRect, "Copy TOML"))
+            {
+                RebuildTomlPreview();
+                GUIUtility.systemCopyBuffer = tomlPreview;
+                Messages.Message("Copied settings.toml to clipboard", MessageTypeDefOf.SilentInput, false);
+            }
+
+            var nextRect = buttons.RightPart(0.5f).ContractedBy(2f);
+            var nextLabel = settingsUploaded ? "Uploaded" : "Next";
+            var nextEnabled = !isUploadingToml && !settingsUploaded;
+            
+            // Always show the button, just change color when disabled
+            var prevColor = GUI.color;
+            if (!nextEnabled)
+                GUI.color = new Color(1f, 1f, 1f, 0.5f);
+            
+            if (Widgets.ButtonText(nextRect, nextLabel))
+            {
+                if (nextEnabled)
+                {
+                    // Upload generated settings.toml to the server.
+                    RebuildTomlPreview();
+                    StartUploadSettingsToml(tomlPreview);
+                }
+            }
+            
+            GUI.color = prevColor;
+        }
+
+        private void StartUploadSettingsToml(string tomlText)
+        {
+            isUploadingToml = true;
+            uploadProgress = 0f;
+            statusText = "Uploading settings.toml...";
+
+            // Upload on a background thread; network send is safe (it will be queued by the underlying net impl).
+            var bytes = Encoding.UTF8.GetBytes(tomlText);
+            var fileName = "settings.toml";
+            string sha256;
+            using (var hasher = SHA256.Create())
+                sha256 = hasher.ComputeHash(bytes).ToHexString();
+
+            new System.Threading.Thread(() =>
+            {
+                try
+                {
+                    connection.Send(new ClientBootstrapSettingsUploadStartPacket(fileName, bytes.Length));
+
+                    const int chunk = 64 * 1024; // safe: packet will be fragmented by ConnectionBase
+                    var sent = 0;
+                    while (sent < bytes.Length)
+                    {
+                        var len = Math.Min(chunk, bytes.Length - sent);
+                        var part = new byte[len];
+                        Buffer.BlockCopy(bytes, sent, part, 0, len);
+                        connection.SendFragmented(new ClientBootstrapSettingsUploadDataPacket(part).Serialize());
+                        sent += len;
+                        var progress = bytes.Length == 0 ? 1f : (float)sent / bytes.Length;
+                        OnMainThread.Enqueue(() => uploadProgress = Mathf.Clamp01(progress));
+                    }
+
+                    connection.Send(new ClientBootstrapSettingsUploadFinishPacket(sha256));
+
+                    OnMainThread.Enqueue(() =>
+                    {
+                        isUploadingToml = false;
+                        settingsUploaded = true;
+                        statusText = "Server settings configured correctly. Proceed with map generation.";
+                        step = Step.GenerateMap;
+                    });
+                }
+                catch (Exception e)
+                {
+                    OnMainThread.Enqueue(() =>
+                    {
+                        isUploadingToml = false;
+                        statusText = $"Failed to upload settings.toml: {e.GetType().Name}: {e.Message}";
+                    });
+                }
+            }) { IsBackground = true, Name = "MP Bootstrap TOML upload" }.Start();
+        }
+
+        private void StartVanillaNewColonyFlow()
+        {
+               // Disconnect from server before world generation to avoid sync conflicts.
+               // We'll reconnect after the autosave is complete to upload save.zip.
+               if (Multiplayer.session != null)
+               {
+                   Multiplayer.session.Stop();
+                   Multiplayer.session = null;
+               }
+
+               // Start the vanilla flow offline
+            try
+            {
+                // Ensure InitData exists for the page flow; RimWorld uses this heavily during new game setup.
+                Current.Game ??= new Game();
+                Current.Game.InitData ??= new GameInitData { startedFromEntry = true };
+
+                // Do NOT change programState; let vanilla handle it during the page flow
+                var scenarioPage = new Page_SelectScenario();
+
+                // StitchedPages handles correct "Next" navigation between Page(s).
+                Find.WindowStack.Add(PageUtility.StitchedPages(new System.Collections.Generic.List<Page> { scenarioPage }));
+
+                // Start watching for page flow + map entry.
+                saveReady = false;
+                savedReplayPath = null;
+                saveUploadStatus = "Waiting for world generation...";
+
+                // Arm the vanilla page auto-advance driver
+                autoAdvanceArmed = true;
+                nextPressCooldown = 0f;
+                randomTileCooldown = 0f;
+                autoAdvanceElapsed = 0f;
+                worldGenDetected = false;
+                worldGenDelayRemaining = WorldGenDelaySeconds;
+                autoAdvanceDiagCooldown = 0f;
+                startingLettersCleared = false;
+                landingDialogsCleared = false;
+
+                Trace("StartVanillaNewColonyFlow");
+            }
+            catch (Exception e)
+            {
+                Messages.Message($"Failed to start New Colony flow: {e.GetType().Name}: {e.Message}", MessageTypeDefOf.RejectInput, false);
+                Trace($"StartVanillaNewColonyFlow:EX:{e.GetType().Name}");
+            }
+        }
+
+        /// <summary>
+        /// Drives the vanilla "New colony" page flow by pressing "Random" on tile selection
+        /// pages and auto-advancing with "Next" until we enter Playing with a map.
+        /// Uses reflection to avoid hard dependencies on specific RimWorld versions / page classes.
+        /// </summary>
+        private void TryAutoAdvanceVanillaPages()
+        {
+            if (!autoAdvanceArmed)
+                return;
+
+            // If we've already reached Playing with a map, stop driving pages immediately.
+            if (Current.ProgramState == ProgramState.Playing && Find.Maps != null && Find.Maps.Count > 0)
+            {
+                autoAdvanceArmed = false;
+                return;
+            }
+
+            TraceSnapshotTick();
+
+            if (autoAdvanceDiagCooldown > 0f)
+                autoAdvanceDiagCooldown -= Time.deltaTime;
+
+            // Don't start auto-advancing until the world is generated. The user can still interact
+            // with the scenario + world generation pages manually; we only take over after the world exists.
+            if (Find.World == null || Find.World.grid == null)
+            {
+                if (string.IsNullOrEmpty(saveUploadStatus) || saveUploadStatus.StartsWith("Advancing:") || saveUploadStatus.StartsWith("Entered map"))
+                    saveUploadStatus = "Waiting for world generation...";
+
+                if (autoAdvanceDiagCooldown <= 0f)
+                {
+                    autoAdvanceDiagCooldown = AutoAdvanceDiagCooldownSeconds;
+                    Log.Message($"[Bootstrap] Auto-advance armed; waiting world. ProgramState={Current.ProgramState}");
+                }
+
+                Trace("WaitWorld");
+                return;
+            }
+
+            // World is generated: wait a small grace period before starting to press Next.
+            if (!worldGenDetected)
+            {
+                worldGenDetected = true;
+                worldGenDelayRemaining = WorldGenDelaySeconds;
+                Trace("WorldDetected");
+            }
+
+            if (worldGenDelayRemaining > 0f)
+            {
+                worldGenDelayRemaining -= Time.deltaTime;
+                saveUploadStatus = "World generated. Waiting...";
+
+                if (autoAdvanceDiagCooldown <= 0f)
+                {
+                    autoAdvanceDiagCooldown = AutoAdvanceDiagCooldownSeconds;
+                    Log.Message($"[Bootstrap] World detected; delaying {worldGenDelayRemaining:0.00}s before auto-next");
+                }
+
+                Trace("WorldDelay");
+                return;
+            }
+
+            // Stop after some time to avoid infinite looping if the UI is blocked by an error dialog.
+            autoAdvanceElapsed += Time.deltaTime;
+            if (autoAdvanceElapsed > AutoAdvanceTimeoutSeconds)
+            {
+                autoAdvanceArmed = false;
+                saveUploadStatus = "Auto-advance timed out. Please complete world setup manually.";
+                Trace("AutoAdvanceTimeout");
+                return;
+            }
+
+            // Once we're playing and have a map, arm the save hook and stop auto-advance.
+            if (Current.ProgramState == ProgramState.Playing && Find.Maps != null && Find.Maps.Count > 0)
+            {
+                if (!AwaitingBootstrapMapInit)
+                {
+                    AwaitingBootstrapMapInit = true;
+                    saveUploadStatus = "Entered map. Waiting for initialization to complete...";
+                    Log.Message($"[Bootstrap] Reached Playing. maps={Find.Maps.Count}, currentMap={(Find.CurrentMap != null ? Find.CurrentMap.ToString() : "<null>")}");
+                    Trace("EnteredPlaying");
+                }
+
+                autoAdvanceArmed = false;
+                return;
+            }
+
+            // Cooldowns to avoid spamming actions every frame
+            if (nextPressCooldown > 0f)
+                nextPressCooldown -= Time.deltaTime;
+            if (randomTileCooldown > 0f)
+                randomTileCooldown -= Time.deltaTime;
+
+            // Find the top-most Page in the window stack
+            Page page = null;
+            var windows = Find.WindowStack?.Windows;
+            if (windows != null)
+            {
+                for (int i = windows.Count - 1; i >= 0; i--)
+                {
+                    if (windows[i] is Page p)
+                    {
+                        page = p;
+                        break;
+                    }
+                }
+            }
+
+            if (page == null)
+            {
+                if (autoAdvanceDiagCooldown <= 0f)
+                {
+                    autoAdvanceDiagCooldown = AutoAdvanceDiagCooldownSeconds;
+                    Log.Message($"[Bootstrap] Auto-advance: no Page found. ProgramState={Current.ProgramState}");
+                }
+
+                Trace("NoPage");
+                return;
+            }
+
+            // Some tiles prompt a confirmation dialog (e.g., harsh conditions / nearby faction). Accept it automatically.
+            TryAutoAcceptTileWarnings(page);
+
+            if (autoAdvanceDiagCooldown <= 0f)
+            {
+                autoAdvanceDiagCooldown = AutoAdvanceDiagCooldownSeconds;
+                Log.Message($"[Bootstrap] Auto-advance on page {page.GetType().Name}; CanDoNext={CanDoNextQuick(page)}; nextCooldown={nextPressCooldown:0.00}");
+            }
+
+            // Avoid spamming page trace if we sit on the same page for multiple ticks
+            var curPageName = page.GetType().Name;
+            if (curPageName != lastPageName)
+            {
+                lastPageName = curPageName;
+                Trace($"Page:{curPageName}:CanNext={CanDoNextQuick(page)}");
+            }
+
+            // If we're on a starting-site selection page, try to choose a random tile by setting GameInitData.startingTile.
+            // This mimics "Choose random" behavior without needing to locate UI widgets.
+            if (randomTileCooldown <= 0f && Find.GameInitData != null && Find.World?.grid != null)
+            {
+                var typeName = page.GetType().Name;
+                if (typeName.IndexOf("Starting", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                    (typeName.IndexOf("Site", StringComparison.OrdinalIgnoreCase) >= 0 || typeName.IndexOf("Landing", StringComparison.OrdinalIgnoreCase) >= 0))
+                {
+                    int tile = FindSuitableTile();
+                    Find.GameInitData.startingTile = tile;
+                    randomTileCooldown = RandomTileCooldownSeconds;
+                    if (Prefs.DevMode)
+                        Log.Message($"[Bootstrap] Picked random starting tile {tile} on page {typeName}");
+                }
+            }
+
+            if (nextPressCooldown > 0f)
+                return;
+
+            // Press Next via reflection.
+            if (TryInvokePageNext(page))
+            {
+                nextPressCooldown = NextPressCooldownSeconds;
+                saveUploadStatus = $"Advancing: {page.GetType().Name}...";
+                Trace($"DoNext:{page.GetType().Name}");
+
+                // If this Next starts the actual new game initialization (InitNewGame long event),
+                // WindowUpdate can stall for a while. Schedule a post-long-event check so we can
+                // reliably arm the FinalizeInit trigger once the game switches to Playing.
+                var pageName = page.GetType().Name;
+                if (pageName.IndexOf("ConfigureStartingPawns", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    LongEventHandler.ExecuteWhenFinished(() =>
+                    {
+                        OnMainThread.Enqueue(() =>
+                        {
+                            Trace("PostInitNewGameCheck");
+                            TryArmAwaitingBootstrapMapInit("ExecuteWhenFinished");
+                        });
+                    });
+                }
+            }
+        }
+
+        private void TryArmAwaitingBootstrapMapInit(string source)
+        {
+            // This is safe to call repeatedly.
+            if (AwaitingBootstrapMapInit)
+                return;
+
+            // Avoid arming while long events are still running. During heavy initialization
+            // we can briefly observe Playing+map before MapComponentUtility.FinalizeInit
+            // runs; arming too early risks missing the FinalizeInit signal.
+            try
+            {
+                if (LongEventHandler.AnyEventNowOrWaiting)
+                {
+                    if (bootstrapTraceEnabled)
+                        Log.Message($"[BootstrapTrace] mapInit not armed yet ({source}): long event running");
+                    return;
+                }
+            }
+            catch
+            {
+                // If the API isn't available in a specific RW version, fail open.
+            }
+
+            if (Current.ProgramState != ProgramState.Playing)
+            {
+                if (bootstrapTraceEnabled)
+                    Log.Message($"[BootstrapTrace] mapInit not armed yet ({source}): ProgramState={Current.ProgramState}");
+                return;
+            }
+
+            if (Find.Maps == null || Find.Maps.Count == 0)
+            {
+                if (bootstrapTraceEnabled)
+                    Log.Message($"[BootstrapTrace] mapInit not armed yet ({source}): no maps");
+                return;
+            }
+
+            AwaitingBootstrapMapInit = true;
+            saveUploadStatus = "Entered map. Waiting for initialization to complete...";
+            // Keep this log lightweight (avoid Verse.Log stack traces).
+            UnityEngine.Debug.Log($"[Bootstrap] Entered map detected via {source}. maps={Find.Maps.Count}");
+            Trace("EnteredPlaying");
+
+            // Stop page driver at this point.
+            autoAdvanceArmed = false;
+        }
+
+        // Called from Root_Play.Start postfix (outside of the window update loop)
+        internal void TryArmAwaitingBootstrapMapInit_FromRootPlay()
+        {
+            Trace("RootPlayStart");
+            TryArmAwaitingBootstrapMapInit("Root_Play.Start");
+        }
+
+        // Called from Root_Play.Update postfix. This is the main reliable arming mechanism.
+        internal void TryArmAwaitingBootstrapMapInit_FromRootPlayUpdate()
+        {
+            // If we're not in bootstrap flow there is nothing to do.
+            // We treat the existence of the window as "bootstrap active".
+            TryArmAwaitingBootstrapMapInit("Root_Play.Update");
+
+            // Also drive the post-map save pipeline from this reliable update loop.
+            TickPostMapEnterSaveDelayAndMaybeSave();
+
+            // Once we have a reliable arming mechanism, we can reduce noisy periodic snapshots.
+            // (We still keep event logs.)
+            if (AwaitingBootstrapMapInit || postMapEnterSaveDelayRemaining > 0f || saveReady || isUploadingSave || isReconnecting)
+                bootstrapTraceSnapshotCooldown = BootstrapTraceSnapshotSeconds; // delay next snapshot
+        }
+
+        private static bool? CanDoNextQuick(Page page)
+        {
+            try
+            {
+                var t = page.GetType();
+                var canDoNextMethod = t.GetMethod("CanDoNext", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+                if (canDoNextMethod != null && canDoNextMethod.ReturnType == typeof(bool) && canDoNextMethod.GetParameters().Length == 0)
+                    return (bool)canDoNextMethod.Invoke(page, null);
+            }
+            catch
+            {
+                // ignore
+            }
+
+            return null;
+        }
+
+        private static bool TryInvokePageNext(Page page)
+        {
+            try
+            {
+                var t = page.GetType();
+
+                // Common patterns across RW versions:
+                // - CanDoNext() + DoNext()
+                // - CanDoNext (property) + DoNext()
+                // - DoNext() only
+                bool canNext = true;
+                var canDoNextMethod = t.GetMethod("CanDoNext", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+                if (canDoNextMethod != null && canDoNextMethod.ReturnType == typeof(bool) && canDoNextMethod.GetParameters().Length == 0)
+                    canNext = (bool)canDoNextMethod.Invoke(page, null);
+
+                if (!canNext)
+                    return false;
+
+                var doNextMethod = t.GetMethod("DoNext", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+                if (doNextMethod != null && doNextMethod.GetParameters().Length == 0)
+                {
+                    doNextMethod.Invoke(page, null);
+                    return true;
+                }
+
+                // Fallback: try Next() method name
+                var nextMethod = t.GetMethod("Next", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+                if (nextMethod != null && nextMethod.GetParameters().Length == 0)
+                {
+                    nextMethod.Invoke(page, null);
+                    return true;
+                }
+            }
+            catch (Exception e)
+            {
+                if (Prefs.DevMode)
+                    Log.Warning($"[Bootstrap] Failed to invoke Next on page {page?.GetType().Name}: {e.GetType().Name}: {e.Message}");
+            }
+
+            return false;
+        }
+
+        private void TryAutoAcceptTileWarnings(Page page)
+        {
+            try
+            {
+                // Only relevant on starting-site selection pages.
+                var typeName = page.GetType().Name;
+                if (typeName.IndexOf("Starting", StringComparison.OrdinalIgnoreCase) < 0)
+                    return;
+                if (typeName.IndexOf("Site", StringComparison.OrdinalIgnoreCase) < 0 && typeName.IndexOf("Landing", StringComparison.OrdinalIgnoreCase) < 0)
+                    return;
+
+                var windows = Find.WindowStack?.Windows;
+                if (windows == null || windows.Count == 0)
+                    return;
+
+                for (int i = windows.Count - 1; i >= 0; i--)
+                {
+                    if (windows[i] is Dialog_MessageBox msg)
+                    {
+                        // Prefer button A if present; otherwise try button B.
+                        if (!string.IsNullOrEmpty(msg.buttonAText))
+                        {
+                            msg.buttonAAction?.Invoke();
+                            msg.Close(true);
+                            if (Prefs.DevMode)
+                                Log.Message("[Bootstrap] Auto-accepted tile warning dialog (button A)");
+                            return;
+                        }
+
+                        if (!string.IsNullOrEmpty(msg.buttonBText))
+                        {
+                            msg.buttonBAction?.Invoke();
+                            msg.Close(true);
+                            if (Prefs.DevMode)
+                                Log.Message("[Bootstrap] Auto-accepted tile warning dialog (button B)");
+                            return;
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Fail open; we don't want to block automation because of a dialog.
+            }
+        }
+
+        internal void TryClearStartingLettersOnce()
+        {
+            if (startingLettersCleared)
+                return;
+
+            var letterStack = Find.LetterStack;
+            var letters = letterStack?.LettersListForReading;
+            if (letters == null || letters.Count == 0)
+                return;
+
+            // Remove from the end to avoid mutation issues.
+            for (int i = letters.Count - 1; i >= 0; i--)
+            {
+                var letter = letters[i];
+                letterStack.RemoveLetter(letter);
+            }
+
+            startingLettersCleared = true;
+            if (Prefs.DevMode)
+                Log.Message("[Bootstrap] Cleared starting letters/messages");
+        }
+
+        internal void TryCloseLandingDialogsOnce()
+        {
+            if (landingDialogsCleared)
+                return;
+
+            var windows = Find.WindowStack?.Windows;
+            if (windows == null || windows.Count == 0)
+                return;
+
+            // Close common blocking dialogs shown at landing (message boxes, node trees)
+            for (int i = windows.Count - 1; i >= 0; i--)
+            {
+                var w = windows[i];
+                if (w is Dialog_MessageBox || w is Dialog_NodeTree)
+                {
+                    try
+                    {
+                        w.Close(true);
+                    }
+                    catch { }
+                }
+            }
+
+            landingDialogsCleared = true;
+            if (Prefs.DevMode)
+                Log.Message("[Bootstrap] Closed landing dialogs (message boxes / node trees)");
+        }
+        
+        private int FindSuitableTile()
+        {
+            var world = Find.World;
+            var grid = world.grid;
+            
+            // Try to find a temperate, flat tile without extreme conditions
+            for (int i = 0; i < grid.TilesCount; i++)
+            {
+                var tile = grid[i];
+                
+                // Skip water tiles
+                if (tile.biome.canBuildBase == false)
+                    continue;
+                
+                // Skip tiles with settlements or world objects
+                if (Find.WorldObjects.AnyWorldObjectAt(i))
+                    continue;
+                
+                // Prefer temperate, flat tiles
+                if (tile.hilliness == Hilliness.Flat || tile.hilliness == Hilliness.SmallHills)
+                {
+                    // Check temperature (tile.temperature is the annual average)
+                    if (tile.temperature > -10f && tile.temperature < 40f)
+                        return i;
+                }
+            }
+            
+            // Fallback: find any buildable tile
+            for (int i = 0; i < grid.TilesCount; i++)
+            {
+                var tile = grid[i];
+                if (tile.biome.canBuildBase && !Find.WorldObjects.AnyWorldObjectAt(i))
+                    return i;
+            }
+            
+            // Last resort: use tile 0 (should never happen)
+            return 0;
+        }
+        
+            public void OnBootstrapMapInitialized()
+            {
+                if (!AwaitingBootstrapMapInit)
+                    return;
+                
+                AwaitingBootstrapMapInit = false;
+
+                // Wait a bit after entering the map before saving, to let final UI/world settle.
+                postMapEnterSaveDelayRemaining = PostMapEnterSaveDelaySeconds;
+                awaitingControllablePawns = true;
+                awaitingControllablePawnsElapsed = 0f;
+                bootstrapSaveQueued = false;
+                saveUploadStatus = "Map initialized. Waiting before saving...";
+
+                Trace("FinalizeInit");
+            
+                if (Prefs.DevMode)
+                    Log.Message("[Bootstrap] Map initialized, waiting for controllable pawns before saving");
+
+                // Saving is driven by a tick loop (WindowUpdate + BootstrapCoordinator + Root_Play.Update).
+                // Do not assume WindowUpdate keeps ticking during/after long events.
+            }
+
+        private void TickPostMapEnterSaveDelayAndMaybeSave()
+        {
+            // This is called from multiple tick sources; keep it idempotent.
+            if (bootstrapSaveQueued || saveReady || isUploadingSave || isReconnecting)
+                return;
+
+            // Only run once we have been signalled by FinalizeInit.
+            if (postMapEnterSaveDelayRemaining <= 0f)
+                return;
+
+            // Clear initial letters/messages that can appear right after landing.
+            TryClearStartingLettersOnce();
+            TryCloseLandingDialogsOnce();
+
+            TraceSnapshotTick();
+
+            // Drive the post-map delay. Use real time, not game ticks; during map init we still want
+            // the save to happen shortly after the map becomes controllable.
+            postMapEnterSaveDelayRemaining -= Time.deltaTime;
+            if (postMapEnterSaveDelayRemaining > 0f)
+                return;
+
+            // We reached the post-map-entry delay, now wait until we actually have spawned pawns.
+            // This avoids saving too early in cases where the map exists but the colony isn't ready.
+            if (awaitingControllablePawns)
+            {
+                awaitingControllablePawnsElapsed += Time.deltaTime;
+
+                if (Current.ProgramState == ProgramState.Playing && Find.CurrentMap != null)
+                {
+                    var anyColonist = false;
+                    try
+                    {
+                        // Prefer FreeColonists: these are player controllable pawns.
+                        // (Some versions/modlists may temporarily have an empty list during generation.)
+                        anyColonist = Find.CurrentMap.mapPawns?.FreeColonistsSpawned != null &&
+                                      Find.CurrentMap.mapPawns.FreeColonistsSpawned.Count > 0;
+                    }
+                    catch
+                    {
+                        // ignored; we'll just keep waiting
+                    }
+
+                    if (anyColonist)
+                    {
+                        awaitingControllablePawns = false;
+
+                        // Pause the game as soon as colonists are controllable so the snapshot is stable
+                        try { Find.TickManager.CurTimeSpeed = TimeSpeed.Paused; } catch { }
+
+                        if (Prefs.DevMode)
+                            Log.Message("[Bootstrap] Controllable colonists detected, starting save");
+                    }
+                }
+
+                if (awaitingControllablePawns)
+                {
+                    if (awaitingControllablePawnsElapsed > AwaitControllablePawnsTimeoutSeconds)
+                    {
+                        // Fallback: don't block forever; save anyway.
+                        awaitingControllablePawns = false;
+                        if (Prefs.DevMode)
+                            Log.Warning("[Bootstrap] Timed out waiting for controllable pawns; saving anyway");
+                    }
+                    else
+                    {
+                        saveUploadStatus = "Entered map. Waiting for colonists to spawn...";
+                        Trace("WaitColonists");
+                        return;
+                    }
+                }
+            }
+
+            // Ensure we don't re-enter this function multiple times and queue multiple saves.
+            postMapEnterSaveDelayRemaining = 0f;
+            bootstrapSaveQueued = true;
+
+            saveUploadStatus = "Map initialized. Starting hosted MP session...";
+            Trace("StartHost");
+
+            // NEW FLOW: instead of vanilla save + manual repackaging,
+            // 1) Host a local MP game programmatically (random port to avoid conflicts)
+            // 2) Call standard MP save (SaveGameToFile_Overwrite) which produces a proper replay
+            // 3) Close session and return to menu
+            // Result: clean replay.zip ready to upload
+
+            LongEventHandler.QueueLongEvent(() =>
+            {
+                try
+                {
+                    // 1. Host multiplayer game on random free port (avoid collisions with user's server)
+                    var hostSettings = new ServerSettings
+                    {
+                        gameName = "BootstrapHost",
+                        maxPlayers = 2,
+                        direct = true,
+                        lan = false,
+                        steam = false,
+                        // directAddress will be set by HostProgrammatically to a free port
+                    };
+
+                    bool hosted = HostWindow.HostProgrammatically(hostSettings, file: null, randomDirectPort: true);
+                    if (!hosted)
+                    {
+                        OnMainThread.Enqueue(() =>
+                        {
+                            saveUploadStatus = "Failed to host MP session.";
+                            Log.Error("[Bootstrap] HostProgrammatically failed");
+                            Trace("HostFailed");
+                            bootstrapSaveQueued = false;
+                        });
+                        return;
+                    }
+
+                    Log.Message("[Bootstrap] Hosted MP session successfully. Now saving replay...");
+
+                    OnMainThread.Enqueue(() =>
+                    {
+                        saveUploadStatus = "Hosted. Saving replay...";
+                        Trace("HostSuccess");
+
+                        // 2. Save as multiplayer replay (this uses the standard MP snapshot which includes maps correctly)
+                        LongEventHandler.QueueLongEvent(() =>
+                        {
+                            try
+                            {
+                                Autosaving.SaveGameToFile_Overwrite(BootstrapSaveName, currentReplay: false);
+
+                                var path = System.IO.Path.Combine(Multiplayer.ReplaysDir, $"{BootstrapSaveName}.zip");
+
+                                OnMainThread.Enqueue(() =>
+                                {
+                                    savedReplayPath = path;
+                                    saveReady = System.IO.File.Exists(savedReplayPath);
+                                    lastSavedReplayPath = savedReplayPath;
+                                    lastSaveReady = saveReady;
+
+                                    if (saveReady)
+                                    {
+                                        saveUploadStatus = "Save complete. Exiting to menu...";
+                                        Trace("SaveComplete");
+
+                                        // 3. Exit to main menu (this also cleans up the local server)
+                                        LongEventHandler.QueueLongEvent(() =>
+                                        {
+                                            GenScene.GoToMainMenu();
+
+                                            OnMainThread.Enqueue(() =>
+                                            {
+                                                saveUploadStatus = "Reconnecting to upload save...";
+                                                Trace("GoToMenuComplete");
+                                                ReconnectAndUploadSave();
+                                            });
+                                        }, "Returning to menu", false, null);
+                                    }
+                                    else
+                                    {
+                                        saveUploadStatus = "Save failed - file not found.";
+                                        Log.Error($"[Bootstrap] Save finished but file missing: {savedReplayPath}");
+                                        Trace("SaveMissingFile");
+                                        bootstrapSaveQueued = false;
+                                    }
+                                });
+                            }
+                            catch (Exception e)
+                            {
+                                OnMainThread.Enqueue(() =>
+                                {
+                                    saveUploadStatus = $"Save failed: {e.GetType().Name}: {e.Message}";
+                                    Log.Error($"[Bootstrap] Save failed: {e}");
+                                    Trace($"SaveEX:{e.GetType().Name}");
+                                    bootstrapSaveQueued = false;
+                                });
+                            }
+                        }, "Saving", false, null);
+                    });
+                }
+                catch (Exception e)
+                {
+                    OnMainThread.Enqueue(() =>
+                    {
+                        saveUploadStatus = $"Host failed: {e.GetType().Name}: {e.Message}";
+                        Log.Error($"[Bootstrap] Host exception: {e}");
+                        Trace($"HostEX:{e.GetType().Name}");
+                        bootstrapSaveQueued = false;
+                    });
+                }
+            }, "Starting host", false, null);
+        }
+
+        public override void WindowUpdate()
+        {
+            base.WindowUpdate();
+
+            TickPostMapEnterSaveDelayAndMaybeSave();
+
+           if (isReconnecting)
+               CheckReconnectionState();
+
+        // Drive the vanilla page flow automatically (random tile + next)
+        TryAutoAdvanceVanillaPages();
+        }
+
+        /// <summary>
+        /// Called by <see cref="BootstrapCoordinator"/> once per second while the bootstrap window exists.
+        /// This survives long events / MapInitializing where WindowUpdate may not tick reliably.
+        /// </summary>
+        internal void BootstrapCoordinatorTick()
+        {
+            // Try to arm map init reliably once the game has actually entered Playing.
+            if (!AwaitingBootstrapMapInit)
+                TryArmAwaitingBootstrapMapInit("BootstrapCoordinator");
+
+            // Drive the post-map-entry save delay even if the window update isn't running smoothly.
+            TickPostMapEnterSaveDelayAndMaybeSave();
+        }
+
+        private void TraceSnapshotTick()
+        {
+            if (!bootstrapTraceEnabled)
+                return;
+
+            if (bootstrapTraceSnapshotCooldown > 0f)
+            {
+                bootstrapTraceSnapshotCooldown -= Time.deltaTime;
+                return;
+            }
+
+            bootstrapTraceSnapshotCooldown = BootstrapTraceSnapshotSeconds;
+
+            var pageName = GetTopPageName();
+            var mapCount = Find.Maps?.Count ?? 0;
+            var curMap = Find.CurrentMap;
+            var colonists = 0;
+            try
+            {
+                colonists = curMap?.mapPawns?.FreeColonistsSpawned?.Count ?? 0;
+            }
+            catch
+            {
+                // ignored
+            }
+
+            Log.Message(
+                $"[BootstrapTrace] state={Current.ProgramState} " +
+                $"autoAdvance={autoAdvanceArmed} elapsed={autoAdvanceElapsed:0.0}s " +
+                $"world={(Find.World != null ? "Y" : "N")} " +
+                $"page={pageName} " +
+                $"maps={mapCount} colonists={colonists} " +
+                $"awaitMapInit={AwaitingBootstrapMapInit} postDelay={postMapEnterSaveDelayRemaining:0.00} " +
+                $"saveReady={saveReady} uploading={isUploadingSave} reconnecting={isReconnecting}");
+        }
+
+        private void Trace(string key)
+        {
+            if (!bootstrapTraceEnabled)
+                return;
+
+            // Only print on transitions to keep logs readable.
+            if (lastTraceKey == key)
+                return;
+
+            lastTraceKey = key;
+            var pageName = GetTopPageName();
+            Log.Message($"[BootstrapTrace] event={key} state={Current.ProgramState} page={pageName}");
+        }
+
+        private static string GetTopPageName()
+        {
+            try
+            {
+                var windows = Find.WindowStack?.Windows;
+                if (windows == null)
+                    return "<null>";
+
+                for (int i = windows.Count - 1; i >= 0; i--)
+                    if (windows[i] is Page p)
+                        return p.GetType().Name;
+
+                return "<none>";
+            }
+            catch
+            {
+                return "<ex>";
+            }
+        }
+
+            // Legacy polling method removed: we now use the vanilla page flow + auto Next.
+
+           private void ReconnectAndUploadSave()
+           {
+               saveUploadStatus = "Reconnecting to server...";
+
+               try
+               {
+                   // Reconnect to the server (playerId will always be 0 in bootstrap)
+                   Multiplayer.StopMultiplayer();
+
+                   Multiplayer.session = new MultiplayerSession();
+                   Multiplayer.session.address = serverAddress;
+                   Multiplayer.session.port = serverPort;
+
+                   var conn = ClientLiteNetConnection.Connect(serverAddress, serverPort);
+                   conn.username = Multiplayer.username;
+                   Multiplayer.session.client = conn;
+
+                   // Start polling in WindowUpdate
+                   isReconnecting = true;
+                   reconnectCheckTimer = 0;
+                   reconnectingConn = conn;
+               }
+               catch (Exception e)
+               {
+                   saveUploadStatus = $"Reconnection failed: {e.GetType().Name}: {e.Message}";
+                   isUploadingSave = false;
+               }
+           }
+
+       private void CheckReconnectionState()
+       {
+           reconnectCheckTimer++;
+           
+           if (reconnectingConn.State == ConnectionStateEnum.ClientBootstrap)
+           {
+               saveUploadStatus = "Reconnected. Starting upload...";
+               isReconnecting = false;
+               reconnectingConn = null;
+               reconnectCheckTimer = 0;
+               StartUploadSaveZip();
+           }
+           else if (reconnectingConn.State == ConnectionStateEnum.Disconnected)
+           {
+               saveUploadStatus = "Reconnection failed. Cannot upload save.zip.";
+               isReconnecting = false;
+               reconnectingConn = null;
+               reconnectCheckTimer = 0;
+               isUploadingSave = false;
+           }
+           else if (reconnectCheckTimer > 600) // 10 seconds at 60fps
+           {
+               saveUploadStatus = "Reconnection timeout. Cannot upload save.zip.";
+               isReconnecting = false;
+               reconnectingConn = null;
+               reconnectCheckTimer = 0;
+               isUploadingSave = false;
+           }
+       }
+
+        private void StartUploadSaveZip()
+        {
+            if (string.IsNullOrWhiteSpace(savedReplayPath) || !System.IO.File.Exists(savedReplayPath))
+            {
+                saveUploadStatus = "Can't upload: autosave file not found.";
+                return;
+            }
+
+            isUploadingSave = true;
+            saveUploadProgress = 0f;
+            saveUploadStatus = "Uploading save.zip...";
+
+            byte[] bytes;
+            try
+            {
+                bytes = System.IO.File.ReadAllBytes(savedReplayPath);
+            }
+            catch (Exception e)
+            {
+                isUploadingSave = false;
+                saveUploadStatus = $"Failed to read autosave: {e.GetType().Name}: {e.Message}";
+                return;
+            }
+
+            string sha256;
+            using (var hasher = SHA256.Create())
+                sha256 = hasher.ComputeHash(bytes).ToHexString();
+
+            new System.Threading.Thread(() =>
+            {
+                try
+                {
+                    connection.Send(new ClientBootstrapUploadStartPacket("save.zip", bytes.Length));
+
+                    const int chunk = 256 * 1024;
+                    var sent = 0;
+                    while (sent < bytes.Length)
+                    {
+                        var len = Math.Min(chunk, bytes.Length - sent);
+                        var part = new byte[len];
+                        Buffer.BlockCopy(bytes, sent, part, 0, len);
+                        connection.SendFragmented(new ClientBootstrapUploadDataPacket(part).Serialize());
+                        sent += len;
+                        var progress = bytes.Length == 0 ? 1f : (float)sent / bytes.Length;
+                        OnMainThread.Enqueue(() => saveUploadProgress = Mathf.Clamp01(progress));
+                    }
+
+                    connection.Send(new ClientBootstrapUploadFinishPacket(sha256));
+
+                    OnMainThread.Enqueue(() =>
+                    {
+                        // Server will send ServerBootstrapCompletePacket and close connections.
+                        saveUploadStatus = "Upload finished. Waiting for server to confirm and shut down...";
+                    });
+                }
+                catch (Exception e)
+                {
+                    OnMainThread.Enqueue(() =>
+                    {
+                        isUploadingSave = false;
+                        saveUploadStatus = $"Failed to upload save.zip: {e.GetType().Name}: {e.Message}";
+                    });
+                }
+            }) { IsBackground = true, Name = "MP Bootstrap save upload" }.Start();
+        }
+
+        private void DrawTomlPreview(Rect inRect)
+        {
+            Widgets.DrawMenuSection(inRect);
+            var inner = inRect.ContractedBy(10f);
+
+            Text.Font = GameFont.Small;
+            Widgets.Label(inner.TopPartPixels(22f), "settings.toml preview");
+
+            var previewRect = new Rect(inner.x, inner.y + 26f, inner.width, inner.height - 26f);
+            var content = tomlPreview ?? "";
+
+            var viewRect = new Rect(0f, 0f, previewRect.width - 16f, Mathf.Max(previewRect.height, Text.CalcHeight(content, previewRect.width - 16f) + 20f));
+            Widgets.BeginScrollView(previewRect, ref tomlScroll, viewRect);
+            Widgets.Label(new Rect(0f, 0f, viewRect.width, viewRect.height), content);
+            Widgets.EndScrollView();
+        }
+
+        private void RebuildTomlPreview()
+        {
+            var sb = new StringBuilder();
+
+            // Important: This must mirror ServerSettings.ExposeData() keys.
+            sb.AppendLine("# Generated by Multiplayer bootstrap configurator");
+            sb.AppendLine("# Keys must match ServerSettings.ExposeData()\n");
+
+            // ExposeData() order
+            AppendKv(sb, "directAddress", settings.directAddress);
+            AppendKv(sb, "maxPlayers", settings.maxPlayers);
+            AppendKv(sb, "autosaveInterval", settings.autosaveInterval);
+            AppendKv(sb, "autosaveUnit", settings.autosaveUnit.ToString());
+            AppendKv(sb, "steam", settings.steam);
+            AppendKv(sb, "direct", settings.direct);
+            AppendKv(sb, "lan", settings.lan);
+            AppendKv(sb, "asyncTime", settings.asyncTime);
+            AppendKv(sb, "multifaction", settings.multifaction);
+            AppendKv(sb, "debugMode", settings.debugMode);
+            AppendKv(sb, "desyncTraces", settings.desyncTraces);
+            AppendKv(sb, "syncConfigs", settings.syncConfigs);
+            AppendKv(sb, "autoJoinPoint", settings.autoJoinPoint.ToString());
+            AppendKv(sb, "devModeScope", settings.devModeScope.ToString());
+            AppendKv(sb, "hasPassword", settings.hasPassword);
+            AppendKv(sb, "password", settings.password ?? "");
+            AppendKv(sb, "pauseOnLetter", settings.pauseOnLetter.ToString());
+            AppendKv(sb, "pauseOnJoin", settings.pauseOnJoin);
+            AppendKv(sb, "pauseOnDesync", settings.pauseOnDesync);
+            AppendKv(sb, "timeControl", settings.timeControl.ToString());
+
+            tomlPreview = sb.ToString();
+        }
+
+        private static void AppendKv(StringBuilder sb, string key, string value)
+        {
+            sb.Append(key);
+            sb.Append(" = ");
+
+            // Basic TOML escaping for strings
+            var escaped = value.Replace("\\", "\\\\").Replace("\"", "\\\"");
+            sb.Append('"').Append(escaped).Append('"');
+            sb.AppendLine();
+        }
+
+        private static void AppendKv(StringBuilder sb, string key, bool value)
+        {
+            sb.Append(key);
+            sb.Append(" = ");
+            sb.AppendLine(value ? "true" : "false");
+        }
+
+        private static void AppendKv(StringBuilder sb, string key, int value)
+        {
+            sb.Append(key);
+            sb.Append(" = ");
+            sb.AppendLine(value.ToString());
+        }
+
+        private static void AppendKv(StringBuilder sb, string key, float value)
+        {
+            // TOML uses '.' decimal separator
+            sb.Append(key);
+            sb.Append(" = ");
+            sb.AppendLine(value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        private void CheckboxLabeled(Rect r, string label, ref bool value)
+        {
+            var labelRect = r.LeftPartPixels(LabelWidth);
+            var boxRect = r.RightPartPixels(r.width - LabelWidth);
+            Widgets.Label(labelRect, label);
+            var oldValue = value;
+            Widgets.Checkbox(boxRect.x, boxRect.y + (boxRect.height - 24f) / 2f, ref value, 24f);
+            if (value != oldValue)
+                RebuildTomlPreview();
+        }
+
+        private void TextFieldLabeled(Rect r, string label, ref string value)
+        {
+            var labelRect = r.LeftPartPixels(LabelWidth);
+            var fieldRect = r.RightPartPixels(r.width - LabelWidth);
+            Widgets.Label(labelRect, label);
+            var oldValue = value;
+            value = Widgets.TextField(fieldRect, value ?? "");
+            if (value != oldValue)
+                RebuildTomlPreview();
+        }
+
+        private void TextFieldLabeled(Rect r, string label, ref AutoJoinPointFlags value)
+        {
+            var labelRect = r.LeftPartPixels(LabelWidth);
+            var fieldRect = r.RightPartPixels(r.width - LabelWidth);
+            Widgets.Label(labelRect, label);
+
+            // Keep it simple for now: user edits the enum string ("Join, Desync").
+            // We'll still emit it as string exactly like Server.TomlSettings.Save would.
+            var oldValue = value;
+            var str = Widgets.TextField(fieldRect, value.ToString());
+            if (Enum.TryParse(str, out AutoJoinPointFlags parsed))
+                value = parsed;
+            if (value != oldValue)
+                RebuildTomlPreview();
+        }
+
+        private void TextFieldNumericLabeled(Rect r, string label, ref int value, ref string buffer, int min, int max)
+        {
+            var labelRect = r.LeftPartPixels(LabelWidth);
+            var fieldRect = r.RightPartPixels(r.width - LabelWidth);
+            Widgets.Label(labelRect, label);
+            var oldValue = value;
+            Widgets.TextFieldNumeric(fieldRect, ref value, ref buffer, min, max);
+            if (value != oldValue)
+                RebuildTomlPreview();
+        }
+
+        private void TextFieldNumericLabeled(Rect r, string label, ref float value, ref string buffer, float min, float max)
+        {
+            var labelRect = r.LeftPartPixels(LabelWidth);
+            var fieldRect = r.RightPartPixels(r.width - LabelWidth);
+            Widgets.Label(labelRect, label);
+            var oldValue = value;
+            Widgets.TextFieldNumeric(fieldRect, ref value, ref buffer, min, max);
+            if (value != oldValue)
+                RebuildTomlPreview();
+        }
+
+        private void EnumDropdownLabeled<T>(Rect r, string label, T value, Action<T> setValue) where T : struct, Enum
+        {
+            var labelRect = r.LeftPartPixels(LabelWidth);
+            var buttonRect = r.RightPartPixels(r.width - LabelWidth);
+            Widgets.Label(labelRect, label);
+
+            var buttonLabel = value.ToString();
+            if (!Widgets.ButtonText(buttonRect, buttonLabel))
+                return;
+
+            var options = new System.Collections.Generic.List<FloatMenuOption>();
+            foreach (var v in Enum.GetValues(typeof(T)))
+            {
+                var cast = (T)v;
+                var captured = cast;
+                options.Add(new FloatMenuOption(captured.ToString(), () => 
+                {
+                    setValue(captured);
+                    RebuildTomlPreview();
+                }));
+            }
+
+            Find.WindowStack.Add(new FloatMenu(options));
+        }
+    }
+}
