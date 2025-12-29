@@ -9,7 +9,8 @@ namespace Multiplayer.Common
         public string gameName;
         public string lanAddress;
 
-        public string directAddress = $"0.0.0.0:{MultiplayerServer.DefaultPort}";
+    public string directAddress = $"0.0.0.0:{MultiplayerServer.DefaultPort}";
+    public int directPort = MultiplayerServer.DefaultPort;
         public int maxPlayers = 8;
         public float autosaveInterval = 1f;
         public AutosaveUnit autosaveUnit;
