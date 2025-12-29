@@ -25,10 +25,10 @@ namespace Multiplayer.Common
         public virtual PacketHandlerInfo? GetPacketHandler(Packets id) =>
             packetHandlers[(int)connection.State, (int)id];
 
-        public static Type[] stateImpls = new Type[(int)ConnectionStateEnum.Count];
+    public static Type[] stateImpls = new Type[(int)ConnectionStateEnum.Disconnected + 1];
 
         private static PacketHandlerInfo?[,] packetHandlers =
-            new PacketHandlerInfo?[(int)ConnectionStateEnum.Count, (int)Packets.Count];
+            new PacketHandlerInfo?[(int)ConnectionStateEnum.Disconnected + 1, (int)Packets.Count];
 
         public static void SetImplementation(ConnectionStateEnum state, Type type)
         {
