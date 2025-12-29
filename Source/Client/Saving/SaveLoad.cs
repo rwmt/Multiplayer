@@ -1,8 +1,12 @@
 using Ionic.Zlib;
 using Multiplayer.Common;
+using Multiplayer.Common.Util;
 using RimWorld;
 using RimWorld.Planet;
+using System;
 using System.Collections.Generic;
+using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Threading;
 using System.Xml;
@@ -136,15 +140,25 @@ namespace Multiplayer.Client
                     sustainer.Cleanup();
 
                 // todo destroy other game objects?
-                Object.Destroy(pool.sourcePoolCamera.cameraSourcesContainer);
-                Object.Destroy(pool.sourcePoolWorld.sourcesWorld[0].gameObject);
+                UnityEngine.Object.Destroy(pool.sourcePoolCamera.cameraSourcesContainer);
+                UnityEngine.Object.Destroy(pool.sourcePoolWorld.sourcesWorld[0].gameObject);
             }
         }
 
         public static TempGameData SaveGameData()
         {
             var gameDoc = SaveGameToDoc();
-            var sessionData = SessionData.WriteSessionData();
+
+            byte[] sessionData;
+            try
+            {
+                sessionData = SessionData.WriteSessionData();
+            }
+            catch (Exception e)
+            {
+                Log.Error($"Bootstrap: Exception writing session data, session will be empty: {e}");
+                sessionData = Array.Empty<byte>();
+            }
             return new TempGameData(gameDoc, sessionData);
         }
 
@@ -165,6 +179,7 @@ namespace Multiplayer.Client
                 World world = Current.Game.World;
                 Scribe_Deep.Look(ref world, "world");
                 List<Map> maps = Find.Maps;
+                Log.Message($"Bootstrap: SaveGameToDoc is serializing {maps?.Count ?? 0} maps");
                 Scribe_Collections.Look(ref maps, "maps", LookMode.Deep);
                 Find.CameraDriver.Expose();
                 Scribe.ExitNode();
@@ -179,27 +194,61 @@ namespace Multiplayer.Client
 
         public static GameDataSnapshot CreateGameDataSnapshot(TempGameData data, bool removeCurrentMapId)
         {
-            XmlNode gameNode = data.SaveData.DocumentElement["game"];
-            XmlNode mapsNode = gameNode["maps"];
+            // Be defensive: XML may be missing nodes in bootstrap or due to mod patches
+            XmlElement root = data.SaveData.DocumentElement;
+            XmlNode gameNode = root != null ? root["game"] : null;
+            XmlNode mapsNode = gameNode != null ? gameNode["maps"] : null;
+
+            Log.Message($"Bootstrap: CreateGameDataSnapshot XML structure - root={root?.Name}, game={gameNode?.Name}, maps={mapsNode?.Name}");
+            Log.Message($"Bootstrap: CreateGameDataSnapshot mapsNode children={mapsNode?.ChildNodes?.Count ?? 0}, Find.Maps.Count={Find.Maps?.Count ?? -1}");
 
             var mapCmdsDict = new Dictionary<int, List<ScheduledCommand>>();
             var mapDataDict = new Dictionary<int, byte[]>();
 
-            foreach (XmlNode mapNode in mapsNode)
+            if (mapsNode != null)
             {
-                int id = int.Parse(mapNode["uniqueID"].InnerText);
-                byte[] mapData = ScribeUtil.XmlToByteArray(mapNode);
-                mapDataDict[id] = mapData;
-                mapCmdsDict[id] = new List<ScheduledCommand>(Find.Maps.First(m => m.uniqueID == id).AsyncTime().cmds);
+                foreach (XmlNode mapNode in mapsNode)
+                {
+                    // Skip malformed map nodes
+                    var idNode = mapNode?["uniqueID"];
+                    if (idNode == null) continue;
+
+                    int id = int.Parse(idNode.InnerText);
+                    byte[] mapData = ScribeUtil.XmlToByteArray(mapNode);
+                    mapDataDict[id] = mapData;
+
+                    Log.Message($"Bootstrap: CreateGameDataSnapshot extracted map {id} ({mapData.Length} bytes)");
+
+                    // Offline bootstrap can run without async-time comps; guard nulls and write empty cmd lists
+                    var map = Find.Maps.FirstOrDefault(m => m.uniqueID == id);
+                    var mapAsync = map?.AsyncTime();
+                    if (mapAsync?.cmds != null)
+                        mapCmdsDict[id] = new List<ScheduledCommand>(mapAsync.cmds);
+                    else
+                        mapCmdsDict[id] = new List<ScheduledCommand>();
+                }
             }
 
             if (removeCurrentMapId)
-                gameNode["currentMapIndex"].RemoveFromParent();
+            {
+                var currentMapIndexNode = gameNode?["currentMapIndex"];
+                if (currentMapIndexNode != null)
+                    currentMapIndexNode.RemoveFromParent();
+            }
 
-            mapsNode.RemoveAll();
+            // Remove map nodes from the game XML to form world-only data
+            mapsNode?.RemoveAll();
 
             byte[] gameData = ScribeUtil.XmlToByteArray(data.SaveData);
-            mapCmdsDict[ScheduledCommand.Global] = new List<ScheduledCommand>(Multiplayer.AsyncWorldTime.cmds);
+            // World/global commands may be unavailable offline; default to empty list
+            if (Multiplayer.AsyncWorldTime != null)
+                mapCmdsDict[ScheduledCommand.Global] = new List<ScheduledCommand>(Multiplayer.AsyncWorldTime.cmds);
+            else
+                mapCmdsDict[ScheduledCommand.Global] = new List<ScheduledCommand>();
+
+            // Note: We no longer fall back to vanilla .rws extraction here.
+            // The bootstrap flow now hosts a temporary MP session and uses the standard MP save,
+            // which reliably produces proper replay snapshots including maps.
 
             return new GameDataSnapshot(
                 TickPatch.Timer,
@@ -224,11 +273,11 @@ namespace Multiplayer.Client
                 foreach (var mapData in mapsData)
                 {
                     writer.WriteInt32(mapData.Key);
-                    writer.WritePrefixedBytes(GZipStream.CompressBuffer(mapData.Value));
+                    writer.WritePrefixedBytes(Ionic.Zlib.GZipStream.CompressBuffer(mapData.Value));
                 }
 
-                writer.WritePrefixedBytes(GZipStream.CompressBuffer(gameData));
-                writer.WritePrefixedBytes(GZipStream.CompressBuffer(sessionData));
+                writer.WritePrefixedBytes(Ionic.Zlib.GZipStream.CompressBuffer(gameData));
+                writer.WritePrefixedBytes(Ionic.Zlib.GZipStream.CompressBuffer(sessionData));
 
                 byte[] data = writer.ToArray();
 
