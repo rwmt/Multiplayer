@@ -629,187 +629,6 @@ namespace Multiplayer.Client
             }
         }
 
-        /// <summary>
-        /// Drives the vanilla "New colony" page flow by pressing "Random" on tile selection
-        /// pages and auto-advancing with "Next" until we enter Playing with a map.
-        /// Uses reflection to avoid hard dependencies on specific RimWorld versions / page classes.
-        /// </summary>
-        private void TryAutoAdvanceVanillaPages()
-        {
-            if (!autoAdvanceArmed)
-                return;
-
-            // If we've already reached Playing with a map, stop driving pages immediately.
-            if (Current.ProgramState == ProgramState.Playing && Find.Maps != null && Find.Maps.Count > 0)
-            {
-                autoAdvanceArmed = false;
-                return;
-            }
-
-            TraceSnapshotTick();
-
-            if (autoAdvanceDiagCooldown > 0f)
-                autoAdvanceDiagCooldown -= Time.deltaTime;
-
-            // Don't start auto-advancing until the world is generated. The user can still interact
-            // with the scenario + world generation pages manually; we only take over after the world exists.
-            if (Find.World == null || Find.World.grid == null)
-            {
-                if (string.IsNullOrEmpty(saveUploadStatus) || saveUploadStatus.StartsWith("Advancing:") || saveUploadStatus.StartsWith("Entered map"))
-                    saveUploadStatus = "Waiting for world generation...";
-
-                if (autoAdvanceDiagCooldown <= 0f)
-                {
-                    autoAdvanceDiagCooldown = AutoAdvanceDiagCooldownSeconds;
-                    Log.Message($"[Bootstrap] Auto-advance armed; waiting world. ProgramState={Current.ProgramState}");
-                }
-
-                Trace("WaitWorld");
-                return;
-            }
-
-            // World is generated: wait a small grace period before starting to press Next.
-            if (!worldGenDetected)
-            {
-                worldGenDetected = true;
-                worldGenDelayRemaining = WorldGenDelaySeconds;
-                Trace("WorldDetected");
-            }
-
-            if (worldGenDelayRemaining > 0f)
-            {
-                worldGenDelayRemaining -= Time.deltaTime;
-                saveUploadStatus = "World generated. Waiting...";
-
-                if (autoAdvanceDiagCooldown <= 0f)
-                {
-                    autoAdvanceDiagCooldown = AutoAdvanceDiagCooldownSeconds;
-                    Log.Message($"[Bootstrap] World detected; delaying {worldGenDelayRemaining:0.00}s before auto-next");
-                }
-
-                Trace("WorldDelay");
-                return;
-            }
-
-            // Stop after some time to avoid infinite looping if the UI is blocked by an error dialog.
-            autoAdvanceElapsed += Time.deltaTime;
-            if (autoAdvanceElapsed > AutoAdvanceTimeoutSeconds)
-            {
-                autoAdvanceArmed = false;
-                saveUploadStatus = "Auto-advance timed out. Please complete world setup manually.";
-                Trace("AutoAdvanceTimeout");
-                return;
-            }
-
-            // Once we're playing and have a map, arm the save hook and stop auto-advance.
-            if (Current.ProgramState == ProgramState.Playing && Find.Maps != null && Find.Maps.Count > 0)
-            {
-                if (!AwaitingBootstrapMapInit)
-                {
-                    AwaitingBootstrapMapInit = true;
-                    saveUploadStatus = "Entered map. Waiting for initialization to complete...";
-                    Log.Message($"[Bootstrap] Reached Playing. maps={Find.Maps.Count}, currentMap={(Find.CurrentMap != null ? Find.CurrentMap.ToString() : "<null>")}");
-                    Trace("EnteredPlaying");
-                }
-
-                autoAdvanceArmed = false;
-                return;
-            }
-
-            // Cooldowns to avoid spamming actions every frame
-            if (nextPressCooldown > 0f)
-                nextPressCooldown -= Time.deltaTime;
-            if (randomTileCooldown > 0f)
-                randomTileCooldown -= Time.deltaTime;
-
-            // Find the top-most Page in the window stack
-            Page page = null;
-            var windows = Find.WindowStack?.Windows;
-            if (windows != null)
-            {
-                for (int i = windows.Count - 1; i >= 0; i--)
-                {
-                    if (windows[i] is Page p)
-                    {
-                        page = p;
-                        break;
-                    }
-                }
-            }
-
-            if (page == null)
-            {
-                if (autoAdvanceDiagCooldown <= 0f)
-                {
-                    autoAdvanceDiagCooldown = AutoAdvanceDiagCooldownSeconds;
-                    Log.Message($"[Bootstrap] Auto-advance: no Page found. ProgramState={Current.ProgramState}");
-                }
-
-                Trace("NoPage");
-                return;
-            }
-
-            // Some tiles prompt a confirmation dialog (e.g., harsh conditions / nearby faction). Accept it automatically.
-            TryAutoAcceptTileWarnings(page);
-
-            if (autoAdvanceDiagCooldown <= 0f)
-            {
-                autoAdvanceDiagCooldown = AutoAdvanceDiagCooldownSeconds;
-                Log.Message($"[Bootstrap] Auto-advance on page {page.GetType().Name}; CanDoNext={CanDoNextQuick(page)}; nextCooldown={nextPressCooldown:0.00}");
-            }
-
-            // Avoid spamming page trace if we sit on the same page for multiple ticks
-            var curPageName = page.GetType().Name;
-            if (curPageName != lastPageName)
-            {
-                lastPageName = curPageName;
-                Trace($"Page:{curPageName}:CanNext={CanDoNextQuick(page)}");
-            }
-
-            // If we're on a starting-site selection page, try to choose a random tile by setting GameInitData.startingTile.
-            // This mimics "Choose random" behavior without needing to locate UI widgets.
-            if (randomTileCooldown <= 0f && Find.GameInitData != null && Find.World?.grid != null)
-            {
-                var typeName = page.GetType().Name;
-                if (typeName.IndexOf("Starting", StringComparison.OrdinalIgnoreCase) >= 0 &&
-                    (typeName.IndexOf("Site", StringComparison.OrdinalIgnoreCase) >= 0 || typeName.IndexOf("Landing", StringComparison.OrdinalIgnoreCase) >= 0))
-                {
-                    int tile = FindSuitableTile();
-                    Find.GameInitData.startingTile = tile;
-                    randomTileCooldown = RandomTileCooldownSeconds;
-                    if (Prefs.DevMode)
-                        Log.Message($"[Bootstrap] Picked random starting tile {tile} on page {typeName}");
-                }
-            }
-
-            if (nextPressCooldown > 0f)
-                return;
-
-            // Press Next via reflection.
-            if (TryInvokePageNext(page))
-            {
-                nextPressCooldown = NextPressCooldownSeconds;
-                saveUploadStatus = $"Advancing: {page.GetType().Name}...";
-                Trace($"DoNext:{page.GetType().Name}");
-
-                // If this Next starts the actual new game initialization (InitNewGame long event),
-                // WindowUpdate can stall for a while. Schedule a post-long-event check so we can
-                // reliably arm the FinalizeInit trigger once the game switches to Playing.
-                var pageName = page.GetType().Name;
-                if (pageName.IndexOf("ConfigureStartingPawns", StringComparison.OrdinalIgnoreCase) >= 0)
-                {
-                    LongEventHandler.ExecuteWhenFinished(() =>
-                    {
-                        OnMainThread.Enqueue(() =>
-                        {
-                            Trace("PostInitNewGameCheck");
-                            TryArmAwaitingBootstrapMapInit("ExecuteWhenFinished");
-                        });
-                    });
-                }
-            }
-        }
-
         private void TryArmAwaitingBootstrapMapInit(string source)
         {
             // This is safe to call repeatedly.
@@ -879,223 +698,26 @@ namespace Multiplayer.Client
             if (AwaitingBootstrapMapInit || postMapEnterSaveDelayRemaining > 0f || saveReady || isUploadingSave || isReconnecting)
                 bootstrapTraceSnapshotCooldown = BootstrapTraceSnapshotSeconds; // delay next snapshot
         }
-
-        private static bool? CanDoNextQuick(Page page)
-        {
-            try
-            {
-                var t = page.GetType();
-                var canDoNextMethod = t.GetMethod("CanDoNext", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
-                if (canDoNextMethod != null && canDoNextMethod.ReturnType == typeof(bool) && canDoNextMethod.GetParameters().Length == 0)
-                    return (bool)canDoNextMethod.Invoke(page, null);
-            }
-            catch
-            {
-                // ignore
-            }
-
-            return null;
-        }
-
-        private static bool TryInvokePageNext(Page page)
-        {
-            try
-            {
-                var t = page.GetType();
-
-                // Common patterns across RW versions:
-                // - CanDoNext() + DoNext()
-                // - CanDoNext (property) + DoNext()
-                // - DoNext() only
-                bool canNext = true;
-                var canDoNextMethod = t.GetMethod("CanDoNext", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
-                if (canDoNextMethod != null && canDoNextMethod.ReturnType == typeof(bool) && canDoNextMethod.GetParameters().Length == 0)
-                    canNext = (bool)canDoNextMethod.Invoke(page, null);
-
-                if (!canNext)
-                    return false;
-
-                var doNextMethod = t.GetMethod("DoNext", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
-                if (doNextMethod != null && doNextMethod.GetParameters().Length == 0)
-                {
-                    doNextMethod.Invoke(page, null);
-                    return true;
-                }
-
-                // Fallback: try Next() method name
-                var nextMethod = t.GetMethod("Next", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
-                if (nextMethod != null && nextMethod.GetParameters().Length == 0)
-                {
-                    nextMethod.Invoke(page, null);
-                    return true;
-                }
-            }
-            catch (Exception e)
-            {
-                if (Prefs.DevMode)
-                    Log.Warning($"[Bootstrap] Failed to invoke Next on page {page?.GetType().Name}: {e.GetType().Name}: {e.Message}");
-            }
-
-            return false;
-        }
-
-        private void TryAutoAcceptTileWarnings(Page page)
-        {
-            try
-            {
-                // Only relevant on starting-site selection pages.
-                var typeName = page.GetType().Name;
-                if (typeName.IndexOf("Starting", StringComparison.OrdinalIgnoreCase) < 0)
-                    return;
-                if (typeName.IndexOf("Site", StringComparison.OrdinalIgnoreCase) < 0 && typeName.IndexOf("Landing", StringComparison.OrdinalIgnoreCase) < 0)
-                    return;
-
-                var windows = Find.WindowStack?.Windows;
-                if (windows == null || windows.Count == 0)
-                    return;
-
-                for (int i = windows.Count - 1; i >= 0; i--)
-                {
-                    if (windows[i] is Dialog_MessageBox msg)
-                    {
-                        // Prefer button A if present; otherwise try button B.
-                        if (!string.IsNullOrEmpty(msg.buttonAText))
-                        {
-                            msg.buttonAAction?.Invoke();
-                            msg.Close(true);
-                            if (Prefs.DevMode)
-                                Log.Message("[Bootstrap] Auto-accepted tile warning dialog (button A)");
-                            return;
-                        }
-
-                        if (!string.IsNullOrEmpty(msg.buttonBText))
-                        {
-                            msg.buttonBAction?.Invoke();
-                            msg.Close(true);
-                            if (Prefs.DevMode)
-                                Log.Message("[Bootstrap] Auto-accepted tile warning dialog (button B)");
-                            return;
-                        }
-                    }
-                }
-            }
-            catch
-            {
-                // Fail open; we don't want to block automation because of a dialog.
-            }
-        }
-
-        internal void TryClearStartingLettersOnce()
-        {
-            if (startingLettersCleared)
-                return;
-
-            var letterStack = Find.LetterStack;
-            var letters = letterStack?.LettersListForReading;
-            if (letters == null || letters.Count == 0)
-                return;
-
-            // Remove from the end to avoid mutation issues.
-            for (int i = letters.Count - 1; i >= 0; i--)
-            {
-                var letter = letters[i];
-                letterStack.RemoveLetter(letter);
-            }
-
-            startingLettersCleared = true;
-            if (Prefs.DevMode)
-                Log.Message("[Bootstrap] Cleared starting letters/messages");
-        }
-
-        internal void TryCloseLandingDialogsOnce()
-        {
-            if (landingDialogsCleared)
-                return;
-
-            var windows = Find.WindowStack?.Windows;
-            if (windows == null || windows.Count == 0)
-                return;
-
-            // Close common blocking dialogs shown at landing (message boxes, node trees)
-            for (int i = windows.Count - 1; i >= 0; i--)
-            {
-                var w = windows[i];
-                if (w is Dialog_MessageBox || w is Dialog_NodeTree)
-                {
-                    try
-                    {
-                        w.Close(true);
-                    }
-                    catch { }
-                }
-            }
-
-            landingDialogsCleared = true;
-            if (Prefs.DevMode)
-                Log.Message("[Bootstrap] Closed landing dialogs (message boxes / node trees)");
-        }
         
-        private int FindSuitableTile()
+        public void OnBootstrapMapInitialized()
         {
-            var world = Find.World;
-            var grid = world.grid;
+            if (!AwaitingBootstrapMapInit)
+                return;
             
-            // Try to find a temperate, flat tile without extreme conditions
-            for (int i = 0; i < grid.TilesCount; i++)
-            {
-                var tile = grid[i];
-                
-                // Skip water tiles
-                if (tile.biome.canBuildBase == false)
-                    continue;
-                
-                // Skip tiles with settlements or world objects
-                if (Find.WorldObjects.AnyWorldObjectAt(i))
-                    continue;
-                
-                // Prefer temperate, flat tiles
-                if (tile.hilliness == Hilliness.Flat || tile.hilliness == Hilliness.SmallHills)
-                {
-                    // Check temperature (tile.temperature is the annual average)
-                    if (tile.temperature > -10f && tile.temperature < 40f)
-                        return i;
-                }
-            }
-            
-            // Fallback: find any buildable tile
-            for (int i = 0; i < grid.TilesCount; i++)
-            {
-                var tile = grid[i];
-                if (tile.biome.canBuildBase && !Find.WorldObjects.AnyWorldObjectAt(i))
-                    return i;
-            }
-            
-            // Last resort: use tile 0 (should never happen)
-            return 0;
-        }
+            AwaitingBootstrapMapInit = false;
+            // Wait a bit after entering the map before saving, to let final UI/world settle.
+            postMapEnterSaveDelayRemaining = PostMapEnterSaveDelaySeconds;
+            awaitingControllablePawns = true;
+            awaitingControllablePawnsElapsed = 0f;
+            bootstrapSaveQueued = false;
+            saveUploadStatus = "Map initialized. Waiting before saving...";
+            Trace("FinalizeInit");
         
-            public void OnBootstrapMapInitialized()
-            {
-                if (!AwaitingBootstrapMapInit)
-                    return;
-                
-                AwaitingBootstrapMapInit = false;
-
-                // Wait a bit after entering the map before saving, to let final UI/world settle.
-                postMapEnterSaveDelayRemaining = PostMapEnterSaveDelaySeconds;
-                awaitingControllablePawns = true;
-                awaitingControllablePawnsElapsed = 0f;
-                bootstrapSaveQueued = false;
-                saveUploadStatus = "Map initialized. Waiting before saving...";
-
-                Trace("FinalizeInit");
-            
-                if (Prefs.DevMode)
-                    Log.Message("[Bootstrap] Map initialized, waiting for controllable pawns before saving");
-
-                // Saving is driven by a tick loop (WindowUpdate + BootstrapCoordinator + Root_Play.Update).
-                // Do not assume WindowUpdate keeps ticking during/after long events.
-            }
+            if (Prefs.DevMode)
+                Log.Message("[Bootstrap] Map initialized, waiting for controllable pawns before saving");
+            // Saving is driven by a tick loop (WindowUpdate + BootstrapCoordinator + Root_Play.Update).
+            // Do not assume WindowUpdate keeps ticking during/after long events.
+        }
 
         private void TickPostMapEnterSaveDelayAndMaybeSave()
         {
@@ -1106,10 +728,6 @@ namespace Multiplayer.Client
             // Only run once we have been signalled by FinalizeInit.
             if (postMapEnterSaveDelayRemaining <= 0f)
                 return;
-
-            // Clear initial letters/messages that can appear right after landing.
-            TryClearStartingLettersOnce();
-            TryCloseLandingDialogsOnce();
 
             TraceSnapshotTick();
 
@@ -1188,17 +806,19 @@ namespace Multiplayer.Client
                 try
                 {
                     // 1. Host multiplayer game on random free port (avoid collisions with user's server)
+                    int freePort = HostWindow.GetFreeUdpPort();
                     var hostSettings = new ServerSettings
                     {
                         gameName = "BootstrapHost",
                         maxPlayers = 2,
                         direct = true,
+                        directPort = freePort,
+                        directAddress = $"0.0.0.0:{freePort}",
                         lan = false,
                         steam = false,
-                        // directAddress will be set by HostProgrammatically to a free port
                     };
 
-                    bool hosted = HostWindow.HostProgrammatically(hostSettings, file: null, randomDirectPort: true);
+                    bool hosted = HostWindow.HostProgrammatically(hostSettings, file: null, randomDirectPort: false);
                     if (!hosted)
                     {
                         OnMainThread.Enqueue(() =>
@@ -1295,9 +915,6 @@ namespace Multiplayer.Client
 
            if (isReconnecting)
                CheckReconnectionState();
-
-        // Drive the vanilla page flow automatically (random tile + next)
-        TryAutoAdvanceVanillaPages();
         }
 
         /// <summary>
