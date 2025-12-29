@@ -19,6 +19,14 @@ namespace Multiplayer.Client
     [StaticConstructorOnStartup]
     public class HostWindow : Window
     {
+        // Restituisce una porta UDP libera
+        public static int GetFreeUdpPort()
+        {
+            var udp = new System.Net.Sockets.UdpClient(0);
+            int port = ((IPEndPoint)udp.Client.LocalEndPoint).Port;
+            udp.Close();
+            return port;
+        }
         enum Tab
         {
             Connecting, Gameplay
@@ -602,6 +610,27 @@ namespace Multiplayer.Client
             {
                 ReplayLoaded();
             }
+        }
+        /// <summary>
+        /// Avvia l'hosting programmaticamente per il flusso bootstrap.
+        /// </summary>
+        public static bool HostProgrammatically(ServerSettings overrides, SaveFile file = null, bool randomDirectPort = true)
+        {
+            var settings = MpUtil.ShallowCopy(overrides, new ServerSettings());
+            if (randomDirectPort)
+                settings.directPort = GetFreeUdpPort();
+
+            if (!TryStartLocalServer(settings))
+                return false;
+
+            if (file?.replay ?? Multiplayer.IsReplay)
+                new HostWindow(file).HostFromReplay(settings);
+            else if (file == null)
+                new HostWindow().HostFromSpIngame(settings);
+            else
+                new HostWindow(file).HostFromSpSaveFile(settings);
+
+            return true;
         }
     }
 }
