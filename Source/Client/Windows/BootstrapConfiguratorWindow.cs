@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Security.Cryptography;
 using Multiplayer.Client.Comp;
@@ -197,10 +198,9 @@ namespace Multiplayer.Client
             Text.Font = GameFont.Small;
 
             var infoRect = headerRect.BottomPartPixels(80f);
-            var info =
-                "The server is running in bootstrap mode (no settings.toml and/or save.zip).\n" +
-                "Fill out the settings below to generate a complete settings.toml.\n" +
-                "After applying settings, you'll upload save.zip in the next step.";
+            var info = "The server is running in bootstrap mode (no settings.toml and/or save.zip).\n" +
+                       "Fill out the settings below to generate a complete settings.toml.\n" +
+                       "After applying settings, you'll upload save.zip in the next step.";
             Widgets.Label(infoRect, info);
 
             Rect leftRect;
@@ -229,6 +229,7 @@ namespace Multiplayer.Client
             Widgets.DrawMenuSection(leftRect);
 
             var left = leftRect.ContractedBy(10f);
+
             Text.Font = GameFont.Medium;
             Widgets.Label(left.TopPartPixels(32f), "Server settings configured");
             Text.Font = GameFont.Small;
@@ -238,7 +239,7 @@ namespace Multiplayer.Client
             GUI.color = new Color(1f, 0.85f, 0.5f); // Warning yellow
             Widgets.DrawBoxSolid(noticeRect, new Color(0.3f, 0.25f, 0.1f, 0.5f));
             GUI.color = Color.white;
-            
+
             var noticeTextRect = noticeRect.ContractedBy(8f);
             Text.Font = GameFont.Tiny;
             GUI.color = new Color(1f, 0.9f, 0.6f);
@@ -250,12 +251,7 @@ namespace Multiplayer.Client
             Text.Font = GameFont.Small;
 
             Widgets.Label(new Rect(left.x, noticeRect.yMax + 10f, left.width, 110f),
-                "Click 'Generate map' to automatically create a world and settlement.\n" +
-                "The process will:\n" +
-                "1) Start vanilla world generation (you'll see the scenario/world pages)\n" +
-                "2) After you complete world setup, automatically select a suitable tile\n" +
-                "3) Generate a colony map and host a temporary multiplayer session\n" +
-                "4) Save the game as a replay and upload save.zip to the server");
+                "After the save is uploaded, the server will automatically shut down. You will need to restart the server manually to complete the setup.");
 
             // Hide the 'Generate map' button once the vanilla generation flow has started
             var btn = new Rect(left.x, noticeRect.yMax + 130f, 200f, 40f);
@@ -414,7 +410,7 @@ namespace Multiplayer.Client
             {
                 var r = Row();
                 TooltipHandler.TipRegion(r, "Enable multi-faction play.");
-                CheckboxLabeled(r, "Multifaction", ref settings.multifaction);
+                CheckboxLabeled(r, "Multi-faction", ref settings.multifaction);
                 y += RowHeight;
                 Gap();
             }
@@ -432,7 +428,7 @@ namespace Multiplayer.Client
             {
                 var r = Row();
                 TooltipHandler.TipRegion(r, "When clients automatically join (flags). Stored as a string in TOML.");
-                TextFieldLabeled(r, "Auto join point (flags)", ref settings.autoJoinPoint);
+                TextFieldLabeled(r, "When clients automatically join (flags). Stored as a string in TOML.", ref settings.autoJoinPoint);
                 y += RowHeight;
                 Gap();
             }
@@ -441,17 +437,17 @@ namespace Multiplayer.Client
             {
                 var r = Row();
                 TooltipHandler.TipRegion(r, "When to automatically pause on letters.");
-                EnumDropdownLabeled(r, "Pause on letter", settings.pauseOnLetter, v => settings.pauseOnLetter = v);
+                EnumDropdownLabeled(r, "When to automatically pause on letters.", settings.pauseOnLetter, v => settings.pauseOnLetter = v);
                 y += RowHeight;
 
                 r = Row();
                 TooltipHandler.TipRegion(r, "Pause when a player joins.");
-                CheckboxLabeled(r, "Pause on join", ref settings.pauseOnJoin);
+                CheckboxLabeled(r, "Pause when a player joins.", ref settings.pauseOnJoin);
                 y += RowHeight;
 
                 r = Row();
                 TooltipHandler.TipRegion(r, "Pause on desync.");
-                CheckboxLabeled(r, "Pause on desync", ref settings.pauseOnDesync);
+                CheckboxLabeled(r, "Pause on desync.", ref settings.pauseOnDesync);
                 y += RowHeight;
                 Gap();
             }
@@ -462,22 +458,22 @@ namespace Multiplayer.Client
             {
                 var r = Row();
                 TooltipHandler.TipRegion(r, "Enable debug mode.");
-                CheckboxLabeled(r, "Debug mode", ref settings.debugMode);
+                CheckboxLabeled(r, "Enable debug mode.", ref settings.debugMode);
                 y += RowHeight;
 
                 r = Row();
                 TooltipHandler.TipRegion(r, "Include desync traces to help debugging.");
-                CheckboxLabeled(r, "Desync traces", ref settings.desyncTraces);
+                CheckboxLabeled(r, "Include desync traces to help debugging.", ref settings.desyncTraces);
                 y += RowHeight;
 
                 r = Row();
                 TooltipHandler.TipRegion(r, "Sync mod configs to clients.");
-                CheckboxLabeled(r, "Sync configs", ref settings.syncConfigs);
+                CheckboxLabeled(r, "Sync mod configs to clients.", ref settings.syncConfigs);
                 y += RowHeight;
 
                 r = Row();
                 TooltipHandler.TipRegion(r, "Dev mode scope.");
-                EnumDropdownLabeled(r, "Dev mode scope", settings.devModeScope, v => settings.devModeScope = v);
+                EnumDropdownLabeled(r, "Dev mode scope.", settings.devModeScope, v => settings.devModeScope = v);
                 y += RowHeight;
                 Gap();
             }
@@ -487,7 +483,7 @@ namespace Multiplayer.Client
             {
                 var r = Row();
                 TooltipHandler.TipRegion(r, "Arbiter is not supported in standalone server.");
-                CheckboxLabeled(r, "Arbiter (unsupported)", ref settings.arbiter);
+                CheckboxLabeled(r, "Arbiter is not supported in standalone server.", ref settings.arbiter);
                 y += RowHeight;
             }
 
@@ -597,6 +593,13 @@ namespace Multiplayer.Client
                 // Ensure InitData exists for the page flow; RimWorld uses this heavily during new game setup.
                 Current.Game ??= new Game();
                 Current.Game.InitData ??= new GameInitData { startedFromEntry = true };
+                
+                // Ensure BootstrapCoordinator is added to the game components for tick reliability
+                if (Current.Game.components.All(c => c is not BootstrapCoordinator))
+                {
+                    Current.Game.components.Add(new BootstrapCoordinator(Current.Game));
+                    UnityEngine.Debug.Log("[Bootstrap] BootstrapCoordinator GameComponent added to Current.Game");
+                }
 
                 // Do NOT change programState; let vanilla handle it during the page flow
                 var scenarioPage = new Page_SelectScenario();
@@ -607,7 +610,7 @@ namespace Multiplayer.Client
                 // Start watching for page flow + map entry.
                 saveReady = false;
                 savedReplayPath = null;
-                saveUploadStatus = "Waiting for world generation...";
+                saveUploadStatus = "After the save is uploaded, the server will automatically shut down. You will need to restart the server manually to complete the setup.";
 
                 // Arm the vanilla page auto-advance driver
                 autoAdvanceArmed = true;
@@ -619,6 +622,9 @@ namespace Multiplayer.Client
                 autoAdvanceDiagCooldown = 0f;
                 startingLettersCleared = false;
                 landingDialogsCleared = false;
+                AwaitingBootstrapMapInit = true;
+                saveUploadStatus = "Generating map...";
+
 
                 Trace("StartVanillaNewColonyFlow");
             }
@@ -702,7 +708,10 @@ namespace Multiplayer.Client
         public void OnBootstrapMapInitialized()
         {
             if (!AwaitingBootstrapMapInit)
+            {
+                UnityEngine.Debug.Log("[Bootstrap] OnBootstrapMapInitialized called but AwaitingBootstrapMapInit is false - ignoring");
                 return;
+            }
             
             AwaitingBootstrapMapInit = false;
             // Wait a bit after entering the map before saving, to let final UI/world settle.
@@ -713,8 +722,7 @@ namespace Multiplayer.Client
             saveUploadStatus = "Map initialized. Waiting before saving...";
             Trace("FinalizeInit");
         
-            if (Prefs.DevMode)
-                Log.Message("[Bootstrap] Map initialized, waiting for controllable pawns before saving");
+            UnityEngine.Debug.Log($"[Bootstrap] Map initialized - postMapEnterSaveDelayRemaining={postMapEnterSaveDelayRemaining:F2}s, awaiting colonists");
             // Saving is driven by a tick loop (WindowUpdate + BootstrapCoordinator + Root_Play.Update).
             // Do not assume WindowUpdate keeps ticking during/after long events.
         }
@@ -733,7 +741,15 @@ namespace Multiplayer.Client
 
             // Drive the post-map delay. Use real time, not game ticks; during map init we still want
             // the save to happen shortly after the map becomes controllable.
+            var prevRemaining = postMapEnterSaveDelayRemaining;
             postMapEnterSaveDelayRemaining -= Time.deltaTime;
+            
+            // Debug logging for delay countdown
+            if (Mathf.FloorToInt(prevRemaining * 2) != Mathf.FloorToInt(postMapEnterSaveDelayRemaining * 2))
+            {
+                UnityEngine.Debug.Log($"[Bootstrap] Save delay countdown: {postMapEnterSaveDelayRemaining:F2}s remaining");
+            }
+            
             if (postMapEnterSaveDelayRemaining > 0f)
                 return;
 
@@ -752,6 +768,15 @@ namespace Multiplayer.Client
                         // (Some versions/modlists may temporarily have an empty list during generation.)
                         anyColonist = Find.CurrentMap.mapPawns?.FreeColonistsSpawned != null &&
                                       Find.CurrentMap.mapPawns.FreeColonistsSpawned.Count > 0;
+                        
+                        if (!anyColonist && awaitingControllablePawnsElapsed < AwaitControllablePawnsTimeoutSeconds)
+                        {
+                            // Log periodically while waiting
+                            if (Mathf.FloorToInt(awaitingControllablePawnsElapsed) != Mathf.FloorToInt(awaitingControllablePawnsElapsed - Time.deltaTime))
+                            {
+                                UnityEngine.Debug.Log($"[Bootstrap] Waiting for colonists... elapsed={awaitingControllablePawnsElapsed:F1}s");
+                            }
+                        }
                     }
                     catch
                     {
@@ -765,8 +790,7 @@ namespace Multiplayer.Client
                         // Pause the game as soon as colonists are controllable so the snapshot is stable
                         try { Find.TickManager.CurTimeSpeed = TimeSpeed.Paused; } catch { }
 
-                        if (Prefs.DevMode)
-                            Log.Message("[Bootstrap] Controllable colonists detected, starting save");
+                        UnityEngine.Debug.Log("[Bootstrap] Controllable colonists detected, starting save");
                     }
                 }
 
@@ -776,12 +800,11 @@ namespace Multiplayer.Client
                     {
                         // Fallback: don't block forever; save anyway.
                         awaitingControllablePawns = false;
-                        if (Prefs.DevMode)
-                            Log.Warning("[Bootstrap] Timed out waiting for controllable pawns; saving anyway");
+                        UnityEngine.Debug.LogWarning("[Bootstrap] Timed out waiting for controllable pawns; saving anyway");
                     }
                     else
                     {
-                        saveUploadStatus = "Entered map. Waiting for colonists to spawn...";
+                        saveUploadStatus = "Waiting for controllable colonists to spawn...";
                         Trace("WaitColonists");
                         return;
                     }
@@ -794,6 +817,8 @@ namespace Multiplayer.Client
 
             saveUploadStatus = "Map initialized. Starting hosted MP session...";
             Trace("StartHost");
+            
+            UnityEngine.Debug.Log("[Bootstrap] All conditions met, initiating save sequence");
 
             // NEW FLOW: instead of vanilla save + manual repackaging,
             // 1) Host a local MP game programmatically (random port to avoid conflicts)
@@ -856,7 +881,7 @@ namespace Multiplayer.Client
 
                                     if (saveReady)
                                     {
-                                        saveUploadStatus = "Save complete. Exiting to menu...";
+                                        saveUploadStatus = "Uploaded";
                                         Trace("SaveComplete");
 
                                         // 3. Exit to main menu (this also cleans up the local server)
@@ -874,7 +899,7 @@ namespace Multiplayer.Client
                                     }
                                     else
                                     {
-                                        saveUploadStatus = "Save failed - file not found.";
+                                        saveUploadStatus = "Failed to upload settings.toml: {0}: {1}";
                                         Log.Error($"[Bootstrap] Save finished but file missing: {savedReplayPath}");
                                         Trace("SaveMissingFile");
                                         bootstrapSaveQueued = false;
@@ -911,6 +936,8 @@ namespace Multiplayer.Client
         {
             base.WindowUpdate();
 
+            // Always try to drive the save delay, even if BootstrapCoordinator isn't ticking
+            // This ensures the autosave triggers even in edge cases
             TickPostMapEnterSaveDelayAndMaybeSave();
 
            if (isReconnecting)
@@ -1094,7 +1121,10 @@ namespace Multiplayer.Client
             {
                 try
                 {
-                    connection.Send(new ClientBootstrapUploadStartPacket("save.zip", bytes.Length));
+                    // Use reconnectingConn if we're in the reconnection flow, otherwise use the initial connection
+                    var targetConn = isReconnecting && reconnectingConn != null ? reconnectingConn : connection;
+
+                    targetConn.Send(new ClientBootstrapUploadStartPacket("save.zip", bytes.Length));
 
                     const int chunk = 256 * 1024;
                     var sent = 0;
@@ -1103,13 +1133,13 @@ namespace Multiplayer.Client
                         var len = Math.Min(chunk, bytes.Length - sent);
                         var part = new byte[len];
                         Buffer.BlockCopy(bytes, sent, part, 0, len);
-                        connection.SendFragmented(new ClientBootstrapUploadDataPacket(part).Serialize());
+                        targetConn.SendFragmented(new ClientBootstrapUploadDataPacket(part).Serialize());
                         sent += len;
                         var progress = bytes.Length == 0 ? 1f : (float)sent / bytes.Length;
                         OnMainThread.Enqueue(() => saveUploadProgress = Mathf.Clamp01(progress));
                     }
 
-                    connection.Send(new ClientBootstrapUploadFinishPacket(sha256));
+                    targetConn.Send(new ClientBootstrapUploadFinishPacket(sha256));
 
                     OnMainThread.Enqueue(() =>
                     {
