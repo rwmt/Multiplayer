@@ -446,7 +446,7 @@ namespace Multiplayer.Client
                 y += RowHeight;
 
                 r = Row();
-                TooltipHandler.TipRegion(r, "Pause on desync.");
+                TooltipHandler.TipRegion(r, "Automatically pause the game when a desync is detected.");
                 CheckboxLabeled(r, "Pause on desync.", ref settings.pauseOnDesync);
                 y += RowHeight;
                 Gap();
