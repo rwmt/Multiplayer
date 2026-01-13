@@ -23,6 +23,7 @@ namespace Multiplayer.Client
         public bool showModCompatibility = true;
         public bool hideTranslationMods = true;
         public bool enablePings = true;
+        public bool enableCrossPlanetLayerPings = true;
         public KeyCode? sendPingButton = KeyCode.Mouse4;
         public KeyCode? jumpToPingButton = KeyCode.Mouse3;
         public Rect chatRect;
@@ -66,6 +67,7 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref showModCompatibility, "showModCompatibility", true);
             Scribe_Values.Look(ref hideTranslationMods, "hideTranslationMods", true);
             Scribe_Values.Look(ref enablePings, "enablePings", true);
+            Scribe_Values.Look(ref enableCrossPlanetLayerPings, "enableCrossPlanetLayerPings", true);
             Scribe_Values.Look(ref sendPingButton, "sendPingButton", KeyCode.Mouse4);
             Scribe_Values.Look(ref jumpToPingButton, "jumpToPingButton", KeyCode.Mouse3);
             Scribe_Custom.LookRect(ref chatRect, "chatRect");

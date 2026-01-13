@@ -73,6 +73,8 @@ public static class MpSettingsUI
         listing.CheckboxLabeled("MpShowModCompat".Translate(), ref settings.showModCompatibility,
             "MpShowModCompatDesc".Translate());
         listing.CheckboxLabeled("MpEnablePingsSetting".Translate(), ref settings.enablePings);
+        listing.CheckboxLabeled("MpEnableCrossPlanetLayerPings".Translate(), ref settings.enableCrossPlanetLayerPings,
+            "MpEnableCrossPlanetLayerPingsDesc".Translate());
         listing.CheckboxLabeled("MpShowMainMenuAnimation".Translate(), ref settings.showMainMenuAnim);
 
         const string buttonOff = "Off";
