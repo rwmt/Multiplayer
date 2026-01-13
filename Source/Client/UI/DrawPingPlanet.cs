@@ -16,6 +16,7 @@ namespace Multiplayer.Client
             {
                 if (ping.mapId != -1) continue;
                 if (ping.PlayerInfo is not { } player) continue;
+                if (ping.planetTile.Layer == null) continue;
 
                 var layer = Find.WorldSelector.SelectedLayer;
                 // Only display pings on the current layer or (if enabled) on layers we can zoom to.
