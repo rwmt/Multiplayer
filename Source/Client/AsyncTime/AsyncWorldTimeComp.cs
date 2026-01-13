@@ -5,6 +5,7 @@ using HarmonyLib;
 using Multiplayer.Client.Comp;
 using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.Factions;
+using Multiplayer.Client.Patches;
 using Multiplayer.Client.Saving;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
@@ -57,6 +58,9 @@ public class AsyncWorldTimeComp : IExposable, ITickable
 
     public Queue<ScheduledCommand> Cmds => cmds;
     public Queue<ScheduledCommand> cmds = new();
+
+    public int CurrentPlayerCount { get; private set; }
+    public int VTR => CurrentPlayerCount > 0 ? VTRSync.MinimumVtr : VTRSync.MaximumVtr;
 
     public int TickableId => -1;
 
@@ -229,13 +233,19 @@ public class AsyncWorldTimeComp : IExposable, ITickable
                 int newMapId = data.ReadInt32();
                 int mapCount = Find.Maps.Count;
 
-                MpLog.Debug($"[{worldTicks}|{Multiplayer.session.remoteTickUntil}] Player count change: previousMapId={previousMapId}, newMapId={newMapId}, mapCount={mapCount}");
+                var prev = -1;
+                if (previousMapId >= 0)
+                    prev = Find.Maps.FirstOrDefault(x => x.uniqueID == previousMapId)?.AsyncTime()?.DecreasePlayerCount() ?? -1;
+                else if (previousMapId == VTRSync.WorldMapId)
+                    prev = Multiplayer.AsyncWorldTime.CurrentPlayerCount -= 1;
 
-                if (0 <= previousMapId)
-                    Find.Maps.FirstOrDefault(x => x.uniqueID == previousMapId)?.AsyncTime()?.DecreasePlayerCount();
+                var curr = -1;
+                if (newMapId >= 0)
+                    curr = Find.Maps.FirstOrDefault(x => x.uniqueID == newMapId)?.AsyncTime()?.IncreasePlayerCount() ?? -1;
+                else if (newMapId == VTRSync.WorldMapId)
+                    curr = Multiplayer.AsyncWorldTime.CurrentPlayerCount += 1;
 
-                if (0 <= newMapId)
-                    Find.Maps.FirstOrDefault(x => x.uniqueID == newMapId)?.AsyncTime()?.IncreasePlayerCount();
+                MpLog.Debug($"[{worldTicks}|{Multiplayer.session.remoteTickUntil}] Player count change: previousMapId={previousMapId} ({prev}), newMapId={newMapId} ({curr}), mapCount={mapCount}");
             }
         }
         catch (Exception e)
