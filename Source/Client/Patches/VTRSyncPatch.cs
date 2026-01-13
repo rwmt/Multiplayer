@@ -43,11 +43,7 @@ namespace Multiplayer.Client.Patches
             if (Multiplayer.Client == null)
                 return true;
 
-            if (__instance is Gravship or TravellingTransporters)
-                __result = VTRSync.MinimumVtr;
-            else
-                __result = Multiplayer.AsyncWorldTime.VTR;
-
+            __result = Multiplayer.AsyncWorldTime.VTR;
             return false;
         }
     }
