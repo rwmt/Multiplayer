@@ -88,7 +88,6 @@ namespace Multiplayer.Client
             MpConnectionState.SetImplementation(ConnectionStateEnum.ClientLoading, typeof(ClientLoadingState));
             MpConnectionState.SetImplementation(ConnectionStateEnum.ClientPlaying, typeof(ClientPlayingState));
             MpConnectionState.SetImplementation(ConnectionStateEnum.ClientBootstrap, typeof(ClientBootstrapState));
-            MpConnectionState.SetImplementation(ConnectionStateEnum.Disconnected, typeof(ClientDisconnectedState));
 
             MultiplayerData.CollectCursorIcons();
 
