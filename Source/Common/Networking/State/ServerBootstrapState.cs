@@ -161,7 +161,7 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
     }
 
     [TypedPacketHandler]
-    public void HandleUploadStart(ClientBootstrapUploadStartPacket packet)
+    public void HandleUploadStart(ClientBootstrapSaveUploadStartPacket packet)
     {
         if (!IsConfigurator())
             return;
@@ -181,7 +181,7 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
     }
 
     [TypedPacketHandler]
-    public void HandleUploadData(ClientBootstrapUploadDataPacket packet)
+    public void HandleUploadData(ClientBootstrapSaveUploadDataPacket packet)
     {
         if (!IsConfigurator())
             return;
@@ -206,7 +206,7 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
     }
 
     [TypedPacketHandler]
-    public void HandleUploadFinish(ClientBootstrapUploadFinishPacket packet)
+    public void HandleUploadFinish(ClientBootstrapSaveUploadFinishPacket packet)
     {
         if (!IsConfigurator())
             return;

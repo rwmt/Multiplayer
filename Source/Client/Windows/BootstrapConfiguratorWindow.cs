@@ -1113,7 +1113,7 @@ namespace Multiplayer.Client
                     // Use reconnectingConn if we're in the reconnection flow, otherwise use the initial connection
                     var targetConn = isReconnecting && reconnectingConn != null ? reconnectingConn : connection;
 
-                    targetConn.Send(new ClientBootstrapUploadStartPacket("save.zip", bytes.Length));
+                    targetConn.Send(new ClientBootstrapSaveUploadStartPacket("save.zip", bytes.Length));
 
                     const int chunk = 256 * 1024;
                     var sent = 0;
@@ -1122,13 +1122,13 @@ namespace Multiplayer.Client
                         var len = Math.Min(chunk, bytes.Length - sent);
                         var part = new byte[len];
                         Buffer.BlockCopy(bytes, sent, part, 0, len);
-                        targetConn.SendFragmented(new ClientBootstrapUploadDataPacket(part).Serialize());
+                        targetConn.SendFragmented(new ClientBootstrapSaveUploadDataPacket(part).Serialize());
                         sent += len;
                         var progress = bytes.Length == 0 ? 1f : (float)sent / bytes.Length;
                         OnMainThread.Enqueue(() => saveUploadProgress = Mathf.Clamp01(progress));
                     }
 
-                    targetConn.Send(new ClientBootstrapUploadFinishPacket(sha256));
+                    targetConn.Send(new ClientBootstrapSaveUploadFinishPacket(sha256));
 
                     OnMainThread.Enqueue(() =>
                     {

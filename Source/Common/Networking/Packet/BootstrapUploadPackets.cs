@@ -51,7 +51,7 @@ public record struct ClientBootstrapSettingsUploadFinishPacket(string sha256Hex)
 /// The client will send exactly one file: a pre-built save.zip (server format).
 /// </summary>
 [PacketDefinition(Packets.Client_BootstrapUploadStart)]
-public record struct ClientBootstrapUploadStartPacket(string fileName, int length) : IPacket
+public record struct ClientBootstrapSaveUploadStartPacket(string fileName, int length) : IPacket
 {
     public string fileName = fileName;
     public int length = length;
@@ -68,7 +68,7 @@ public record struct ClientBootstrapUploadStartPacket(string fileName, int lengt
 /// This packet is expected to be delivered fragmented due to size.
 /// </summary>
 [PacketDefinition(Packets.Client_BootstrapUploadData, allowFragmented: true)]
-public record struct ClientBootstrapUploadDataPacket(byte[] data) : IPacket
+public record struct ClientBootstrapSaveUploadDataPacket(byte[] data) : IPacket
 {
     public byte[] data = data;
 
@@ -82,7 +82,7 @@ public record struct ClientBootstrapUploadDataPacket(byte[] data) : IPacket
 /// Notify the server the upload has completed.
 /// </summary>
 [PacketDefinition(Packets.Client_BootstrapUploadFinish)]
-public record struct ClientBootstrapUploadFinishPacket(string sha256Hex) : IPacket
+public record struct ClientBootstrapSaveUploadFinishPacket(string sha256Hex) : IPacket
 {
     public string sha256Hex = sha256Hex;
 
