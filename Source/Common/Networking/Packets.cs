@@ -43,7 +43,6 @@ public enum Packets : byte
     Client_BootstrapUploadData,
     Client_BootstrapUploadFinish,
     Server_Bootstrap,
-    Server_BootstrapComplete,
 
     // Joining
     Server_ProtocolOk,

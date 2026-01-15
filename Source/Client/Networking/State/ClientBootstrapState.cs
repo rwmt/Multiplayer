@@ -12,12 +12,15 @@ namespace Multiplayer.Client;
 public class ClientBootstrapState(ConnectionBase connection) : ClientBaseState(connection)
 {
     [TypedPacketHandler]
-    public void HandleBootstrapComplete(ServerBootstrapCompletePacket packet)
+    public void HandleDisconnected(ServerDisconnectPacket packet)
     {
-        // The server will close shortly after sending this. Surface the message as an in-game notification.
-        // (BootstrapConfiguratorWindow already tells the user what to do next.)
-        if (!string.IsNullOrWhiteSpace(packet.message))
-            OnMainThread.Enqueue(() => Verse.Messages.Message(packet.message, RimWorld.MessageTypeDefOf.PositiveEvent, false));
+        // If bootstrap completed successfully, show success message before closing the window
+        if (packet.reason == MpDisconnectReason.BootstrapCompleted)
+        {
+            OnMainThread.Enqueue(() => Verse.Messages.Message(
+                "Bootstrap configuration completed. The server will now shut down; please restart it manually to start normally.",
+                RimWorld.MessageTypeDefOf.PositiveEvent, false));
+        }
 
         // Close the bootstrap configurator window now that the process is complete
         OnMainThread.Enqueue(() =>
@@ -26,5 +29,8 @@ public class ClientBootstrapState(ConnectionBase connection) : ClientBaseState(c
             if (window != null)
                 Verse.Find.WindowStack.TryRemove(window);
         });
+
+        // Let the base class handle the disconnect
+        base.HandleDisconnected(packet);
     }
 }

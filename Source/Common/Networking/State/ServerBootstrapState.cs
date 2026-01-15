@@ -239,8 +239,8 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
 
         ServerLog.Log($"Bootstrap: wrote '{targetPath}'. Configuration complete; disconnecting clients and stopping.");
 
-        // Notify and disconnect all clients.
-        Server.SendToPlaying(new ServerBootstrapCompletePacket("Server configured. The server will now shut down; please restart it manually to start normally."));
+                // Notify and disconnect all clients.
+                Server.SendToPlaying(new ServerDisconnectPacket { reason = MpDisconnectReason.BootstrapCompleted });
         foreach (var p in Server.playerManager.Players.ToArray())
             p.conn.Close(MpDisconnectReason.ServerClosed);
 

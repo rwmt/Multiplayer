@@ -20,6 +20,8 @@
         ServerStarting,
         BadGamePassword,
         StateException
+        ,
+        BootstrapCompleted
     }
 
 }

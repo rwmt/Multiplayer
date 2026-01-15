@@ -91,17 +91,3 @@ public record struct ClientBootstrapSaveEndPacket(string sha256Hex) : IPacket
         buf.Bind(ref sha256Hex);
     }
 }
-
-/// <summary>
-/// Server informs connected clients that bootstrap configuration finished and it will restart.
-/// </summary>
-[PacketDefinition(Packets.Server_BootstrapComplete)]
-public record struct ServerBootstrapCompletePacket(string message) : IPacket
-{
-    public string message = message;
-
-    public void Bind(PacketBuffer buf)
-    {
-        buf.Bind(ref message);
-    }
-}
