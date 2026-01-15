@@ -19,7 +19,6 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
     private const int MaxSettingsTomlBytes = 64 * 1024;
 
     // Settings upload (settings.toml)
-    private static string? pendingSettingsFileName;
     private static int pendingSettingsLength;
     private static byte[]? pendingSettingsBytes;
 
@@ -87,11 +86,9 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
         if (packet.length <= 0 || packet.length > MaxSettingsTomlBytes)
             throw new PacketReadException($"Bootstrap settings upload has invalid length ({packet.length})");
 
-        pendingSettingsFileName = packet.fileName;
         pendingSettingsLength = packet.length;
         pendingSettingsBytes = null;
-
-        ServerLog.Log($"Bootstrap: settings upload start '{pendingSettingsFileName}' ({pendingSettingsLength} bytes)");
+        ServerLog.Log($"Bootstrap: settings upload start 'settings.toml' ({pendingSettingsLength} bytes)");
     }
 
     [TypedPacketHandler]
@@ -159,7 +156,6 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
 
         ServerLog.Log($"Bootstrap: wrote '{settingsPath}'. Waiting for save.zip upload...");
 
-        pendingSettingsFileName = null;
         pendingSettingsLength = 0;
         pendingSettingsBytes = null;
     }
@@ -256,7 +252,6 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
 
     private static void ResetUploadState()
     {
-        pendingSettingsFileName = null;
         pendingSettingsLength = 0;
         pendingSettingsBytes = null;
 

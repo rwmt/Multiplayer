@@ -541,7 +541,7 @@ namespace Multiplayer.Client
             {
                 try
                 {
-                    connection.Send(new ClientBootstrapSettingsUploadStartPacket(fileName, bytes.Length));
+                    connection.Send(new ClientBootstrapSettingsUploadStartPacket(bytes.Length));
 
                     const int chunk = 64 * 1024; // safe: packet will be fragmented by ConnectionBase
                     var sent = 0;

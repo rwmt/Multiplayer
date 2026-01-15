@@ -6,15 +6,13 @@ namespace Multiplayer.Common.Networking.Packet;
 /// Upload start metadata for bootstrap settings configuration.
 /// The client may send exactly one file: settings.toml.
 /// </summary>
-[PacketDefinition(Packets.Client_BootstrapSettingsUploadStart)]
-public record struct ClientBootstrapSettingsUploadStartPacket(string fileName, int length) : IPacket
+    [PacketDefinition(Packets.Client_BootstrapSettingsUploadStart)]
+    public record struct ClientBootstrapSettingsUploadStartPacket(int length) : IPacket
 {
-    public string fileName = fileName;
     public int length = length;
 
     public void Bind(PacketBuffer buf)
     {
-        buf.Bind(ref fileName);
         buf.Bind(ref length);
     }
 }
