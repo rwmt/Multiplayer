@@ -618,7 +618,7 @@ namespace Multiplayer.Client
         {
             var settings = MpUtil.ShallowCopy(overrides, new ServerSettings());
             if (randomDirectPort)
-                settings.directPort = GetFreeUdpPort();
+                settings.directAddress = $"0.0.0.0:{GetFreeUdpPort()}";
 
             if (!TryStartLocalServer(settings))
                 return false;

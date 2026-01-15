@@ -837,7 +837,6 @@ namespace Multiplayer.Client
                         gameName = "BootstrapHost",
                         maxPlayers = 2,
                         direct = true,
-                        directPort = freePort,
                         directAddress = $"0.0.0.0:{freePort}",
                         lan = false,
                         steam = false,
