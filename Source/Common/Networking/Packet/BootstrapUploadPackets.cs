@@ -36,13 +36,13 @@ public record struct ClientBootstrapSettingsDataPacket(byte[] data) : IPacket
 /// Notify the server the settings.toml upload has completed.
 /// </summary>
 [PacketDefinition(Packets.Client_BootstrapSettingsUploadFinish)]
-public record struct ClientBootstrapSettingsEndPacket(string sha256Hex) : IPacket
+public record struct ClientBootstrapSettingsEndPacket(byte[] sha256Hash) : IPacket
 {
-    public string sha256Hex = sha256Hex;
+    public byte[] sha256Hash = sha256Hash;
 
     public void Bind(PacketBuffer buf)
     {
-        buf.Bind(ref sha256Hex);
+        buf.BindBytes(ref sha256Hash, maxLength: 32);
     }
 }
 
@@ -82,12 +82,12 @@ public record struct ClientBootstrapSaveDataPacket(byte[] data) : IPacket
 /// Notify the server the upload has completed.
 /// </summary>
 [PacketDefinition(Packets.Client_BootstrapUploadFinish)]
-public record struct ClientBootstrapSaveEndPacket(string sha256Hex) : IPacket
+public record struct ClientBootstrapSaveEndPacket(byte[] sha256Hash) : IPacket
 {
-    public string sha256Hex = sha256Hex;
+    public byte[] sha256Hash = sha256Hash;
 
     public void Bind(PacketBuffer buf)
     {
-        buf.Bind(ref sha256Hex);
+        buf.BindBytes(ref sha256Hash, maxLength: 32);
     }
 }

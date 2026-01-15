@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using Multiplayer.Common.Networking.Packet;
 
@@ -140,11 +141,10 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
             ServerLog.Log($"Bootstrap: warning - expected {pendingSettingsLength} settings bytes but got {pendingSettingsBytes.Length}");
 
         using var sha256 = System.Security.Cryptography.SHA256.Create();
-        var actualHash = sha256.ComputeHash(pendingSettingsBytes).ToHexString();
-        if (!string.IsNullOrWhiteSpace(packet.sha256Hex) &&
-            !actualHash.Equals(packet.sha256Hex, StringComparison.OrdinalIgnoreCase))
+        var actualHash = sha256.ComputeHash(pendingSettingsBytes);
+        if (packet.sha256Hash != null && packet.sha256Hash.Length > 0 && !actualHash.SequenceEqual(packet.sha256Hash))
         {
-            throw new PacketReadException($"Bootstrap settings upload hash mismatch. expected={packet.sha256Hex} actual={actualHash}");
+            throw new PacketReadException($"Bootstrap settings upload hash mismatch. expected={packet.sha256Hash.ToHexString()} actual={actualHash.ToHexString()}");
         }
 
         // Persist settings.toml
@@ -223,11 +223,10 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
             ServerLog.Log($"Bootstrap: warning - expected {pendingLength} bytes but got {pendingZipBytes.Length}");
 
         using var sha256 = System.Security.Cryptography.SHA256.Create();
-        var actualHash = sha256.ComputeHash(pendingZipBytes).ToHexString();
-        if (!string.IsNullOrWhiteSpace(packet.sha256Hex) &&
-            !actualHash.Equals(packet.sha256Hex, StringComparison.OrdinalIgnoreCase))
+        var actualHash = sha256.ComputeHash(pendingZipBytes);
+        if (packet.sha256Hash != null && packet.sha256Hash.Length > 0 && !actualHash.SequenceEqual(packet.sha256Hash))
         {
-            throw new PacketReadException($"Bootstrap upload hash mismatch. expected={packet.sha256Hex} actual={actualHash}");
+            throw new PacketReadException($"Bootstrap upload hash mismatch. expected={packet.sha256Hash.ToHexString()} actual={actualHash.ToHexString()}");
         }
 
         // Persist save.zip

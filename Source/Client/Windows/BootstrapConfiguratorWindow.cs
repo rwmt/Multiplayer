@@ -533,9 +533,9 @@ namespace Multiplayer.Client
             // Upload on a background thread; network send is safe (it will be queued by the underlying net impl).
             var bytes = Encoding.UTF8.GetBytes(tomlText);
             var fileName = "settings.toml";
-            string sha256;
+            byte[] sha256Hash;
             using (var hasher = SHA256.Create())
-                sha256 = hasher.ComputeHash(bytes).ToHexString();
+                sha256Hash = hasher.ComputeHash(bytes);
 
             new System.Threading.Thread(() =>
             {
@@ -547,7 +547,7 @@ namespace Multiplayer.Client
                     connection.SendFragmented(new ClientBootstrapSettingsDataPacket(bytes).Serialize());
                     OnMainThread.Enqueue(() => uploadProgress = 1f);
 
-                    connection.Send(new ClientBootstrapSettingsEndPacket(sha256));
+                    connection.Send(new ClientBootstrapSettingsEndPacket(sha256Hash));
 
                     OnMainThread.Enqueue(() =>
                     {
@@ -1128,7 +1128,11 @@ namespace Multiplayer.Client
                         OnMainThread.Enqueue(() => saveUploadProgress = Mathf.Clamp01(progress));
                     }
 
-                    targetConn.Send(new ClientBootstrapSaveEndPacket(sha256));
+                    byte[] sha256Hash;
+                    using (var hasher = SHA256.Create())
+                        sha256Hash = hasher.ComputeHash(bytes);
+
+                    targetConn.Send(new ClientBootstrapSaveEndPacket(sha256Hash));
 
                     OnMainThread.Enqueue(() =>
                     {
