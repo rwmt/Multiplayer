@@ -43,9 +43,8 @@ namespace Multiplayer.Client
 
         private Vector2 scroll;
 
-        // numeric buffers
-        private string maxPlayersBuffer;
-        private string autosaveIntervalBuffer;
+        // UI buffers
+        private ServerSettingsUI.BufferSet settingsUiBuffers = new();
 
         // toml preview
         private string tomlPreview;
@@ -145,6 +144,10 @@ namespace Multiplayer.Client
                 arbiter = false
             };
 
+            // Initialize UI buffers
+            settingsUiBuffers.MaxPlayersBuffer = settings.maxPlayers.ToString();
+            settingsUiBuffers.AutosaveBuffer = settings.autosaveInterval.ToString();
+
             // Choose the initial step based on what the server told us.
             // If we don't have an explicit "settings missing" signal, assume settings are already configured
             // and proceed to map generation.
@@ -208,11 +211,20 @@ namespace Multiplayer.Client
 
             if (step == Step.Settings)
             {
-                leftRect = bodyRect.LeftPart(0.58f).ContractedBy(4f);
-                rightRect = bodyRect.RightPart(0.42f).ContractedBy(4f);
+                // Only show TOML preview in dev mode
+                if (Prefs.DevMode)
+                {
+                    leftRect = bodyRect.LeftPart(0.58f).ContractedBy(4f);
+                    rightRect = bodyRect.RightPart(0.42f).ContractedBy(4f);
+                    DrawTomlPreview(rightRect);
+                }
+                else
+                {
+                    leftRect = bodyRect.ContractedBy(4f);
+                    rightRect = Rect.zero;
+                }
 
                 DrawSettings(leftRect);
-                DrawTomlPreview(rightRect);
                 DrawSettingsButtons(buttonsRect);
             }
             else
@@ -304,189 +316,15 @@ namespace Multiplayer.Client
 
             var contentRect = new Rect(inner.x, inner.y + 60f, inner.width, inner.height - 60f);
 
-            // Keep the layout stable with a scroll view.
-            var viewRect = new Rect(0f, 0f, contentRect.width - 16f, 760f);
+            // Use ServerSettingsUI to draw both networking and gameplay settings
+            Widgets.BeginScrollView(contentRect, ref scroll, contentRect);
             
-            Widgets.BeginScrollView(contentRect, ref scroll, viewRect);
-
-            float y = 0f;
-            void Gap() => y += GapY;
-            Rect Row() => new Rect(0f, y, viewRect.width, RowHeight);
-
-            void Header(string label)
-            {
-                Text.Font = GameFont.Medium;
-                Widgets.Label(new Rect(0f, y, viewRect.width, 32f), label);
-                Text.Font = GameFont.Small;
-                y += 34f;
-            }
-
-            Header("Networking");
-
-            // direct
-            {
-                var r = Row();
-                TooltipHandler.TipRegion(r, "Enable Direct hosting (recommended for standalone/headless).");
-                CheckboxLabeled(r, "Direct", ref settings.direct);
-                y += RowHeight;
-
-                r = Row();
-                TooltipHandler.TipRegion(r, "One or more endpoints, separated by ';'. Example: 0.0.0.0:30502");
-                TextFieldLabeled(r, "Direct address", ref settings.directAddress);
-                y += RowHeight;
-                Gap();
-            }
-
-            // lan
-            {
-                var r = Row();
-                TooltipHandler.TipRegion(r, "Enable LAN broadcasting (typically off for headless servers).");
-                CheckboxLabeled(r, "LAN", ref settings.lan);
-                y += RowHeight;
-                Gap();
-            }
-
-            // steam
-            {
-                var r = Row();
-                TooltipHandler.TipRegion(r, "Steam hosting is not supported by the standalone server.");
-                CheckboxLabeled(r, "Steam", ref settings.steam);
-                y += RowHeight;
-                Gap();
-            }
-
-            Header("Server limits");
-
-            // max players
-            {
-                var r = Row();
-                TooltipHandler.TipRegion(r, "Maximum number of players allowed to connect.");
-                TextFieldNumericLabeled(r, "Max players", ref settings.maxPlayers, ref maxPlayersBuffer, 1, 999);
-                y += RowHeight;
-                Gap();
-            }
-
-            // password
-            {
-                var r = Row();
-                TooltipHandler.TipRegion(r, "Require a password to join.");
-                CheckboxLabeled(r, "Has password", ref settings.hasPassword);
-                y += RowHeight;
-
-                r = Row();
-                TooltipHandler.TipRegion(r, "Password (only used if Has password is enabled).");
-                TextFieldLabeled(r, "Password", ref settings.password);
-                y += RowHeight;
-                Gap();
-            }
-
-            Header("Saves / autosaves");
-
-            // autosave interval + unit
-            {
-                var r = Row();
-                TooltipHandler.TipRegion(r, "Autosave interval. Unit is configured separately below.");
-                TextFieldNumericLabeled(r, "Autosave interval", ref settings.autosaveInterval, ref autosaveIntervalBuffer, 0f, 999f);
-                y += RowHeight;
-
-                r = Row();
-                TooltipHandler.TipRegion(r, "Autosave unit.");
-                EnumDropdownLabeled(r, "Autosave unit", settings.autosaveUnit, v => settings.autosaveUnit = v);
-                y += RowHeight;
-                Gap();
-            }
-
-            Header("Gameplay options");
-
-            // async time
-            {
-                var r = Row();
-                TooltipHandler.TipRegion(r, "Allow async time. (Once enabled in a save, usually can't be disabled.)");
-                CheckboxLabeled(r, "Async time", ref settings.asyncTime);
-                y += RowHeight;
-            }
-
-            // multifaction
-            {
-                var r = Row();
-                TooltipHandler.TipRegion(r, "Enable multi-faction play.");
-                CheckboxLabeled(r, "Multi-faction", ref settings.multifaction);
-                y += RowHeight;
-                Gap();
-            }
-
-            // time control
-            {
-                var r = Row();
-                TooltipHandler.TipRegion(r, "Who controls game speed.");
-                EnumDropdownLabeled(r, "Time control", settings.timeControl, v => settings.timeControl = v);
-                y += RowHeight;
-                Gap();
-            }
-
-            // auto join point
-            {
-                var r = Row();
-                TooltipHandler.TipRegion(r, "When clients automatically join (flags). Stored as a string in TOML.");
-                TextFieldLabeled(r, "When clients automatically join (flags). Stored as a string in TOML.", ref settings.autoJoinPoint);
-                y += RowHeight;
-                Gap();
-            }
-
-            // pause behavior
-            {
-                var r = Row();
-                TooltipHandler.TipRegion(r, "When to automatically pause on letters.");
-                EnumDropdownLabeled(r, "When to automatically pause on letters.", settings.pauseOnLetter, v => settings.pauseOnLetter = v);
-                y += RowHeight;
-
-                r = Row();
-                TooltipHandler.TipRegion(r, "Pause when a player joins.");
-                CheckboxLabeled(r, "Pause when a player joins.", ref settings.pauseOnJoin);
-                y += RowHeight;
-
-                r = Row();
-                TooltipHandler.TipRegion(r, "Automatically pause the game when a desync is detected.");
-                CheckboxLabeled(r, "Pause on desync.", ref settings.pauseOnDesync);
-                y += RowHeight;
-                Gap();
-            }
-
-            Header("Debug / development");
-
-            // debug mode
-            {
-                var r = Row();
-                TooltipHandler.TipRegion(r, "Enable debug mode.");
-                CheckboxLabeled(r, "Enable debug mode.", ref settings.debugMode);
-                y += RowHeight;
-
-                r = Row();
-                TooltipHandler.TipRegion(r, "Include desync traces to help debugging.");
-                CheckboxLabeled(r, "Include desync traces to help debugging.", ref settings.desyncTraces);
-                y += RowHeight;
-
-                r = Row();
-                TooltipHandler.TipRegion(r, "Sync mod configs to clients.");
-                CheckboxLabeled(r, "Sync mod configs to clients.", ref settings.syncConfigs);
-                y += RowHeight;
-
-                r = Row();
-                TooltipHandler.TipRegion(r, "Dev mode scope.");
-                EnumDropdownLabeled(r, "Dev mode scope.", settings.devModeScope, v => settings.devModeScope = v);
-                y += RowHeight;
-                Gap();
-            }
-
-            // unsupported settings but still in schema
-            Header("Standalone limitations");
-            {
-                var r = Row();
-                TooltipHandler.TipRegion(r, "Arbiter is not supported in standalone server.");
-                CheckboxLabeled(r, "Arbiter is not supported in standalone server.", ref settings.arbiter);
-                y += RowHeight;
-            }
-
+            var settingsRect = contentRect.TopPartPixels(contentRect.height);
+            ServerSettingsUI.DrawNetworkingSettings(settingsRect, settings, settingsUiBuffers);
+            
+            settingsRect = settingsRect.Down(300f);
+            ServerSettingsUI.DrawGameplaySettingsOnly(settingsRect, settings, settingsUiBuffers);
+            
             Widgets.EndScrollView();
         }
 
@@ -494,15 +332,23 @@ namespace Multiplayer.Client
         {
             var buttons = inRect.ContractedBy(4f);
             
-            var copyRect = buttons.LeftPart(0.5f).ContractedBy(2f);
-            if (Widgets.ButtonText(copyRect, "Copy TOML"))
+            // Copy TOML button only in dev mode
+            Rect nextRect;
+            if (Prefs.DevMode)
             {
-                RebuildTomlPreview();
-                GUIUtility.systemCopyBuffer = tomlPreview;
-                Messages.Message("Copied settings.toml to clipboard", MessageTypeDefOf.SilentInput, false);
+                var copyRect = buttons.LeftPart(0.5f).ContractedBy(2f);
+                if (Widgets.ButtonText(copyRect, "Copy TOML"))
+                {
+                    RebuildTomlPreview();
+                    GUIUtility.systemCopyBuffer = tomlPreview;
+                    Messages.Message("Copied settings.toml to clipboard", MessageTypeDefOf.SilentInput, false);
+                }
+                nextRect = buttons.RightPart(0.5f).ContractedBy(2f);
             }
-
-            var nextRect = buttons.RightPart(0.5f).ContractedBy(2f);
+            else
+            {
+                nextRect = buttons.ContractedBy(2f);
+            }
             var nextLabel = settingsUploaded ? "Uploaded" : "Next";
             var nextEnabled = !isUploadingToml && !settingsUploaded;
             
@@ -1232,91 +1078,6 @@ namespace Multiplayer.Client
             sb.Append(key);
             sb.Append(" = ");
             sb.AppendLine(value.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        }
-
-        private void CheckboxLabeled(Rect r, string label, ref bool value)
-        {
-            var labelRect = r.LeftPartPixels(LabelWidth);
-            var boxRect = r.RightPartPixels(r.width - LabelWidth);
-            Widgets.Label(labelRect, label);
-            var oldValue = value;
-            Widgets.Checkbox(boxRect.x, boxRect.y + (boxRect.height - 24f) / 2f, ref value, 24f);
-            if (value != oldValue)
-                RebuildTomlPreview();
-        }
-
-        private void TextFieldLabeled(Rect r, string label, ref string value)
-        {
-            var labelRect = r.LeftPartPixels(LabelWidth);
-            var fieldRect = r.RightPartPixels(r.width - LabelWidth);
-            Widgets.Label(labelRect, label);
-            var oldValue = value;
-            value = Widgets.TextField(fieldRect, value ?? "");
-            if (value != oldValue)
-                RebuildTomlPreview();
-        }
-
-        private void TextFieldLabeled(Rect r, string label, ref AutoJoinPointFlags value)
-        {
-            var labelRect = r.LeftPartPixels(LabelWidth);
-            var fieldRect = r.RightPartPixels(r.width - LabelWidth);
-            Widgets.Label(labelRect, label);
-
-            // Keep it simple for now: user edits the enum string ("Join, Desync").
-            // We'll still emit it as string exactly like Server.TomlSettings.Save would.
-            var oldValue = value;
-            var str = Widgets.TextField(fieldRect, value.ToString());
-            if (Enum.TryParse(str, out AutoJoinPointFlags parsed))
-                value = parsed;
-            if (value != oldValue)
-                RebuildTomlPreview();
-        }
-
-        private void TextFieldNumericLabeled(Rect r, string label, ref int value, ref string buffer, int min, int max)
-        {
-            var labelRect = r.LeftPartPixels(LabelWidth);
-            var fieldRect = r.RightPartPixels(r.width - LabelWidth);
-            Widgets.Label(labelRect, label);
-            var oldValue = value;
-            Widgets.TextFieldNumeric(fieldRect, ref value, ref buffer, min, max);
-            if (value != oldValue)
-                RebuildTomlPreview();
-        }
-
-        private void TextFieldNumericLabeled(Rect r, string label, ref float value, ref string buffer, float min, float max)
-        {
-            var labelRect = r.LeftPartPixels(LabelWidth);
-            var fieldRect = r.RightPartPixels(r.width - LabelWidth);
-            Widgets.Label(labelRect, label);
-            var oldValue = value;
-            Widgets.TextFieldNumeric(fieldRect, ref value, ref buffer, min, max);
-            if (value != oldValue)
-                RebuildTomlPreview();
-        }
-
-        private void EnumDropdownLabeled<T>(Rect r, string label, T value, Action<T> setValue) where T : struct, Enum
-        {
-            var labelRect = r.LeftPartPixels(LabelWidth);
-            var buttonRect = r.RightPartPixels(r.width - LabelWidth);
-            Widgets.Label(labelRect, label);
-
-            var buttonLabel = value.ToString();
-            if (!Widgets.ButtonText(buttonRect, buttonLabel))
-                return;
-
-            var options = new System.Collections.Generic.List<FloatMenuOption>();
-            foreach (var v in Enum.GetValues(typeof(T)))
-            {
-                var cast = (T)v;
-                var captured = cast;
-                options.Add(new FloatMenuOption(captured.ToString(), () => 
-                {
-                    setValue(captured);
-                    RebuildTomlPreview();
-                }));
-            }
-
-            Find.WindowStack.Add(new FloatMenu(options));
         }
     }
 }
