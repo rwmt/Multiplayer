@@ -541,13 +541,13 @@ namespace Multiplayer.Client
             {
                 try
                 {
-                    connection.Send(new ClientBootstrapSettingsUploadStartPacket(bytes.Length));
+                    connection.Send(new ClientBootstrapSettingsStartPacket(bytes.Length));
 
                     // Let ConnectionBase fragment internally (MaxFragmentPacketTotalSize ~32 MiB).
-                    connection.SendFragmented(new ClientBootstrapSettingsUploadDataPacket(bytes).Serialize());
+                    connection.SendFragmented(new ClientBootstrapSettingsDataPacket(bytes).Serialize());
                     OnMainThread.Enqueue(() => uploadProgress = 1f);
 
-                    connection.Send(new ClientBootstrapSettingsUploadFinishPacket(sha256));
+                    connection.Send(new ClientBootstrapSettingsEndPacket(sha256));
 
                     OnMainThread.Enqueue(() =>
                     {
@@ -1113,7 +1113,7 @@ namespace Multiplayer.Client
                     // Use reconnectingConn if we're in the reconnection flow, otherwise use the initial connection
                     var targetConn = isReconnecting && reconnectingConn != null ? reconnectingConn : connection;
 
-                    targetConn.Send(new ClientBootstrapSaveUploadStartPacket("save.zip", bytes.Length));
+                    targetConn.Send(new ClientBootstrapSaveStartPacket("save.zip", bytes.Length));
 
                     const int chunk = 256 * 1024;
                     var sent = 0;
@@ -1122,13 +1122,13 @@ namespace Multiplayer.Client
                         var len = Math.Min(chunk, bytes.Length - sent);
                         var part = new byte[len];
                         Buffer.BlockCopy(bytes, sent, part, 0, len);
-                        targetConn.SendFragmented(new ClientBootstrapSaveUploadDataPacket(part).Serialize());
+                        targetConn.SendFragmented(new ClientBootstrapSaveDataPacket(part).Serialize());
                         sent += len;
                         var progress = bytes.Length == 0 ? 1f : (float)sent / bytes.Length;
                         OnMainThread.Enqueue(() => saveUploadProgress = Mathf.Clamp01(progress));
                     }
 
-                    targetConn.Send(new ClientBootstrapSaveUploadFinishPacket(sha256));
+                    targetConn.Send(new ClientBootstrapSaveEndPacket(sha256));
 
                     OnMainThread.Enqueue(() =>
                     {

@@ -71,7 +71,7 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
     }
 
     [TypedPacketHandler]
-    public void HandleSettingsUploadStart(ClientBootstrapSettingsUploadStartPacket packet)
+    public void HandleSettingsStart(ClientBootstrapSettingsStartPacket packet)
     {
         if (!IsConfigurator())
             return;
@@ -92,7 +92,7 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
     }
 
     [TypedPacketHandler]
-    public void HandleSettingsUploadData(ClientBootstrapSettingsUploadDataPacket packet)
+    public void HandleSettingsData(ClientBootstrapSettingsDataPacket packet)
     {
         if (!IsConfigurator())
             return;
@@ -121,7 +121,7 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
     }
 
     [TypedPacketHandler]
-    public void HandleSettingsUploadFinish(ClientBootstrapSettingsUploadFinishPacket packet)
+    public void HandleSettingsEnd(ClientBootstrapSettingsEndPacket packet)
     {
         if (!IsConfigurator())
             return;
@@ -161,7 +161,7 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
     }
 
     [TypedPacketHandler]
-    public void HandleUploadStart(ClientBootstrapSaveUploadStartPacket packet)
+    public void HandleSaveStart(ClientBootstrapSaveStartPacket packet)
     {
         if (!IsConfigurator())
             return;
@@ -181,7 +181,7 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
     }
 
     [TypedPacketHandler]
-    public void HandleUploadData(ClientBootstrapSaveUploadDataPacket packet)
+    public void HandleSaveData(ClientBootstrapSaveDataPacket packet)
     {
         if (!IsConfigurator())
             return;
@@ -206,7 +206,7 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
     }
 
     [TypedPacketHandler]
-    public void HandleUploadFinish(ClientBootstrapSaveUploadFinishPacket packet)
+    public void HandleSaveEnd(ClientBootstrapSaveEndPacket packet)
     {
         if (!IsConfigurator())
             return;

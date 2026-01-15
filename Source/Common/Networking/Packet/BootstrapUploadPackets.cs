@@ -7,7 +7,7 @@ namespace Multiplayer.Common.Networking.Packet;
 /// The client may send exactly one file: settings.toml.
 /// </summary>
     [PacketDefinition(Packets.Client_BootstrapSettingsUploadStart)]
-    public record struct ClientBootstrapSettingsUploadStartPacket(int length) : IPacket
+    public record struct ClientBootstrapSettingsStartPacket(int length) : IPacket
 {
     public int length = length;
 
@@ -22,7 +22,7 @@ namespace Multiplayer.Common.Networking.Packet;
 /// This packet can be fragmented.
 /// </summary>
 [PacketDefinition(Packets.Client_BootstrapSettingsUploadData, allowFragmented: true)]
-public record struct ClientBootstrapSettingsUploadDataPacket(byte[] data) : IPacket
+public record struct ClientBootstrapSettingsDataPacket(byte[] data) : IPacket
 {
     public byte[] data = data;
 
@@ -36,7 +36,7 @@ public record struct ClientBootstrapSettingsUploadDataPacket(byte[] data) : IPac
 /// Notify the server the settings.toml upload has completed.
 /// </summary>
 [PacketDefinition(Packets.Client_BootstrapSettingsUploadFinish)]
-public record struct ClientBootstrapSettingsUploadFinishPacket(string sha256Hex) : IPacket
+public record struct ClientBootstrapSettingsEndPacket(string sha256Hex) : IPacket
 {
     public string sha256Hex = sha256Hex;
 
@@ -51,7 +51,7 @@ public record struct ClientBootstrapSettingsUploadFinishPacket(string sha256Hex)
 /// The client will send exactly one file: a pre-built save.zip (server format).
 /// </summary>
 [PacketDefinition(Packets.Client_BootstrapUploadStart)]
-public record struct ClientBootstrapSaveUploadStartPacket(string fileName, int length) : IPacket
+public record struct ClientBootstrapSaveStartPacket(string fileName, int length) : IPacket
 {
     public string fileName = fileName;
     public int length = length;
@@ -68,7 +68,7 @@ public record struct ClientBootstrapSaveUploadStartPacket(string fileName, int l
 /// This packet is expected to be delivered fragmented due to size.
 /// </summary>
 [PacketDefinition(Packets.Client_BootstrapUploadData, allowFragmented: true)]
-public record struct ClientBootstrapSaveUploadDataPacket(byte[] data) : IPacket
+public record struct ClientBootstrapSaveDataPacket(byte[] data) : IPacket
 {
     public byte[] data = data;
 
@@ -82,7 +82,7 @@ public record struct ClientBootstrapSaveUploadDataPacket(byte[] data) : IPacket
 /// Notify the server the upload has completed.
 /// </summary>
 [PacketDefinition(Packets.Client_BootstrapUploadFinish)]
-public record struct ClientBootstrapSaveUploadFinishPacket(string sha256Hex) : IPacket
+public record struct ClientBootstrapSaveEndPacket(string sha256Hex) : IPacket
 {
     public string sha256Hex = sha256Hex;
 
