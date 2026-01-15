@@ -11,8 +11,7 @@ namespace Multiplayer.Client;
 [PacketHandlerClass(inheritHandlers: true)]
 public class ClientBootstrapState(ConnectionBase connection) : ClientBaseState(connection)
 {
-    [TypedPacketHandler]
-    public void HandleDisconnected(ServerDisconnectPacket packet)
+    public new void HandleDisconnected(ServerDisconnectPacket packet)
     {
         // If bootstrap completed successfully, show success message before closing the window
         if (packet.reason == MpDisconnectReason.BootstrapCompleted)
