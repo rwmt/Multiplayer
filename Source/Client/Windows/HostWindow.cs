@@ -604,7 +604,7 @@ namespace Multiplayer.Client
             }
         }
         /// <summary>
-        /// Avvia l'hosting programmaticamente per il flusso bootstrap.
+        /// Start hosting programmatically for the bootstrap flow.
         /// </summary>
         public static bool HostProgrammatically(ServerSettings overrides, SaveFile file = null, bool randomDirectPort = true)
         {
