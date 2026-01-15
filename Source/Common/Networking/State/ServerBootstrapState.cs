@@ -39,7 +39,7 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
         // If a different configurator is already active, keep this connection idle
         if (configuratorUsername != null && configuratorUsername != connection.username)
         {
-            // Still tell them we're in bootstrap, so clients can show a helpful UI
+            // Still tell them we're in bootstrap, so clients can show a helpful UI.
             var settingsMissing = !File.Exists(Path.Combine(AppContext.BaseDirectory, "settings.toml"));
             connection.Send(new ServerBootstrapPacket(true, settingsMissing));
             return;
@@ -139,7 +139,8 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
         if (pendingSettingsLength > 0 && pendingSettingsBytes.Length != pendingSettingsLength)
             ServerLog.Log($"Bootstrap: warning - expected {pendingSettingsLength} settings bytes but got {pendingSettingsBytes.Length}");
 
-        var actualHash = ComputeSha256Hex(pendingSettingsBytes);
+        using var sha256 = System.Security.Cryptography.SHA256.Create();
+        var actualHash = sha256.ComputeHash(pendingSettingsBytes).ToHexString();
         if (!string.IsNullOrWhiteSpace(packet.sha256Hex) &&
             !actualHash.Equals(packet.sha256Hex, StringComparison.OrdinalIgnoreCase))
         {
@@ -221,7 +222,8 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
         if (pendingLength > 0 && pendingZipBytes.Length != pendingLength)
             ServerLog.Log($"Bootstrap: warning - expected {pendingLength} bytes but got {pendingZipBytes.Length}");
 
-        var actualHash = ComputeSha256Hex(pendingZipBytes);
+        using var sha256 = System.Security.Cryptography.SHA256.Create();
+        var actualHash = sha256.ComputeHash(pendingZipBytes).ToHexString();
         if (!string.IsNullOrWhiteSpace(packet.sha256Hex) &&
             !actualHash.Equals(packet.sha256Hex, StringComparison.OrdinalIgnoreCase))
         {
@@ -260,25 +262,5 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
         pendingZipBytes = null;
 
         configuratorUsername = null;
-    }
-
-    private static string ComputeSha256Hex(byte[] data)
-    {
-        using var sha = SHA256.Create();
-        var hash = sha.ComputeHash(data);
-        return ToHexString(hash);
-    }
-
-    private static string ToHexString(byte[] bytes)
-    {
-        const string hex = "0123456789ABCDEF";
-        var chars = new char[bytes.Length * 2];
-        for (var i = 0; i < bytes.Length; i++)
-        {
-            var b = bytes[i];
-            chars[i * 2] = hex[b >> 4];
-            chars[i * 2 + 1] = hex[b & 0x0F];
-        }
-        return new string(chars);
     }
 }
