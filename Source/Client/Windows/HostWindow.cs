@@ -19,14 +19,6 @@ namespace Multiplayer.Client
     [StaticConstructorOnStartup]
     public class HostWindow : Window
     {
-        // Restituisce una porta UDP libera
-        public static int GetFreeUdpPort()
-        {
-            var udp = new System.Net.Sockets.UdpClient(0);
-            int port = ((IPEndPoint)udp.Client.LocalEndPoint).Port;
-            udp.Close();
-            return port;
-        }
         enum Tab
         {
             Connecting, Gameplay
@@ -618,7 +610,7 @@ namespace Multiplayer.Client
         {
             var settings = MpUtil.ShallowCopy(overrides, new ServerSettings());
             if (randomDirectPort)
-                settings.directAddress = $"0.0.0.0:{GetFreeUdpPort()}";
+                settings.directAddress = "0.0.0.0:0"; // OS assigns free port
 
             if (!TryStartLocalServer(settings))
                 return false;

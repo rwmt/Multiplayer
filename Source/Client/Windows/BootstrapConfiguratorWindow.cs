@@ -821,14 +821,13 @@ namespace Multiplayer.Client
             {
                 try
                 {
-                    // 1. Host multiplayer game on random free port (avoid collisions with user's server)
-                    int freePort = HostWindow.GetFreeUdpPort();
+                    // 1. Host multiplayer game on random free port (OS assigns it)
                     var hostSettings = new ServerSettings
                     {
                         gameName = "BootstrapHost",
                         maxPlayers = 2,
                         direct = true,
-                        directAddress = $"0.0.0.0:{freePort}",
+                        directAddress = "0.0.0.0:0", // OS assigns free port
                         lan = false,
                         steam = false,
                     };
