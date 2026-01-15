@@ -543,18 +543,9 @@ namespace Multiplayer.Client
                 {
                     connection.Send(new ClientBootstrapSettingsUploadStartPacket(bytes.Length));
 
-                    const int chunk = 64 * 1024; // safe: packet will be fragmented by ConnectionBase
-                    var sent = 0;
-                    while (sent < bytes.Length)
-                    {
-                        var len = Math.Min(chunk, bytes.Length - sent);
-                        var part = new byte[len];
-                        Buffer.BlockCopy(bytes, sent, part, 0, len);
-                        connection.SendFragmented(new ClientBootstrapSettingsUploadDataPacket(part).Serialize());
-                        sent += len;
-                        var progress = bytes.Length == 0 ? 1f : (float)sent / bytes.Length;
-                        OnMainThread.Enqueue(() => uploadProgress = Mathf.Clamp01(progress));
-                    }
+                    // Let ConnectionBase fragment internally (MaxFragmentPacketTotalSize ~32 MiB).
+                    connection.SendFragmented(new ClientBootstrapSettingsUploadDataPacket(bytes).Serialize());
+                    OnMainThread.Enqueue(() => uploadProgress = 1f);
 
                     connection.Send(new ClientBootstrapSettingsUploadFinishPacket(sha256));
 
