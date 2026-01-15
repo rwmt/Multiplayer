@@ -55,8 +55,8 @@ namespace Multiplayer.Common
             if (conn.serverPlayer != null)
                 ServerLog.Error($"Connection {conn} already has a server player");
 
-            // In bootstrap mode, always use playerId=0 for simplicity (single configurator)
-            int assignedId = server.BootstrapMode ? 0 : nextPlayerId++;
+            // Always assign unique player ids; bootstrap configurator is tracked explicitly elsewhere
+            int assignedId = nextPlayerId++;
             
             conn.serverPlayer = new ServerPlayer(assignedId, conn);
             Players.Add(conn.serverPlayer);

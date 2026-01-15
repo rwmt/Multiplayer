@@ -13,8 +13,9 @@ namespace Multiplayer.Common;
 /// </summary>
 public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
 {
-    // Only one configurator at a time (always playerId=0 in bootstrap)
+    // Only one configurator at a time; track its player id explicitly
     private static bool configuratorActive;
+    private static int configuratorPlayerId = -1;
 
     private const int MaxSettingsTomlBytes = 64 * 1024;
 
@@ -46,6 +47,7 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
         }
 
         configuratorActive = true;
+        configuratorPlayerId = Player.id;
         var settingsMissing2 = !File.Exists(Path.Combine(AppContext.BaseDirectory, "settings.toml"));
         connection.Send(new ServerBootstrapPacket(true, settingsMissing2));
 
@@ -62,7 +64,7 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
 
     public override void OnDisconnect()
     {
-        if (configuratorActive && Player.id == 0)
+        if (configuratorActive && Player.id == configuratorPlayerId)
         {
             ServerLog.Log("Bootstrap: configurator disconnected; returning to waiting state.");
             ResetUploadState();
@@ -248,7 +250,7 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
         Server.running = false;
     }
 
-    private bool IsConfigurator() => configuratorActive && Player.id == 0;
+    private bool IsConfigurator() => configuratorActive && Player.id == configuratorPlayerId;
 
     private static void ResetUploadState()
     {
@@ -258,6 +260,8 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
         pendingFileName = null;
         pendingLength = 0;
         pendingZipBytes = null;
+
+        configuratorPlayerId = -1;
     }
 
     private static string ComputeSha256Hex(byte[] data)
