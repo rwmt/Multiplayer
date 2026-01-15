@@ -13,9 +13,8 @@ namespace Multiplayer.Common;
 /// </summary>
 public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
 {
-    // Only one configurator at a time; track its player id explicitly
-    private static bool configuratorActive;
-    private static int configuratorPlayerId = -1;
+    // Only one configurator at a time; track by username to survive reconnections
+    private static string? configuratorUsername;
 
     private const int MaxSettingsTomlBytes = 64 * 1024;
 
@@ -37,17 +36,17 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
             return;
         }
 
-        // If someone already is configuring, keep this connection idle.
-        if (configuratorActive)
+        // If a different configurator is already active, keep this connection idle
+        if (configuratorUsername != null && configuratorUsername != connection.username)
         {
-            // Still tell them we're in bootstrap, so clients can show a helpful UI.
+            // Still tell them we're in bootstrap, so clients can show a helpful UI
             var settingsMissing = !File.Exists(Path.Combine(AppContext.BaseDirectory, "settings.toml"));
             connection.Send(new ServerBootstrapPacket(true, settingsMissing));
             return;
         }
 
-        configuratorActive = true;
-        configuratorPlayerId = Player.id;
+        // This is the configurator (either new or reconnecting)
+        configuratorUsername = connection.username;
         var settingsMissing2 = !File.Exists(Path.Combine(AppContext.BaseDirectory, "settings.toml"));
         connection.Send(new ServerBootstrapPacket(true, settingsMissing2));
 
@@ -55,20 +54,19 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
         var savePath = Path.Combine(AppContext.BaseDirectory, "save.zip");
 
         if (!File.Exists(settingsPath))
-            ServerLog.Log($"Bootstrap: configurator connected (playerId={Player.id}). Waiting for 'settings.toml' upload...");
+            ServerLog.Log($"Bootstrap: configurator '{connection.username}' connected. Waiting for 'settings.toml' upload...");
         else if (!File.Exists(savePath))
-            ServerLog.Log($"Bootstrap: configurator connected (playerId={Player.id}). settings.toml already present; waiting for 'save.zip' upload...");
+            ServerLog.Log($"Bootstrap: configurator '{connection.username}' connected. settings.toml already present; waiting for 'save.zip' upload...");
         else
-            ServerLog.Log($"Bootstrap: configurator connected (playerId={Player.id}). All files already present; waiting for shutdown.");
+            ServerLog.Log($"Bootstrap: configurator '{connection.username}' connected. All files already present; waiting for shutdown.");
     }
 
     public override void OnDisconnect()
     {
-        if (configuratorActive && Player.id == configuratorPlayerId)
+        if (configuratorUsername == connection.username)
         {
             ServerLog.Log("Bootstrap: configurator disconnected; returning to waiting state.");
             ResetUploadState();
-            configuratorActive = false;
         }
     }
 
@@ -241,8 +239,8 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
 
         ServerLog.Log($"Bootstrap: wrote '{targetPath}'. Configuration complete; disconnecting clients and stopping.");
 
-                // Notify and disconnect all clients.
-                Server.SendToPlaying(new ServerDisconnectPacket { reason = MpDisconnectReason.BootstrapCompleted });
+        // Notify and disconnect all clients.
+        Server.SendToPlaying(new ServerDisconnectPacket { reason = MpDisconnectReason.BootstrapCompleted });
         foreach (var p in Server.playerManager.Players.ToArray())
             p.conn.Close(MpDisconnectReason.ServerClosed);
 
@@ -250,7 +248,7 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
         Server.running = false;
     }
 
-    private bool IsConfigurator() => configuratorActive && Player.id == configuratorPlayerId;
+    private bool IsConfigurator() => configuratorUsername == connection.username;
 
     private static void ResetUploadState()
     {
@@ -261,7 +259,7 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
         pendingLength = 0;
         pendingZipBytes = null;
 
-        configuratorPlayerId = -1;
+        configuratorUsername = null;
     }
 
     private static string ComputeSha256Hex(byte[] data)
