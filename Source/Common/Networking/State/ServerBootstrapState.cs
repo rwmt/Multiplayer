@@ -17,9 +17,6 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
     // Only one configurator at a time; track by username to survive reconnections
     private static string? configuratorUsername;
 
-    // TOML bytes received from client (will be parsed and saved as settings.toml)
-    private static byte[]? pendingSettingsBytes;
-
     // Save upload (save.zip)
     private static string? pendingFileName;
     private static int pendingLength;
@@ -69,7 +66,7 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
     }
 
     [TypedPacketHandler]
-    public void HandleSettingsUpload(ClientBootstrapSettingsUploadDataPacket packet)
+    public void HandleSettings(ClientBootstrapSettingsPacket packet)
     {
         if (!IsConfigurator())
             return;
@@ -81,30 +78,17 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
             return;
         }
 
-        if (packet.data == null || packet.data.Length == 0)
-            throw new PacketReadException("Bootstrap settings upload received empty data");
+        Directory.CreateDirectory(Path.GetDirectoryName(settingsPath)!);
 
-        try
-        {
-            // Store TOML bytes; the Server project will parse and finalize them
-            pendingSettingsBytes = packet.data;
-            ServerLog.Log($"Bootstrap: ServerSettings TOML received ({packet.data.Length} bytes)");
-            
-            // Immediately persist to file since we have the complete TOML
-            var tempPath = settingsPath + ".tmp";
-            Directory.CreateDirectory(Path.GetDirectoryName(settingsPath)!);
-            File.WriteAllBytes(tempPath, pendingSettingsBytes);
-            if (File.Exists(settingsPath))
-                File.Delete(settingsPath);
-            File.Move(tempPath, settingsPath);
-            
-            ServerLog.Log($"Bootstrap: ServerSettings saved to {settingsPath}");
-        }
-        catch (Exception e)
-        {
-            ServerLog.Error($"Bootstrap: Failed to process ServerSettings: {e}");
-            throw;
-        }
+        var tempPath = settingsPath + ".tmp";
+        Multiplayer.Common.Util.TomlSettingsCommon.Save(packet.settings, tempPath);
+
+        if (File.Exists(settingsPath))
+            File.Delete(settingsPath);
+
+        File.Move(tempPath, settingsPath);
+
+        ServerLog.Log($"Bootstrap: wrote '{settingsPath}'. Waiting for save.zip upload...");
     }
 
     [TypedPacketHandler]
@@ -199,10 +183,10 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
 
     private static void ResetUploadState()
     {
-        pendingSettingsBytes = null;
         pendingFileName = null;
         pendingLength = 0;
         pendingZipBytes = null;
+
         configuratorUsername = null;
     }
 }

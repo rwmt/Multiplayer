@@ -421,24 +421,17 @@ namespace Multiplayer.Client
             GUI.color = prevColor;
         }
 
-        private void StartUploadSettingsToml(string tomlText)
+        private void StartUploadSettingsToml(string _)
         {
             isUploadingToml = true;
             uploadProgress = 0f;
             statusText = "Uploading server settings...";
 
-            // Upload on a background thread; network send is safe (it will be queued by the underlying net impl).
-            var bytes = Encoding.UTF8.GetBytes(tomlText);
-
             new System.Threading.Thread(() =>
             {
                 try
                 {
-                    // Send TOML bytes via the new unified packet
-                    var packet = new ClientBootstrapSettingsUploadDataPacket(bytes);
-                    connection.SendFragmented(packet.Serialize());
-                    
-                    OnMainThread.Enqueue(() => uploadProgress = 1f);
+                    connection.Send(new ClientBootstrapSettingsPacket(settings));
 
                     OnMainThread.Enqueue(() =>
                     {
@@ -521,7 +514,10 @@ namespace Multiplayer.Client
         {
             // This is safe to call repeatedly.
             if (AwaitingBootstrapMapInit)
+            {
+                Log.Message($"[Bootstrap] TryArmAwaitingBootstrapMapInit({source}): Already armed, returning");
                 return;
+            }
 
             // Avoid arming while long events are still running. During heavy initialization
             // we can briefly observe Playing+map before MapComponentUtility.FinalizeInit
@@ -530,6 +526,7 @@ namespace Multiplayer.Client
             {
                 if (LongEventHandler.AnyEventNowOrWaiting)
                 {
+                    Log.Message($"[Bootstrap] TryArmAwaitingBootstrapMapInit({source}): BLOCKED by long event");
                     if (bootstrapTraceEnabled)
                         Log.Message($"[BootstrapTrace] mapInit not armed yet ({source}): long event running");
                     return;
@@ -538,10 +535,12 @@ namespace Multiplayer.Client
             catch
             {
                 // If the API isn't available in a specific RW version, fail open.
+                Log.Message($"[Bootstrap] TryArmAwaitingBootstrapMapInit({source}): Long event check threw exception (API unavailable?)");
             }
 
             if (Current.ProgramState != ProgramState.Playing)
             {
+                Log.Message($"[Bootstrap] TryArmAwaitingBootstrapMapInit({source}): BLOCKED by ProgramState={Current.ProgramState}");
                 if (bootstrapTraceEnabled)
                     Log.Message($"[BootstrapTrace] mapInit not armed yet ({source}): ProgramState={Current.ProgramState}");
                 return;
@@ -549,6 +548,7 @@ namespace Multiplayer.Client
 
             if (Find.Maps == null || Find.Maps.Count == 0)
             {
+                Log.Message($"[Bootstrap] TryArmAwaitingBootstrapMapInit({source}): BLOCKED - no maps (Find.Maps={Find.Maps?.Count ?? -1})");
                 if (bootstrapTraceEnabled)
                     Log.Message($"[BootstrapTrace] mapInit not armed yet ({source}): no maps");
                 return;
@@ -557,7 +557,7 @@ namespace Multiplayer.Client
             AwaitingBootstrapMapInit = true;
             saveUploadStatus = "Entered map. Waiting for initialization to complete...";
             // Keep this log lightweight (avoid Verse.Log stack traces).
-            UnityEngine.Debug.Log($"[Bootstrap] Entered map detected via {source}. maps={Find.Maps.Count}");
+            Log.Message($"[Bootstrap] Map init armed via {source}. maps={Find.Maps.Count}");
             Trace("EnteredPlaying");
 
             // Stop page driver at this point.
@@ -589,11 +589,11 @@ namespace Multiplayer.Client
         
         public void OnBootstrapMapInitialized()
         {
-            UnityEngine.Debug.Log($"[Bootstrap] OnBootstrapMapInitialized CALLED - AwaitingBootstrapMapInit={AwaitingBootstrapMapInit}");
+            Log.Message($"[Bootstrap] OnBootstrapMapInitialized CALLED - AwaitingBootstrapMapInit={AwaitingBootstrapMapInit}");
             
             if (!AwaitingBootstrapMapInit)
             {
-                UnityEngine.Debug.Log("[Bootstrap] OnBootstrapMapInitialized called but AwaitingBootstrapMapInit is false - ignoring");
+                Log.Warning("[Bootstrap] OnBootstrapMapInitialized called but AwaitingBootstrapMapInit is false - ignoring");
                 return;
             }
             
@@ -609,7 +609,7 @@ namespace Multiplayer.Client
             saveUploadStatus = "Map initialized. Waiting before saving...";
             Trace("FinalizeInit");
         
-            UnityEngine.Debug.Log($"[Bootstrap] Map initialized - postMapEnterSaveDelayRemaining={postMapEnterSaveDelayRemaining:F2}s, awaiting colonists");
+            Log.Message($"[Bootstrap] Map initialized - postMapEnterSaveDelayRemaining={postMapEnterSaveDelayRemaining:F2}s, awaiting colonists");
             // Saving is driven by a tick loop (WindowUpdate + BootstrapCoordinator + Root_Play.Update).
             // Do not assume WindowUpdate keeps ticking during/after long events.
         }
@@ -618,11 +618,25 @@ namespace Multiplayer.Client
         {
             // This is called from multiple tick sources; keep it idempotent.
             if (bootstrapSaveQueued || saveReady || isUploadingSave || isReconnecting)
+            {
+                if (bootstrapTraceEnabled && (bootstrapSaveQueued || saveReady || isUploadingSave))
+                {
+                    Log.Message($"[Bootstrap] TickPostMapEnterSaveDelayAndMaybeSave early return: queued={bootstrapSaveQueued}, saveReady={saveReady}, uploading={isUploadingSave}, reconnecting={isReconnecting}");
+                }
                 return;
+            }
 
             // Only run once we have been signalled by FinalizeInit.
             if (postMapEnterSaveDelayRemaining <= 0f)
+            {
+                if (bootstrapTraceEnabled)
+                {
+                    Log.Message($"[Bootstrap] TickPostMapEnterSaveDelayAndMaybeSave: delayRemaining={postMapEnterSaveDelayRemaining:F2}s, returning");
+                }
                 return;
+            }
+
+            Log.Message($"[Bootstrap] TickPostMapEnterSaveDelayAndMaybeSave: tick running, delayRemaining={postMapEnterSaveDelayRemaining:F2}s");
 
             TraceSnapshotTick();
 
@@ -634,7 +648,7 @@ namespace Multiplayer.Client
             // Debug logging for delay countdown
             if (Mathf.FloorToInt(prevRemaining * 2) != Mathf.FloorToInt(postMapEnterSaveDelayRemaining * 2))
             {
-                UnityEngine.Debug.Log($"[Bootstrap] Save delay countdown: {postMapEnterSaveDelayRemaining:F2}s remaining");
+                Log.Message($"[Bootstrap] Save delay countdown: {postMapEnterSaveDelayRemaining:F2}s remaining");
             }
             
             if (postMapEnterSaveDelayRemaining > 0f)
@@ -661,13 +675,13 @@ namespace Multiplayer.Client
                             // Log periodically while waiting
                             if (Mathf.FloorToInt(awaitingControllablePawnsElapsed) != Mathf.FloorToInt(awaitingControllablePawnsElapsed - Time.deltaTime))
                             {
-                                UnityEngine.Debug.Log($"[Bootstrap] Waiting for colonists... elapsed={awaitingControllablePawnsElapsed:F1}s");
+                                Log.Message($"[Bootstrap] Waiting for colonists... elapsed={awaitingControllablePawnsElapsed:F1}s, count={Find.CurrentMap.mapPawns?.FreeColonistsSpawned?.Count ?? 0}");
                             }
                         }
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        // ignored; we'll just keep waiting
+                        Log.Error($"[Bootstrap] Exception checking for colonists: {ex.GetType().Name}: {ex.Message}");
                     }
 
                     if (anyColonist)
@@ -677,7 +691,7 @@ namespace Multiplayer.Client
                         // Pause the game as soon as colonists are controllable so the snapshot is stable
                         try { Find.TickManager.CurTimeSpeed = TimeSpeed.Paused; } catch { }
 
-                        UnityEngine.Debug.Log("[Bootstrap] Controllable colonists detected, starting save");
+                        Log.Message("[Bootstrap] Controllable colonists detected, starting save");
                     }
                 }
 
@@ -687,7 +701,7 @@ namespace Multiplayer.Client
                     {
                         // Fallback: don't block forever; save anyway.
                         awaitingControllablePawns = false;
-                        UnityEngine.Debug.LogWarning("[Bootstrap] Timed out waiting for controllable pawns; saving anyway");
+                        Log.Warning("[Bootstrap] Timed out waiting for controllable pawns; saving anyway");
                     }
                     else
                     {
@@ -705,7 +719,7 @@ namespace Multiplayer.Client
             saveUploadStatus = "Map initialized. Starting hosted MP session...";
             Trace("StartHost");
             
-            UnityEngine.Debug.Log("[Bootstrap] All conditions met, initiating save sequence");
+            Log.Message("[Bootstrap] All conditions met, initiating save sequence");
 
             // NEW FLOW: instead of vanilla save + manual repackaging,
             // 1) Host a local MP game programmatically (random port to avoid conflicts)
@@ -841,6 +855,15 @@ namespace Multiplayer.Client
 
            if (isReconnecting)
                CheckReconnectionState();
+
+           // If we've reconnected and server indicates settings are missing, reset to settings step
+           if (!isReconnecting && Multiplayer.session?.serverBootstrapSettingsMissing == true && step == Step.GenerateMap)
+           {
+               UnityEngine.Debug.Log("[Bootstrap] Detected settings missing after reconnect, resetting to Settings step");
+               step = Step.Settings;
+               settingsUploaded = false;
+               statusText = "Server settings.toml is missing. Configure and upload it.";
+           }
         }
 
         private void UpdateWindowVisibility()
@@ -874,7 +897,14 @@ namespace Multiplayer.Client
         {
             // Try to arm map init reliably once the game has actually entered Playing.
             if (!AwaitingBootstrapMapInit)
+            {
+                Log.Message($"[Bootstrap] BootstrapCoordinatorTick: Calling TryArmAwaitingBootstrapMapInit (ProgramState={Current.ProgramState}, MapsCount={Find.Maps?.Count ?? -1})");
                 TryArmAwaitingBootstrapMapInit("BootstrapCoordinator");
+            }
+            else
+            {
+                Log.Message($"[Bootstrap] BootstrapCoordinatorTick: Already AwaitingBootstrapMapInit, skipping arm. Proceeding to save delay tick.");
+            }
 
             // Drive the post-map-entry save delay even if the window update isn't running smoothly.
             TickPostMapEnterSaveDelayAndMaybeSave();
@@ -1104,57 +1134,67 @@ namespace Multiplayer.Client
         private void RebuildTomlPreview()
         {
             var sb = new StringBuilder();
-            sb.AppendLine("# Generated by Multiplayer bootstrap configurator");
-            sb.AppendLine("# Using ServerSettings.ExposeData() for accuracy\n");
 
-            // Use a custom TOML writer provider to generate preview
-            var tomlWriter = new ClientTomlPreviewWriter(sb);
-            ScribeLike.provider = tomlWriter;
-            settings.ExposeData();
+            // Important: This must mirror ServerSettings.ExposeData() keys.
+            sb.AppendLine("# Generated by Multiplayer bootstrap configurator");
+            sb.AppendLine("# Keys must match ServerSettings.ExposeData()\n");
+
+            // ExposeData() order
+            AppendKv(sb, "directAddress", settings.directAddress);
+            AppendKv(sb, "maxPlayers", settings.maxPlayers);
+            AppendKv(sb, "autosaveInterval", settings.autosaveInterval);
+            AppendKv(sb, "autosaveUnit", settings.autosaveUnit.ToString());
+            AppendKv(sb, "steam", settings.steam);
+            AppendKv(sb, "direct", settings.direct);
+            AppendKv(sb, "lan", settings.lan);
+            AppendKv(sb, "asyncTime", settings.asyncTime);
+            AppendKv(sb, "multifaction", settings.multifaction);
+            AppendKv(sb, "debugMode", settings.debugMode);
+            AppendKv(sb, "desyncTraces", settings.desyncTraces);
+            AppendKv(sb, "syncConfigs", settings.syncConfigs);
+            AppendKv(sb, "autoJoinPoint", settings.autoJoinPoint.ToString());
+            AppendKv(sb, "devModeScope", settings.devModeScope.ToString());
+            AppendKv(sb, "hasPassword", settings.hasPassword);
+            AppendKv(sb, "password", settings.password ?? "");
+            AppendKv(sb, "pauseOnLetter", settings.pauseOnLetter.ToString());
+            AppendKv(sb, "pauseOnJoin", settings.pauseOnJoin);
+            AppendKv(sb, "pauseOnDesync", settings.pauseOnDesync);
+            AppendKv(sb, "timeControl", settings.timeControl.ToString());
 
             tomlPreview = sb.ToString();
         }
-    }
-}
 
-/// <summary>
-/// TOML preview writer for client-side ServerSettings display.
-/// Generates human-readable TOML format for the preview tab.
-/// </summary>
-internal class ClientTomlPreviewWriter : ScribeLike.Provider
-{
-    private readonly StringBuilder sb;
+        private static void AppendKv(StringBuilder sb, string key, string value)
+        {
+            sb.Append(key);
+            sb.Append(" = ");
 
-    public ClientTomlPreviewWriter(StringBuilder sb)
-    {
-        this.sb = sb;
-    }
+            // Basic TOML escaping for strings
+            var escaped = value.Replace("\\", "\\\\").Replace("\"", "\\\"");
+            sb.Append('"').Append(escaped).Append('"');
+            sb.AppendLine();
+        }
 
-    public override void Look<T>(ref T value, string label, T defaultValue, bool forceSave)
-    {
-        sb.Append(label);
-        sb.Append(" = ");
+        private static void AppendKv(StringBuilder sb, string key, bool value)
+        {
+            sb.Append(key);
+            sb.Append(" = ");
+            sb.AppendLine(value ? "true" : "false");
+        }
 
-        if (typeof(T).IsEnum)
+        private static void AppendKv(StringBuilder sb, string key, int value)
         {
-            sb.AppendLine(value?.ToString() ?? "");
+            sb.Append(key);
+            sb.Append(" = ");
+            sb.AppendLine(value.ToString());
         }
-        else if (value is string str)
+
+        private static void AppendKv(StringBuilder sb, string key, float value)
         {
-            var escaped = str.Replace("\\", "\\\\").Replace("\"", "\\\"");
-            sb.AppendLine($"\"{escaped}\"");
-        }
-        else if (value is bool b)
-        {
-            sb.AppendLine(b ? "true" : "false");
-        }
-        else if (value is float f)
-        {
-            sb.AppendLine(f.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        }
-        else
-        {
-            sb.AppendLine(value?.ToString() ?? "");
+            // TOML uses '.' decimal separator
+            sb.Append(key);
+            sb.Append(" = ");
+            sb.AppendLine(value.ToString(System.Globalization.CultureInfo.InvariantCulture));
         }
     }
 }

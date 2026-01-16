@@ -24,14 +24,24 @@ namespace Multiplayer.Client
             // Only relevant if the bootstrap window exists
             var win = BootstrapConfiguratorWindow.Instance;
             if (win == null)
+            {
+                if (nextCheckTick > 0) // Only log after the first tick
+                {
+                    Log.Message("[Bootstrap] BootstrapCoordinator.GameComponentTick: window is null, stopping");
+                    nextCheckTick = 0;
+                }
                 return;
+            }
 
             // Throttle checks
             if (Find.TickManager != null && Find.TickManager.TicksGame < nextCheckTick)
                 return;
 
             if (Find.TickManager != null)
+            {
                 nextCheckTick = Find.TickManager.TicksGame + CheckIntervalTicks;
+                Log.Message($"[Bootstrap] BootstrapCoordinator ticking: game ticks = {Find.TickManager.TicksGame}");
+            }
 
             win.BootstrapCoordinatorTick();
         }
