@@ -5,6 +5,7 @@ using System.Text;
 using System.Security.Cryptography;
 using Multiplayer.Client.Comp;
 using Multiplayer.Client.Networking;
+using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using Multiplayer.Common.Networking.Packet;
 using Multiplayer.Common.Util;
@@ -12,6 +13,7 @@ using RimWorld;
 using RimWorld.Planet;
 using UnityEngine;
 using Verse;
+using Verse.Sound;
 
 namespace Multiplayer.Client
 {
@@ -25,13 +27,14 @@ namespace Multiplayer.Client
     public class BootstrapConfiguratorWindow : Window
     {
         private readonly ConnectionBase connection;
-           private string serverAddress;
-           private int serverPort;
-                 private bool isReconnecting;
-                 private int reconnectCheckTimer;
-                 private ConnectionBase reconnectingConn;
+        private string serverAddress;
+        private int serverPort;
+        private bool isReconnecting;
+        private int reconnectCheckTimer;
+        private ConnectionBase reconnectingConn;
 
         private ServerSettings settings;
+        private ServerSettings serverSettings => settings;
 
         private enum Step
         {
@@ -39,7 +42,15 @@ namespace Multiplayer.Client
             GenerateMap
         }
 
+        private enum Tab
+        {
+            Connecting,
+            Gameplay,
+            Preview
+        }
+
         private Step step;
+        private Tab tab;
 
         private Vector2 scroll;
 
@@ -115,11 +126,13 @@ namespace Multiplayer.Client
         public static bool AwaitingBootstrapMapInit = false;
         public static BootstrapConfiguratorWindow Instance;
 
-        private const float LabelWidth = 210f;
-        private const float RowHeight = 28f;
-        private const float GapY = 6f;
+        // Hide window during map generation/tile selection
+        private bool hideWindowDuringMapGen = false;
 
-        public override Vector2 InitialSize => new(700f, 520f);
+        private const float LabelWidth = 110f;
+        private const int MaxGameNameLength = 70;
+
+        public override Vector2 InitialSize => new(550f, 620f);
 
         public BootstrapConfiguratorWindow(ConnectionBase connection)
         {
@@ -135,13 +148,17 @@ namespace Multiplayer.Client
             absorbInputAroundWindow = false;
             forcePause = false;
 
-            // Defaults aimed at standalone/headless:
+            // Initialize with reasonable defaults for standalone/headless server
             settings = new ServerSettings
             {
+                gameName = $"{Multiplayer.username}'s Server",
                 direct = true,
                 lan = false,
                 steam = false,
-                arbiter = false
+                arbiter = false,
+                maxPlayers = 8,
+                autosaveInterval = 1,
+                autosaveUnit = AutosaveUnit.Days
             };
 
             // Initialize UI buffers
@@ -149,8 +166,6 @@ namespace Multiplayer.Client
             settingsUiBuffers.AutosaveBuffer = settings.autosaveInterval.ToString();
 
             // Choose the initial step based on what the server told us.
-            // If we don't have an explicit "settings missing" signal, assume settings are already configured
-            // and proceed to map generation.
             step = Multiplayer.session?.serverBootstrapSettingsMissing == true ? Step.Settings : Step.GenerateMap;
 
             statusText = step == Step.Settings
@@ -182,177 +197,214 @@ namespace Multiplayer.Client
 
         public override void DoWindowContents(Rect inRect)
         {
-            var headerRect = inRect.TopPartPixels(120f);
-            Rect bodyRect;
-            Rect buttonsRect = default;
-
-            if (step == Step.Settings)
-            {
-                buttonsRect = inRect.BottomPartPixels(40f);
-                bodyRect = new Rect(inRect.x, headerRect.yMax + 6f, inRect.width, inRect.height - headerRect.height - buttonsRect.height - 12f);
-            }
-            else
-            {
-                bodyRect = new Rect(inRect.x, headerRect.yMax + 6f, inRect.width, inRect.height - headerRect.height - 6f);
-            }
-
             Text.Font = GameFont.Medium;
-            Widgets.Label(headerRect.TopPartPixels(32f), "Server bootstrap configuration");
+            Text.Anchor = TextAnchor.UpperCenter;
+
+            // Title
+            Widgets.Label(inRect.Down(0), "Server Bootstrap Configuration");
+            Text.Anchor = TextAnchor.UpperLeft;
             Text.Font = GameFont.Small;
 
-            var infoRect = headerRect.BottomPartPixels(80f);
-            var info = "The server is running in bootstrap mode (no settings.toml and/or save.zip).\n" +
-                       "Fill out the settings below to generate a complete settings.toml.\n" +
-                       "After applying settings, you'll upload save.zip in the next step.";
-            Widgets.Label(infoRect, info);
+            var entry = new Rect(0, 45, inRect.width, 30f);
+            entry.xMin += 4;
 
-            Rect leftRect;
-            Rect rightRect;
+            // Game name
+            serverSettings.gameName = MpUI.TextEntryLabeled(entry, $"{"MpGameName".Translate()}:  ", serverSettings.gameName, LabelWidth);
+            if (serverSettings.gameName.Length > MaxGameNameLength)
+                serverSettings.gameName = serverSettings.gameName.Substring(0, MaxGameNameLength);
+
+            entry = entry.Down(40);
 
             if (step == Step.Settings)
             {
-                // Only show TOML preview in dev mode
-                if (Prefs.DevMode)
-                {
-                    leftRect = bodyRect.LeftPart(0.58f).ContractedBy(4f);
-                    rightRect = bodyRect.RightPart(0.42f).ContractedBy(4f);
-                    DrawTomlPreview(rightRect);
-                }
-                else
-                {
-                    leftRect = bodyRect.ContractedBy(4f);
-                    rightRect = Rect.zero;
-                }
-
-                DrawSettings(leftRect);
-                DrawSettingsButtons(buttonsRect);
+                DrawSettings(entry, inRect);
             }
             else
             {
-                // Single-column layout for map generation; remove the right-side steps box
-                leftRect = bodyRect.ContractedBy(4f);
-                rightRect = Rect.zero;
-                DrawGenerateMap(leftRect, rightRect);
+                DrawGenerateMap(entry, inRect);
             }
         }
 
-        private void DrawGenerateMap(Rect leftRect, Rect rightRect)
+        private void DrawGenerateMap(Rect entry, Rect inRect)
         {
-            Widgets.DrawMenuSection(leftRect);
-
-            var left = leftRect.ContractedBy(10f);
-
-            Text.Font = GameFont.Medium;
-            Widgets.Label(left.TopPartPixels(32f), "Server settings configured");
+            // Status text
             Text.Font = GameFont.Small;
+            var statusHeight = Text.CalcHeight(statusText ?? "", entry.width);
+            Widgets.Label(entry.Height(statusHeight), statusText ?? "");
+            entry = entry.Down(statusHeight + 10);
 
             // Important notice about faction ownership
-            var noticeRect = new Rect(left.x, left.y + 40f, left.width, 80f);
-            GUI.color = new Color(1f, 0.85f, 0.5f); // Warning yellow
-            Widgets.DrawBoxSolid(noticeRect, new Color(0.3f, 0.25f, 0.1f, 0.5f));
-            GUI.color = Color.white;
+            if (!AwaitingBootstrapMapInit && !saveReady && !isUploadingSave && !isReconnecting)
+            {
+                var noticeRect = entry.Height(100f);
+                GUI.color = new Color(1f, 0.85f, 0.5f);
+                Widgets.DrawBoxSolid(noticeRect, new Color(0.3f, 0.25f, 0.1f, 0.5f));
+                GUI.color = Color.white;
 
-            var noticeTextRect = noticeRect.ContractedBy(8f);
-            Text.Font = GameFont.Tiny;
-            GUI.color = new Color(1f, 0.9f, 0.6f);
-            Widgets.Label(noticeTextRect,
-                "IMPORTANT: The user who generates this map will own the main faction (colony).\n" +
-                "When setting up the server, make sure this user's username is listed as the host.\n" +
-                "Other players connecting to the server will be assigned as spectators or secondary factions.");
-            GUI.color = Color.white;
-            Text.Font = GameFont.Small;
+                var noticeTextRect = noticeRect.ContractedBy(8f);
+                Text.Font = GameFont.Tiny;
+                GUI.color = new Color(1f, 0.9f, 0.6f);
+                Widgets.Label(noticeTextRect,
+                    "IMPORTANT: The user who generates this map will own the main faction (colony).\n" +
+                    "When setting up the server, make sure this user's username is listed as the host.\n" +
+                    "Other players connecting to the server will be assigned as spectators or secondary factions.");
+                GUI.color = Color.white;
+                Text.Font = GameFont.Small;
+                entry = entry.Down(110);
+            }
 
-            Widgets.Label(new Rect(left.x, noticeRect.yMax + 10f, left.width, 110f),
-                "After the save is uploaded, the server will automatically shut down. You will need to restart the server manually to complete the setup.");
+            // Save upload status
+            if (!string.IsNullOrEmpty(saveUploadStatus))
+            {
+                var saveStatusHeight = Text.CalcHeight(saveUploadStatus, entry.width);
+                Widgets.Label(entry.Height(saveStatusHeight), saveUploadStatus);
+                entry = entry.Down(saveStatusHeight + 4);
+            }
 
-            // Hide the 'Generate map' button once the vanilla generation flow has started
-            var btn = new Rect(left.x, noticeRect.yMax + 130f, 200f, 40f);
+            // Progress bar
+            if (autoAdvanceArmed || isUploadingSave)
+            {
+                var barRect = entry.Height(18f);
+                Widgets.FillableBar(barRect, isUploadingSave ? saveUploadProgress : 0.1f);
+                entry = entry.Down(24);
+            }
+
+            // Generate map button
             bool showGenerateButton = !(autoAdvanceArmed || AwaitingBootstrapMapInit || saveReady || isUploadingSave || isReconnecting);
-            if (showGenerateButton && Widgets.ButtonText(btn, "Generate map"))
+            if (showGenerateButton)
             {
-                saveUploadAutoStarted = false;
-                StartVanillaNewColonyFlow();
-            }
-
-            var saveStatusY = (showGenerateButton ? btn.yMax : btn.y) + 10f;
-            var statusRect = new Rect(left.x, saveStatusY, left.width, 60f);
-            Widgets.Label(statusRect, saveUploadStatus ?? statusText ?? "");
-
-            if (autoAdvanceArmed)
-            {
-                var barRect = new Rect(left.x, statusRect.yMax + 4f, left.width, 18f);
-                Widgets.FillableBar(barRect, 0.1f);
-            }
-
-            if (isUploadingSave)
-            {
-                var barRect = new Rect(left.x, statusRect.yMax + 4f, left.width, 18f);
-                Widgets.FillableBar(barRect, saveUploadProgress);
+                var buttonRect = new Rect((inRect.width - 200f) / 2f, inRect.height - 45f, 200f, 40f);
+                if (Widgets.ButtonText(buttonRect, "Generate map"))
+                {
+                    saveUploadAutoStarted = false;
+                    hideWindowDuringMapGen = true;
+                    StartVanillaNewColonyFlow();
+                }
             }
 
             // Auto-start upload when save is ready
             if (saveReady && !isUploadingSave && !saveUploadAutoStarted)
             {
                 saveUploadAutoStarted = true;
-                   ReconnectAndUploadSave();
+                ReconnectAndUploadSave();
             }
-
-            // Right-side steps box removed per request
         }
 
-        private void DrawSettings(Rect inRect)
+        private void DrawSettings(Rect entry, Rect inRect)
         {
-            Widgets.DrawMenuSection(inRect);
-            var inner = inRect.ContractedBy(10f);
-
             // Status + progress
-            var statusRect = new Rect(inner.x, inner.y, inner.width, 54f);
-            Widgets.Label(statusRect.TopPartPixels(28f), statusText ?? "");
-            if (isUploadingToml)
+            if (!string.IsNullOrEmpty(statusText))
             {
-                var barRect = statusRect.BottomPartPixels(20f);
-                Widgets.FillableBar(barRect, uploadProgress);
+                var statusHeight = Text.CalcHeight(statusText, entry.width);
+                Widgets.Label(entry.Height(statusHeight), statusText);
+                entry = entry.Down(statusHeight + 4);
             }
 
-            var contentRect = new Rect(inner.x, inner.y + 60f, inner.width, inner.height - 60f);
+            if (isUploadingToml)
+            {
+                var barRect = entry.Height(20f);
+                Widgets.FillableBar(barRect, uploadProgress);
+                entry = entry.Down(24);
+            }
 
-            // Use ServerSettingsUI to draw both networking and gameplay settings
-            Widgets.BeginScrollView(contentRect, ref scroll, contentRect);
+            // Tab buttons
+            using (MpStyle.Set(TextAnchor.MiddleLeft))
+            {
+                DoTabButton(entry.Width(140).Height(40f), Tab.Connecting);
+                DoTabButton(entry.Down(50f).Width(140).Height(40f), Tab.Gameplay);
+                if (Prefs.DevMode)
+                    DoTabButton(entry.Down(100f).Width(140).Height(40f), Tab.Preview);
+            }
+
+            // Content based on selected tab
+            var contentRect = entry.MinX(entry.xMin + 150);
+            var buffers = new ServerSettingsUI.BufferSet
+            {
+                MaxPlayersBuffer = settingsUiBuffers.MaxPlayersBuffer,
+                AutosaveBuffer = settingsUiBuffers.AutosaveBuffer
+            };
+
+            if (tab == Tab.Connecting)
+                ServerSettingsUI.DrawNetworkingSettings(contentRect, settings, buffers);
+            else if (tab == Tab.Gameplay)
+                ServerSettingsUI.DrawGameplaySettingsOnly(contentRect, settings, buffers);
+            else if (tab == Tab.Preview)
+            {
+                RebuildTomlPreview();
+                var previewRect = new Rect(contentRect.x, contentRect.y, contentRect.width, inRect.height - contentRect.y - 50f);
+                DrawTomlPreview(previewRect);
+            }
             
-            var settingsRect = contentRect.TopPartPixels(contentRect.height);
-            ServerSettingsUI.DrawNetworkingSettings(settingsRect, settings, settingsUiBuffers);
+            // Sync buffers back
+            settingsUiBuffers.MaxPlayersBuffer = buffers.MaxPlayersBuffer;
+            settingsUiBuffers.AutosaveBuffer = buffers.AutosaveBuffer;
+
+            // Buttons at bottom
+            DrawSettingsButtons(new Rect(0, inRect.height - 40f, inRect.width, 35f));
+        }
+
+        private void DoTabButton(Rect r, Tab tab)
+        {
+            Widgets.DrawOptionBackground(r, tab == this.tab);
+            if (Widgets.ButtonInvisible(r, true))
+            {
+                this.tab = tab;
+                SoundDefOf.Click.PlayOneShotOnCamera();
+            }
+
+            float num = r.x + 10f;
+            Texture2D icon = null;
+            string label;
             
-            settingsRect = settingsRect.Down(300f);
-            ServerSettingsUI.DrawGameplaySettingsOnly(settingsRect, settings, settingsUiBuffers);
+            if (tab == Tab.Connecting)
+            {
+                icon = MultiplayerStatic.OptionsGeneral;
+                label = "MpHostTabConnecting".Translate();
+            }
+            else if (tab == Tab.Gameplay)
+            {
+                icon = MultiplayerStatic.OptionsGameplay;
+                label = "MpHostTabGameplay".Translate();
+            }
+            else
+            {
+                // No icon for preview tab, just label
+                label = "Preview";
+            }
             
-            Widgets.EndScrollView();
+            if (icon != null)
+            {
+                Rect rect = new Rect(num, r.y + (r.height - 20f) / 2f, 20f, 20f);
+                GUI.DrawTexture(rect, icon);
+                num += 30f;
+            }
+            
+            Widgets.Label(new Rect(num, r.y, r.width - num, r.height), label);
         }
 
         private void DrawSettingsButtons(Rect inRect)
         {
-            var buttons = inRect.ContractedBy(4f);
-            
             // Copy TOML button only in dev mode
             Rect nextRect;
             if (Prefs.DevMode)
             {
-                var copyRect = buttons.LeftPart(0.5f).ContractedBy(2f);
+                var copyRect = new Rect(inRect.x, inRect.y, 150f, inRect.height);
                 if (Widgets.ButtonText(copyRect, "Copy TOML"))
                 {
                     RebuildTomlPreview();
                     GUIUtility.systemCopyBuffer = tomlPreview;
                     Messages.Message("Copied settings.toml to clipboard", MessageTypeDefOf.SilentInput, false);
                 }
-                nextRect = buttons.RightPart(0.5f).ContractedBy(2f);
+                nextRect = new Rect(inRect.xMax - 150f, inRect.y, 150f, inRect.height);
             }
             else
             {
-                nextRect = buttons.ContractedBy(2f);
+                nextRect = new Rect((inRect.width - 150f) / 2f, inRect.y, 150f, inRect.height);
             }
+            
             var nextLabel = settingsUploaded ? "Uploaded" : "Next";
             var nextEnabled = !isUploadingToml && !settingsUploaded;
             
-            // Always show the button, just change color when disabled
             var prevColor = GUI.color;
             if (!nextEnabled)
                 GUI.color = new Color(1f, 1f, 1f, 0.5f);
@@ -361,7 +413,6 @@ namespace Multiplayer.Client
             {
                 if (nextEnabled)
                 {
-                    // Upload generated settings.toml to the server.
                     RebuildTomlPreview();
                     StartUploadSettingsToml(tomlPreview);
                 }
@@ -544,11 +595,16 @@ namespace Multiplayer.Client
         
         public void OnBootstrapMapInitialized()
         {
+            UnityEngine.Debug.Log($"[Bootstrap] OnBootstrapMapInitialized CALLED - AwaitingBootstrapMapInit={AwaitingBootstrapMapInit}");
+            
             if (!AwaitingBootstrapMapInit)
             {
                 UnityEngine.Debug.Log("[Bootstrap] OnBootstrapMapInitialized called but AwaitingBootstrapMapInit is false - ignoring");
                 return;
             }
+            
+            // Show window again now that we're in the map
+            hideWindowDuringMapGen = false;
             
             AwaitingBootstrapMapInit = false;
             // Wait a bit after entering the map before saving, to let final UI/world settle.
@@ -670,7 +726,7 @@ namespace Multiplayer.Client
                     // 1. Host multiplayer game on random free port (OS assigns it)
                     var hostSettings = new ServerSettings
                     {
-                        gameName = "BootstrapHost",
+                        gameName = settings.gameName,
                         maxPlayers = 2,
                         direct = true,
                         directAddress = "0.0.0.0:0", // OS assigns free port
@@ -767,9 +823,23 @@ namespace Multiplayer.Client
             }, "Starting host", false, null);
         }
 
+        public override void PreOpen()
+        {
+            base.PreOpen();
+            UpdateWindowVisibility();
+        }
+
         public override void WindowUpdate()
         {
             base.WindowUpdate();
+
+            UpdateWindowVisibility();
+
+            // Debug logging
+            if (AwaitingBootstrapMapInit && Time.frameCount % 120 == 0)
+            {
+                UnityEngine.Debug.Log($"[Bootstrap] WindowUpdate: AwaitingBootstrapMapInit={AwaitingBootstrapMapInit}, postMapDelay={postMapEnterSaveDelayRemaining:F2}, saveReady={saveReady}, programState={Current.ProgramState}");
+            }
 
             // Always try to drive the save delay, even if BootstrapCoordinator isn't ticking
             // This ensures the autosave triggers even in edge cases
@@ -777,6 +847,29 @@ namespace Multiplayer.Client
 
            if (isReconnecting)
                CheckReconnectionState();
+        }
+
+        private void UpdateWindowVisibility()
+        {
+            if (hideWindowDuringMapGen)
+            {
+                // Make window invisible by setting size to 0
+                windowRect.width = 0;
+                windowRect.height = 0;
+            }
+            else
+            {
+                // Restore normal size
+                var size = InitialSize;
+                if (windowRect.width == 0)
+                {
+                    windowRect.width = size.x;
+                    windowRect.height = size.y;
+                    // Center on screen
+                    windowRect.x = (UI.screenWidth - size.x) / 2f;
+                    windowRect.y = (UI.screenHeight - size.y) / 2f;
+                }
+            }
         }
 
         /// <summary>
