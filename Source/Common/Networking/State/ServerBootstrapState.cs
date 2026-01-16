@@ -172,11 +172,10 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
 
         // Notify and disconnect all clients.
         Server.SendToPlaying(new ServerDisconnectPacket { reason = MpDisconnectReason.BootstrapCompleted, data = Array.Empty<byte>() });
-        foreach (var p in Server.playerManager.Players.ToArray())
-            p.conn.Close(MpDisconnectReason.ServerClosed);
 
         // Stop the server loop; an external supervisor should restart.
         Server.running = false;
+        Server.TryStop();
     }
 
     private bool IsConfigurator() => configuratorUsername == connection.username;
