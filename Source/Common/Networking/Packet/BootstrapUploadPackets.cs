@@ -3,46 +3,19 @@ using System;
 namespace Multiplayer.Common.Networking.Packet;
 
 /// <summary>
-/// Upload start metadata for bootstrap settings configuration.
-/// The client may send exactly one file: settings.toml.
-/// </summary>
-    [PacketDefinition(Packets.Client_BootstrapSettingsUploadStart)]
-    public record struct ClientBootstrapSettingsStartPacket(int length) : IPacket
-{
-    public int length = length;
-
-    public void Bind(PacketBuffer buf)
-    {
-        buf.Bind(ref length);
-    }
-}
-
-/// <summary>
-/// Upload raw bytes for settings.toml.
+/// Upload raw TOML bytes for settings configuration.
+/// The TOML is generated from ServerSettings.ExposeData() on the client
+/// and parsed back to ServerSettings on the server.
 /// This packet can be fragmented.
 /// </summary>
 [PacketDefinition(Packets.Client_BootstrapSettingsUploadData, allowFragmented: true)]
-public record struct ClientBootstrapSettingsDataPacket(byte[] data) : IPacket
+public record struct ClientBootstrapSettingsUploadDataPacket(byte[] data) : IPacket
 {
     public byte[] data = data;
 
     public void Bind(PacketBuffer buf)
     {
         buf.BindBytes(ref data, maxLength: -1);
-    }
-}
-
-/// <summary>
-/// Notify the server the settings.toml upload has completed.
-/// </summary>
-[PacketDefinition(Packets.Client_BootstrapSettingsUploadFinish)]
-public record struct ClientBootstrapSettingsEndPacket(byte[] sha256Hash) : IPacket
-{
-    public byte[] sha256Hash = sha256Hash;
-
-    public void Bind(PacketBuffer buf)
-    {
-        buf.BindBytes(ref sha256Hash, maxLength: 32);
     }
 }
 

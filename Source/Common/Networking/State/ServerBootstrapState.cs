@@ -17,10 +17,7 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
     // Only one configurator at a time; track by username to survive reconnections
     private static string? configuratorUsername;
 
-    private const int MaxSettingsTomlBytes = 64 * 1024;
-
-    // Settings upload (settings.toml)
-    private static int pendingSettingsLength;
+    // TOML bytes received from client (will be parsed and saved as settings.toml)
     private static byte[]? pendingSettingsBytes;
 
     // Save upload (save.zip)
@@ -72,7 +69,7 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
     }
 
     [TypedPacketHandler]
-    public void HandleSettingsStart(ClientBootstrapSettingsStartPacket packet)
+    public void HandleSettingsUpload(ClientBootstrapSettingsUploadDataPacket packet)
     {
         if (!IsConfigurator())
             return;
@@ -80,85 +77,34 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
         var settingsPath = Path.Combine(AppContext.BaseDirectory, "settings.toml");
         if (File.Exists(settingsPath))
         {
-            ServerLog.Log("Bootstrap: settings.toml already exists; ignoring settings upload start.");
+            ServerLog.Log("Bootstrap: settings.toml already exists; ignoring settings upload.");
             return;
         }
 
-        if (packet.length <= 0 || packet.length > MaxSettingsTomlBytes)
-            throw new PacketReadException($"Bootstrap settings upload has invalid length ({packet.length})");
+        if (packet.data == null || packet.data.Length == 0)
+            throw new PacketReadException("Bootstrap settings upload received empty data");
 
-        pendingSettingsLength = packet.length;
-        pendingSettingsBytes = null;
-        ServerLog.Log($"Bootstrap: settings upload start 'settings.toml' ({pendingSettingsLength} bytes)");
-    }
-
-    [TypedPacketHandler]
-    public void HandleSettingsData(ClientBootstrapSettingsDataPacket packet)
-    {
-        if (!IsConfigurator())
-            return;
-
-        var settingsPath = Path.Combine(AppContext.BaseDirectory, "settings.toml");
-        if (File.Exists(settingsPath))
-            return;
-
-        // Accumulate fragmented upload data
-        if (pendingSettingsBytes == null)
+        try
         {
+            // Store TOML bytes; the Server project will parse and finalize them
             pendingSettingsBytes = packet.data;
+            ServerLog.Log($"Bootstrap: ServerSettings TOML received ({packet.data.Length} bytes)");
+            
+            // Immediately persist to file since we have the complete TOML
+            var tempPath = settingsPath + ".tmp";
+            Directory.CreateDirectory(Path.GetDirectoryName(settingsPath)!);
+            File.WriteAllBytes(tempPath, pendingSettingsBytes);
+            if (File.Exists(settingsPath))
+                File.Delete(settingsPath);
+            File.Move(tempPath, settingsPath);
+            
+            ServerLog.Log($"Bootstrap: ServerSettings saved to {settingsPath}");
         }
-        else
+        catch (Exception e)
         {
-            // Append new chunk to existing data
-            var oldLen = pendingSettingsBytes.Length;
-            var newChunk = packet.data;
-            var combined = new byte[oldLen + newChunk.Length];
-            Buffer.BlockCopy(pendingSettingsBytes, 0, combined, 0, oldLen);
-            Buffer.BlockCopy(newChunk, 0, combined, oldLen, newChunk.Length);
-            pendingSettingsBytes = combined;
+            ServerLog.Error($"Bootstrap: Failed to process ServerSettings: {e}");
+            throw;
         }
-        
-        ServerLog.Log($"Bootstrap: settings upload data received ({packet.data?.Length ?? 0} bytes, total: {pendingSettingsBytes?.Length ?? 0}/{pendingSettingsLength})");
-    }
-
-    [TypedPacketHandler]
-    public void HandleSettingsEnd(ClientBootstrapSettingsEndPacket packet)
-    {
-        if (!IsConfigurator())
-            return;
-
-        var settingsPath = Path.Combine(AppContext.BaseDirectory, "settings.toml");
-        if (File.Exists(settingsPath))
-        {
-            ServerLog.Log("Bootstrap: settings.toml already exists; ignoring settings upload finish.");
-            return;
-        }
-
-        if (pendingSettingsBytes == null)
-            throw new PacketReadException("Bootstrap settings upload finish without data");
-
-        if (pendingSettingsLength > 0 && pendingSettingsBytes.Length != pendingSettingsLength)
-            ServerLog.Log($"Bootstrap: warning - expected {pendingSettingsLength} settings bytes but got {pendingSettingsBytes.Length}");
-
-        using var sha256 = System.Security.Cryptography.SHA256.Create();
-        var actualHash = sha256.ComputeHash(pendingSettingsBytes);
-        if (packet.sha256Hash != null && packet.sha256Hash.Length > 0 && !actualHash.SequenceEqual(packet.sha256Hash))
-        {
-            throw new PacketReadException($"Bootstrap settings upload hash mismatch. expected={packet.sha256Hash.ToHexString()} actual={actualHash.ToHexString()}");
-        }
-
-        // Persist settings.toml
-        var tempPath = settingsPath + ".tmp";
-        Directory.CreateDirectory(Path.GetDirectoryName(settingsPath)!);
-        File.WriteAllBytes(tempPath, pendingSettingsBytes);
-        if (File.Exists(settingsPath))
-            File.Delete(settingsPath);
-        File.Move(tempPath, settingsPath);
-
-        ServerLog.Log($"Bootstrap: wrote '{settingsPath}'. Waiting for save.zip upload...");
-
-        pendingSettingsLength = 0;
-        pendingSettingsBytes = null;
     }
 
     [TypedPacketHandler]
@@ -253,13 +199,10 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
 
     private static void ResetUploadState()
     {
-        pendingSettingsLength = 0;
         pendingSettingsBytes = null;
-
         pendingFileName = null;
         pendingLength = 0;
         pendingZipBytes = null;
-
         configuratorUsername = null;
     }
 }
