@@ -37,7 +37,7 @@ namespace Multiplayer.Client
             }
             catch(Exception e)
             {
-                return $"Failed to generate log data: {e}";
+                return $"Failed to generate log data: \n{e}";
             }
         }
 
