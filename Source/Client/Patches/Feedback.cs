@@ -250,7 +250,7 @@ namespace Multiplayer.Client.Patches
         static bool CustomTryTakeOrderedJob(Pawn_JobTracker self, Job job, JobTag? tag = JobTag.Misc,
             bool requestQueueing = false)
         {
-            if (self.TryTakeOrderedJob(job, tag, requestQueueing) && TickPatch.currentExecutingCmdIssuedBySelf)
+            if (self.TryTakeOrderedJob(job, tag, requestQueueing) && (TickPatch.currentExecutingCmdIssuedBySelf || Multiplayer.Client == null))
                 FleckMaker.Static(job.targetA.Cell, self.pawn.Map, FleckDefOf.FeedbackGoto);
             return false;
         }
