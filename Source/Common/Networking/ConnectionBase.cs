@@ -25,12 +25,7 @@ namespace Multiplayer.Common
                 StateObj.alive = false;
 
             State = state;
-
-            if (State == ConnectionStateEnum.Disconnected)
-                StateObj = null;
-            else
-                StateObj = (MpConnectionState)Activator.CreateInstance(MpConnectionState.stateImpls[(int)state], this);
-
+            StateObj = MpConnectionState.CreateState(state, this);
             StateObj?.StartState();
         }
 
