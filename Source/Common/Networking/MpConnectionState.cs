@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
 using Multiplayer.Common.Networking.Packet;
+using Verse;
 
 namespace Multiplayer.Common
 {
@@ -29,6 +30,14 @@ namespace Multiplayer.Common
 
         private static PacketHandlerInfo?[,] packetHandlers =
             new PacketHandlerInfo?[(int)ConnectionStateEnum.Count, (int)Packets.Count];
+
+        public static ConnectionStateEnum GetStateEnumOf(MpConnectionState state)
+        {
+            var stateType = state.GetType();
+            var index = Array.IndexOf(StateImpls, stateType);
+            if (index == -1) throw new Exception($"Tried to get state enum of unrecognized connection state: {state} ({stateType})");
+            return (ConnectionStateEnum)index;
+        }
 
         public static MpConnectionState? CreateState(ConnectionStateEnum state, ConnectionBase conn) =>
             state == ConnectionStateEnum.Disconnected

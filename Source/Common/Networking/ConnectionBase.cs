@@ -19,6 +19,16 @@ namespace Multiplayer.Common
 
         public T? GetState<T>() where T : MpConnectionState => (T?)StateObj;
 
+        public void ChangeState(MpConnectionState state)
+        {
+            if (StateObj != null)
+                StateObj.alive = false;
+
+            State = MpConnectionState.GetStateEnumOf(state);
+            StateObj = state;
+            StateObj?.StartState();
+        }
+
         public void ChangeState(ConnectionStateEnum state)
         {
             if (StateObj != null)
