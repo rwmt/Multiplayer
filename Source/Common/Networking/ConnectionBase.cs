@@ -17,8 +17,6 @@ namespace Multiplayer.Common
         // This is set during rejoining and is usually caused by connection state mismatch.
         public bool Lenient { get; set; }
 
-        public T? GetState<T>() where T : MpConnectionState => (T?)StateObj;
-
         public void ChangeState(MpConnectionState state)
         {
             if (StateObj != null)
