@@ -175,7 +175,6 @@ public class ServerBootstrapState(ConnectionBase conn) : MpConnectionState(conn)
 
         // Stop the server loop; an external supervisor should restart.
         Server.running = false;
-        Server.TryStop();
     }
 
     private bool IsConfigurator() => configuratorUsername == connection.username;
