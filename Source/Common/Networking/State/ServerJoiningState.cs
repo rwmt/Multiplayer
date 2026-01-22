@@ -57,9 +57,7 @@ public class ServerJoiningState : AsyncConnectionState
 
             // Let the client know early when the server is in bootstrap mode so it can switch
             // to server-configuration flow while keeping the connection open.
-            var settingsMissing = false;
-            if (Server.BootstrapMode)
-                settingsMissing = !File.Exists(Path.Combine(AppContext.BaseDirectory, "settings.toml"));
+            var settingsMissing = Server.BootstrapMode && !File.Exists(Path.Combine(AppContext.BaseDirectory, "settings.toml"));
 
             Player.conn.Send(new ServerBootstrapPacket(Server.BootstrapMode, settingsMissing));
         }
