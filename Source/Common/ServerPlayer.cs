@@ -76,16 +76,6 @@ namespace Multiplayer.Common
         public void SendKeepAlivePacket() =>
             conn.Send(new ServerKeepAlivePacket(keepAliveId), false);
 
-        public void SendPacket(Packets packet, byte[] data, bool reliable = true)
-        {
-            conn.Send(packet, data, reliable);
-        }
-
-        public void SendPacket(Packets packet, object[] data)
-        {
-            conn.Send(packet, data);
-        }
-
         public void SendPlayerList() =>
             conn.Send(ServerPlayerListPacket.List(Server.JoinedPlayers.Select(p => p.PlayerInfoPacket())));
 

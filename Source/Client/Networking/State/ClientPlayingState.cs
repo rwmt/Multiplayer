@@ -178,26 +178,20 @@ namespace Multiplayer.Client
             TickPatch.frozenAt = packet.gameTimer;
         }
 
-        [PacketHandler(Packets.Server_Traces, allowFragmented: true)]
-        public void HandleTraces(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleTraces(ServerTracesPacket packet)
         {
-            var type = data.ReadEnum<TracesPacket>();
-
-            if (type == TracesPacket.Request)
+            if (packet.mode == ServerTracesPacket.Mode.Request)
             {
-                var tick = data.ReadInt32();
-                var diffAt = data.ReadInt32();
-                var playerId = data.ReadInt32();
+                var info = Multiplayer.game.sync.knownClientOpinions.FirstOrDefault(b => b.startTick == packet.tick);
+                var response = info?.GetFormattedStackTracesForRange(packet.diffAt) ?? "Traces not available";
 
-                var info = Multiplayer.game.sync.knownClientOpinions.FirstOrDefault(b => b.startTick == tick);
-                var response = info?.GetFormattedStackTracesForRange(diffAt);
-
-                connection.Send(Packets.Client_Traces, TracesPacket.Response, playerId, GZipStream.CompressString(response));
+                connection.Send(new ClientTracesPacket
+                    { playerId = packet.playerId, rawTraces = GZipStream.CompressString(response) });
             }
-            else if (type == TracesPacket.Transfer)
+            else if (packet.mode == ServerTracesPacket.Mode.Transfer)
             {
-                var traces = data.ReadPrefixedBytes();
-                Multiplayer.session.desyncTracesFromHost = GZipStream.UncompressString(traces);
+                Multiplayer.session.desyncTracesFromHost = GZipStream.UncompressString(packet.rawTraces);
             }
         }
 

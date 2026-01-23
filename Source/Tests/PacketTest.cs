@@ -221,6 +221,12 @@ public class PacketTest
             ],
             rawData = [1, 2, 3, 4, 5]
         };
+
+        // real code is using GZip compressed content for the traces, but we are only testing on the wire representation
+        // and are treating the bytes as opaque, so it doesn't matter
+        yield return new ClientTracesPacket { playerId = 123, rawTraces = "trace 1\ntrace 2"u8.ToArray()};
+        yield return ServerTracesPacket.Request(9001, 1000, 5);
+        yield return ServerTracesPacket.Transfer("trace 1\ntrace 2"u8.ToArray());
     }
 
     [TestCaseSource(nameof(RoundtripPackets))]

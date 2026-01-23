@@ -29,17 +29,11 @@ namespace Multiplayer.Common
             Server.playerManager.OnDesync(Player, tick, diffAt);
         }
 
-        [PacketHandler(Packets.Client_Traces, allowFragmented: true)]
-        public void HandleTraces(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleTraces(ClientTracesPacket packet)
         {
-            var type = data.ReadEnum<TracesPacket>();
-
-            if (type == TracesPacket.Response && Player.IsHost)
-            {
-                var playerId = data.ReadInt32();
-                var traces = data.ReadPrefixedBytes();
-                Server.GetPlayer(playerId)?.SendPacket(Packets.Server_Traces, new object[] { TracesPacket.Transfer, traces });
-            }
+            if (!Player.IsHost) return;
+            Server.GetPlayer(packet.playerId)?.conn.Send(ServerTracesPacket.Transfer(packet.rawTraces));
         }
 
         [TypedPacketHandler]
@@ -213,10 +207,5 @@ namespace Multiplayer.Common
 
         [TypedPacketHandler]
         public void HandleFrameTime(ClientFrameTimePacket packet) => Player.frameTime = packet.frameTime;
-    }
-
-    public enum TracesPacket : byte
-    {
-        Request, Response, Transfer
     }
 }
