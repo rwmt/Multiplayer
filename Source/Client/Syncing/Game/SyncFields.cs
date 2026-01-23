@@ -94,6 +94,7 @@ namespace Multiplayer.Client
         public static ISyncField SyncActivityCompSuppression;
 
         public static ISyncField SyncCompRefuelableValue;
+        public static ISyncField SyncCompRefuelableTargetFuelLevel;
 
         public static void Init()
         {
@@ -239,6 +240,7 @@ namespace Multiplayer.Client
             SyncActivityCompSuppression = Sync.Field(typeof(CompActivity), nameof(CompActivity.suppressionEnabled));
 
             SyncCompRefuelableValue = Sync.Field(typeof(CompRefuelable), nameof(CompRefuelable.allowAutoRefuel)).SetBufferChanges();
+            SyncCompRefuelableTargetFuelLevel = Sync.Field(typeof(CompRefuelable), nameof(CompRefuelable.TargetFuelLevel)).SetBufferChanges();
 
             InitFishingZone();
         }
@@ -618,7 +620,7 @@ namespace Multiplayer.Client
         }
 
         [MpPrefix(typeof(Gizmo_Slider), nameof(Gizmo_Slider.GizmoOnGUI))]
-        static void SyncGeneResourceChange(Gizmo_Slider __instance)
+        static void SyncGizmoSlider(Gizmo_Slider __instance)
         {
             if (__instance is GeneGizmo_Resource geneGizmo)
             {
@@ -640,6 +642,7 @@ namespace Multiplayer.Client
             {
                 var refuelable = fuelGizmo.refuelable;
                 SyncCompRefuelableValue.Watch(refuelable);
+                SyncCompRefuelableTargetFuelLevel.Watch(refuelable);
             }
         }
 
