@@ -188,11 +188,8 @@ namespace Multiplayer.Client
             }
         }
 
-        [PacketHandler(Packets.Server_Debug)]
-        public void HandleDebug(ByteReader data)
-        {
-            Rejoiner.DoRejoin();
-        }
+        [TypedPacketHandler]
+        public void HandleDebug(ServerDebugPacket _) => Rejoiner.DoRejoin();
 
         [TypedPacketHandler]
         public void HandleSetFaction(ServerSetFactionPacket packet)

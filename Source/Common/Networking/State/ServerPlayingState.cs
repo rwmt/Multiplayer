@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using Multiplayer.Common.Networking.Packet;
@@ -167,15 +166,15 @@ namespace Multiplayer.Common
                 Server.worldData.TryStartJoinPointCreation();
         }
 
-        [PacketHandler(Packets.Client_Debug)]
-        public void HandleDebug(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleDebug(ClientDebugPacket _)
         {
             // todo restrict handling
 
             Server.worldData.mapCmds.Clear();
             Server.gameTimer = Server.startingTimer;
 
-            Server.SendToPlaying(Packets.Server_Debug, Array.Empty<object>());
+            Server.SendToPlaying(new ServerDebugPacket());
         }
 
         [TypedPacketHandler]
