@@ -238,6 +238,10 @@ public class PacketTest
 
         yield return new ServerSelectedPacket(1,
             new ClientSelectedPacket { newlySelectedIds = [1, 10, 100], reset = false, unselectedIds = [] });
+
+        yield return new ClientDesyncedPacket(1234, 4567);
+        yield return new ClientDesyncedPacket(0, 0);
+        yield return new ClientDesyncedPacket(100, 0);
     }
 
     [TestCaseSource(nameof(RoundtripPackets))]
