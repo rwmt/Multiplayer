@@ -34,9 +34,7 @@ namespace Multiplayer.Common
             StateObj?.StartState();
         }
 
-        public void Send(Packets id) => Send(id, Array.Empty<byte>());
-
-        public void Send(Packets id, params object[] msg) => Send(id, ByteWriter.GetBytes(msg));
+        public void Send(Packets id) => Send(id, []);
 
         public void Send(SerializedPacket packet, bool reliable = true) => Send(packet.id, packet.data, reliable);
 
@@ -56,7 +54,7 @@ namespace Multiplayer.Common
             SendRaw(writer.ToArray(), reliable);
         }
 
-        public virtual void Send(Packets id, byte[] message, bool reliable = true)
+        protected virtual void Send(Packets id, byte[] message, bool reliable = true)
         {
             if (State == ConnectionStateEnum.Disconnected)
                 return;
@@ -145,8 +143,6 @@ namespace Multiplayer.Common
         }
 
         public void SendFragmented(SerializedPacket packet) => SendFragmented(packet.id, packet.data);
-
-        public void SendFragmented(Packets id, params object[] msg) => SendFragmented(id, ByteWriter.GetBytes(msg));
 
         protected abstract void SendRaw(byte[] raw, bool reliable = true);
 

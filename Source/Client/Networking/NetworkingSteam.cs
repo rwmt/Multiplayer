@@ -76,7 +76,7 @@ namespace Multiplayer.Client.Networking
     {
         private readonly Stopwatch keepAliveTimer = new();
 
-        public override void Send(Packets id, byte[] message, bool reliable = true)
+        protected override void Send(Packets id, byte[] message, bool reliable = true)
         {
             if (id == Packets.Server_KeepAlive) keepAliveTimer.Restart();
             base.Send(id, message, reliable);
