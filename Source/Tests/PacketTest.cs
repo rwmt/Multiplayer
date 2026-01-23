@@ -1,4 +1,5 @@
 using System.Text;
+using FluentAssertions;
 using Multiplayer.Common;
 using Multiplayer.Common.Networking.Packet;
 
@@ -239,26 +240,7 @@ public class PacketTest
         var serialize = binder.Serialize(original);
         var deserialized = binder.Deserialize(serialize);
 
-        var valueFields = original.GetType().GetFields().Where(f => f.FieldType.IsValueType).ToList();
-        var rawFields = original.GetType().GetFields().Where(f => !f.FieldType.IsValueType).ToList();
-        if (rawFields.Count > 0)
-        {
-            // Default record's equality compares reference types by reference meaning e.g., a byte[] of [1,2,3] isn't
-            // equal to another byte[] of [1, 2, 3] unless it's the same instance (the same reference). In case
-            // there are such fields, fallback to comparing the raw serialized bytes, and each field individually.
-            var serializedAgain = binder.Serialize(deserialized);
-            Assert.That(serialize, Is.EqualTo(serializedAgain));
-
-            foreach (var valueField in valueFields)
-                Assert.That(valueField.GetValue(deserialized), Is.EqualTo(valueField.GetValue(original)));
-            // Unlike byte[].Equals, Is.EqualTo compares by value, not by reference.
-            foreach (var rawField in rawFields)
-                Assert.That(rawField.GetValue(deserialized), Is.EqualTo(rawField.GetValue(original)));
-        }
-        else
-        {
-            Assert.That(deserialized, Is.EqualTo(original));
-        }
+        deserialized.Should().BeEquivalentTo(original, opts => opts.PreferringRuntimeMemberTypes());
     }
 
     [Test]
