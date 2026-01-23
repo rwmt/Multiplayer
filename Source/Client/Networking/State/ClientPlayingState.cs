@@ -113,25 +113,20 @@ namespace Multiplayer.Client
             player.dragStart = data.HasDrag ? new Vector3(data.dragX, 0, data.dragZ) : PlayerInfo.Invalid;
         }
 
-        [PacketHandler(Packets.Server_Selected)]
-        public void HandleSelected(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleSelected(ServerSelectedPacket packet)
         {
-            int playerId = data.ReadInt32();
-            var player = Multiplayer.session.GetPlayerInfo(playerId);
+            var player = Multiplayer.session.GetPlayerInfo(packet.playerId);
             if (player == null) return;
 
-            bool reset = data.ReadBool();
+            var data = packet.data;
+            if (data.reset) player.selectedThings.Clear();
 
-            if (reset)
-                player.selectedThings.Clear();
+            foreach (var id in data.newlySelectedIds)
+                player.selectedThings[id] = Time.realtimeSinceStartup;
 
-            int[] add = data.ReadPrefixedInts();
-            for (int i = 0; i < add.Length; i++)
-                player.selectedThings[add[i]] = Time.realtimeSinceStartup;
-
-            int[] remove = data.ReadPrefixedInts();
-            for (int i = 0; i < remove.Length; i++)
-                player.selectedThings.Remove(remove[i]);
+            foreach (var id in data.unselectedIds)
+                player.selectedThings.Remove(id);
         }
 
         [TypedPacketHandler]

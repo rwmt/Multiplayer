@@ -231,6 +231,13 @@ public class PacketTest
 
         yield return new ServerNotificationPacket("key");
         yield return new ServerNotificationPacket("key") { args = ["1", "2", "3"] };
+
+        yield return new ClientSelectedPacket
+            { newlySelectedIds = [1, 2, 3], unselectedIds = [4, 5, 6], reset = false };
+        yield return new ClientSelectedPacket { newlySelectedIds = [999], unselectedIds = [111], reset = true };
+
+        yield return new ServerSelectedPacket(1,
+            new ClientSelectedPacket { newlySelectedIds = [1, 10, 100], reset = false, unselectedIds = [] });
     }
 
     [TestCaseSource(nameof(RoundtripPackets))]

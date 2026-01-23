@@ -111,20 +111,9 @@ namespace Multiplayer.Common
             Server.SendToIngame(serverPacket, reliable: false, excluding: Player);
         }
 
-        [PacketHandler(Packets.Client_Selected)]
-        public void HandleSelected(ByteReader data)
-        {
-            bool reset = data.ReadBool();
-
-            var writer = new ByteWriter();
-
-            writer.WriteInt32(Player.id);
-            writer.WriteBool(reset);
-            writer.WritePrefixedInts(data.ReadPrefixedInts(200));
-            writer.WritePrefixedInts(data.ReadPrefixedInts(200));
-
-            Server.SendToPlaying(Packets.Server_Selected, writer.ToArray(), excluding: Player);
-        }
+        [TypedPacketHandler]
+        public void HandleSelected(ClientSelectedPacket packet) =>
+            Server.SendToPlaying(new ServerSelectedPacket(Player.id, packet));
 
         [TypedPacketHandler]
         public void HandlePing(ClientPingLocPacket packet) =>
