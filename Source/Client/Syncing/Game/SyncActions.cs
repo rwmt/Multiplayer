@@ -25,8 +25,12 @@ namespace Multiplayer.Client
 
             if (CaravanActionConfirmationType == null) Error($"Could not find type: {nameof(CaravanArrivalActionUtility)}.<>c__DisplayClass0_1<T>");
 
-            SyncWorldObjCaravanMenus = RegisterActions((WorldObject obj, Caravan c) => obj.GetFloatMenuOptions(c), ActionGetter, WorldObjectCaravanMenuWrapper);
-            SyncWorldObjCaravanMenus.PatchAll(nameof(WorldObject.GetFloatMenuOptions));
+            // Patch in a long event, otherwise it causes errors with mods that are loading resources
+            LongEventHandler.ExecuteWhenFinished(() =>
+            {
+                SyncWorldObjCaravanMenus = RegisterActions((WorldObject obj, Caravan c) => obj.GetFloatMenuOptions(c), ActionGetter, WorldObjectCaravanMenuWrapper);
+                SyncWorldObjCaravanMenus.PatchAll(nameof(WorldObject.GetFloatMenuOptions));
+            });
         }
 
         private static ref Action ActionGetter(FloatMenuOption o) => ref o.action;
