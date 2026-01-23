@@ -256,10 +256,8 @@ namespace Multiplayer.Common
             SendToPlaying(ServerChatPacket.Create(msg));
         }
 
-        public void SendNotification(string key, params string[] args)
-        {
-            SendToPlaying(Packets.Server_Notification, new object[] { key, args });
-        }
+        public void SendNotification(string key, params string[] args) =>
+            SendToPlaying(new ServerNotificationPacket(key) { args = args });
 
         public void RegisterChatCmd(string cmdName, ChatCmdHandler handler) =>
             chatCmdManager.AddCommandHandler(cmdName, handler);

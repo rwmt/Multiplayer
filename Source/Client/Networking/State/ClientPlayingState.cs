@@ -156,15 +156,13 @@ namespace Multiplayer.Client
             // todo Multiplayer.client.Send(Packets.CLIENT_MAP_LOADED);
         }
 
-        [PacketHandler(Packets.Server_Notification)]
-        public void HandleNotification(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleNotification(ServerNotificationPacket packet)
         {
-            string key = data.ReadString();
-            string[] args = data.ReadPrefixedStrings();
-
-            var msg = key.Translate(Array.ConvertAll(args, s => (NamedArgument)s));
+            var namedArgs = Array.ConvertAll(packet.args, s => (NamedArgument)s);
+            var msg = packet.key.Translate(namedArgs);
             Messages.Message(msg, MessageTypeDefOf.SilentInput, false);
-            ServerLog.Log($"Notification: {msg} ({key}, {args.Join(", ")})");
+            ServerLog.Log($"Notification: {msg} ({packet.key}, {packet.args.Join(", ")})");
         }
 
         [TypedPacketHandler]
