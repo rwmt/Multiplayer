@@ -103,7 +103,7 @@ namespace Multiplayer.Common
         public void OnDesync(ServerPlayer player, int tick, int diffAt)
         {
             player.UpdateStatus(PlayerStatus.Desynced);
-            server.HostPlayer.conn.Send(ServerTracesPacket.Request(tick, diffAt, player.id));
+            server.HostPlayer.SendPacket(ServerTracesPacket.Request(tick, diffAt, player.id));
 
             player.ResetTimeVotes();
 
