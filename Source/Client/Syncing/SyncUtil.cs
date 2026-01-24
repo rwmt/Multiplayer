@@ -14,6 +14,8 @@ namespace Multiplayer.Client
 {
     public static class SyncUtil
     {
+        public static List<object> prevSelected = null;
+        public static List<WorldObject> prevWorldSelected = null;
         public static bool isDialogNodeTreeOpen = false;
 
         internal static void DialogNodeTreePostfix()
@@ -47,8 +49,8 @@ namespace Multiplayer.Client
                 throw;
             }
 
-            List<object> prevSelected = Find.Selector.selected;
-            List<WorldObject> prevWorldSelected = Find.WorldSelector.selected;
+            prevSelected = Find.Selector.selected;
+            prevWorldSelected = Find.WorldSelector.selected;
 
             bool shouldQueue = false;
 

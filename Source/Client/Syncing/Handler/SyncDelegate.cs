@@ -160,27 +160,27 @@ namespace Multiplayer.Client
                     throw new Exception($"Field with path {f} not found");
         }
 
-        public new static SyncDelegate Lambda(Type parentType, string parentMethod, int lambdaOrdinal, Type[] parentArgs = null, MethodType parentMethodType = MethodType.Normal)
+        public new static SyncDelegate Lambda(Type parentType, string parentMethod, int lambdaOrdinal, Type[] parentArgs = null, MethodType parentMethodType = MethodType.Normal, string[] fields = null)
         {
             return Sync.RegisterSyncDelegate(
                 MpMethodUtil.GetLambda(parentType, parentMethod, parentMethodType, parentArgs, lambdaOrdinal),
-                null
+                fields
             );
         }
 
-        public new static SyncDelegate LambdaInGetter(Type parentType, string parentMethod, int lambdaOrdinal)
+        public new static SyncDelegate LambdaInGetter(Type parentType, string parentMethod, int lambdaOrdinal, string[] fields = null)
         {
             return Sync.RegisterSyncDelegate(
                 MpMethodUtil.GetLambda(parentType, parentMethod, MethodType.Getter, null, lambdaOrdinal),
-                null
+                fields
             );
         }
 
-        public static SyncDelegate LocalFunc(Type parentType, string parentMethod, string name, Type[] parentArgs = null)
+        public static SyncDelegate LocalFunc(Type parentType, string parentMethod, string name, Type[] parentArgs = null, string[] fields = null)
         {
             return Sync.RegisterSyncDelegate(
                 MpMethodUtil.GetLocalFunc(parentType, parentMethod, MethodType.Normal, parentArgs, name),
-                null
+                fields
             );
         }
 

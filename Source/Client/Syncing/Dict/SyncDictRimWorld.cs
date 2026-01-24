@@ -768,6 +768,24 @@ namespace Multiplayer.Client
                     return (parent.gun as ThingWithComps).TryGetComp<CompChangeableProjectile>();
                 }
             },
+            {
+                (ByteWriter writer, ReadingOutcomeDoer doer) =>
+                {
+                    WriteSync(writer, doer.Readable);
+                    writer.WriteInt32(doer.Readable.doers.IndexOf(doer));
+                },
+                (ByteReader reader) =>
+                {
+                    var parent = ReadSync<CompReadable>(reader);
+                    var index = reader.ReadInt32();
+
+                    // Make sure we have a valid doer
+                    if (parent == null || index < 0 || index >= parent.doers.Count)
+                        return null;
+
+                    return parent.doers[index];
+                }, true // implicit
+            },
             #endregion
 
             #region Things
@@ -1046,6 +1064,32 @@ namespace Multiplayer.Client
 
                     return Find.WorldGrid.PlanetLayers[layerId];
                 }, true
+            },
+            {
+                (ByteWriter data, Tile tile) =>
+                {
+                    var map = Find.Maps.Find(m => m.pocketTileInfo == tile);
+
+                    // Handle pocket map
+                    if (map != null)
+                    {
+                        data.WriteInt32(map.uniqueID);
+                    }
+                    // Handle normal tile
+                    else
+                    {
+                        data.WriteInt32(-1);
+                        WriteSync(data, tile.tile);
+                    }
+                },
+                (ByteReader data) =>
+                {
+                    var pocketMapId = data.ReadInt32();
+
+                    if (pocketMapId >= 0)
+                        return Find.Maps.Find(m => m.uniqueID == pocketMapId)?.pocketTileInfo;
+                    return ReadSync<PlanetTile>(data).Tile;
+                }
             },
             #endregion
 

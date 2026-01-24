@@ -43,6 +43,7 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(Building_PassengerShuttle), nameof(Building_PassengerShuttle.GetGizmos), 2); // Fill shuttle from cargo on map
             SyncMethod.Lambda(typeof(CompFlickable), nameof(CompFlickable.CompGetGizmosExtra), 1);           // Toggle flick designation
             SyncMethod.Lambda(typeof(Pawn_PlayerSettings), nameof(Pawn_PlayerSettings.GetGizmos), 1);        // Toggle release animals
+            SyncMethod.Lambda(typeof(Pawn_PlayerSettings), nameof(Pawn_PlayerSettings.GetGizmos), 2);        // Force animals to attack specific target
             SyncMethod.Lambda(typeof(Building_TurretGun), nameof(Building_TurretGun.GetGizmos), 2);          // Toggle turret hold fire
             SyncMethod.Lambda(typeof(Building_Trap), nameof(Building_Trap.GetGizmos), 1);                    // Toggle trap auto-rearm
             SyncMethod.Lambda(typeof(Building_Door), nameof(Building_Door.GetGizmos), 1);                    // Toggle door hold open
@@ -97,7 +98,7 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(CompTreeConnection), nameof(CompTreeConnection.CompGetGizmosExtra), 2).SetDebugOnly(); // Increase connection strength by 10%
             SyncMethod.Lambda(typeof(CompTreeConnection), nameof(CompTreeConnection.CompGetGizmosExtra), 3).SetDebugOnly(); // Decrease connection strength by 10%
 
-            SyncMethod.Lambda(typeof(CompNeuralSupercharger), nameof(CompNeuralSupercharger.CompGetGizmosExtra), 1); // Neural supercharger: allow temporary pawns to use
+            SyncMethod.Lambda(typeof(CompNeuralSupercharger), nameof(CompNeuralSupercharger.CompGetGizmosExtra), 1); // Neural supercharger: allow temporary pawns (guests) to use
 
             SyncMethod.Lambda(typeof(CompPilotConsole), nameof(CompPilotConsole.CompGetGizmosExtra), 1).SetDebugOnly(); // Dev launch instantly
             SyncMethod.Lambda(typeof(CompPilotConsole), nameof(CompPilotConsole.CompGetGizmosExtra), 2).SetDebugOnly(); // Dev reset cooldown
@@ -129,10 +130,10 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(Pawn_CarryTracker), nameof(Pawn_CarryTracker.GetGizmos), 1).SetDebugOnly(); // Trigger dissolution event (CompDissolution)
 
             // CompSpawner
-            SyncMethod.Lambda(typeof(CompSpawner), nameof(CompSpawner.CompGetGizmosExtra), 0).SetDebugOnly();
-            SyncMethod.Lambda(typeof(CompSpawnerHives), nameof(CompSpawnerHives.CompGetGizmosExtra), 0).SetDebugOnly();
-            SyncMethod.Lambda(typeof(CompSpawnerItems), nameof(CompSpawnerItems.CompGetGizmosExtra), 0).SetDebugOnly();
-            SyncMethod.Lambda(typeof(CompSpawnerPawn), nameof(CompSpawnerPawn.CompGetGizmosExtra), 0).SetDebugOnly();
+            SyncMethod.Lambda(typeof(CompSpawner), nameof(CompSpawner.CompGetGizmosExtra), 0).SetDebugOnly();           // Spawn thing
+            SyncMethod.Lambda(typeof(CompSpawnerHives), nameof(CompSpawnerHives.CompGetGizmosExtra), 0).SetDebugOnly(); // Reproduce
+            SyncMethod.Lambda(typeof(CompSpawnerItems), nameof(CompSpawnerItems.CompGetGizmosExtra), 0).SetDebugOnly(); // Spawn items
+            SyncMethod.Lambda(typeof(CompSpawnerPawn), nameof(CompSpawnerPawn.CompGetGizmosExtra), 0).SetDebugOnly();   // Spawn pawn
 
             SyncMethod.Lambda(typeof(CompSendSignalOnCountdown), nameof(CompSendSignalOnCountdown.CompGetGizmosExtra), 0).SetDebugOnly();
 
@@ -242,6 +243,9 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(GeneResourceDrainUtility), nameof(GeneResourceDrainUtility.GetResourceDrainGizmos), 0).SetDebugOnly(); // -10% resource
             SyncDelegate.Lambda(typeof(GeneResourceDrainUtility), nameof(GeneResourceDrainUtility.GetResourceDrainGizmos), 1).SetDebugOnly(); // +10% resource
             SyncMethod.Register(typeof(CompBreakdownable), nameof(CompBreakdownable.Notify_Repaired)).SetDebugOnly(); // Dev repair breakdownable
+            SyncDelegate.Lambda(typeof(CompCanBeDormant), nameof(CompCanBeDormant.CompGetGizmosExtra), 1).SetDebugOnly(); // Wake up after delay
+            SyncDelegate.Lambda(typeof(Tile), nameof(Tile.GetGizmos), 0).SetDebugOnly(); // Generate settlement
+            SyncDelegate.Lambda(typeof(Tile), nameof(Tile.GetGizmos), 4).SetDebugOnly(); // Generate map
 
             // Hediffs
             SyncMethod.Register(typeof(Hediff_CubeInterest), nameof(Hediff_CubeInterest.StartWithdrawal)).SetDebugOnly();
@@ -271,6 +275,10 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(Building_VoidMonolith), nameof(Building_VoidMonolith.GetFloatMenuOptions), 0);
 
             SyncDelegate.Lambda(typeof(CompNociosphere), nameof(CompNociosphere.TargetLocation), 1);
+
+            // Animal training tracker
+            SyncDelegate.Lambda(typeof(Pawn_TrainingTracker), nameof(Pawn_TrainingTracker.GetGizmos), 0, fields: [SyncDelegate.DelegateThis, "master"]).SetContext(SyncContext.MapSelected).CancelIfNoSelectedMapObjects(); // Force attack target
+            SyncDelegate.Lambda(typeof(Pawn_TrainingTracker), nameof(Pawn_TrainingTracker.GetGizmos), 3).SetContext(SyncContext.MapSelected).CancelIfNoSelectedMapObjects(); // Cancel attacking target
 
             InitRituals();
             InitChoiceLetters();

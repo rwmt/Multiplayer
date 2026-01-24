@@ -397,6 +397,29 @@ namespace Multiplayer.Client
                     return new PawnPsychicRitualRoleSelectionWidget(ritual, assignments.session.candidatePool, assignments);
                 }
             },
+            {
+                (ByteWriter data, PsychicRitualToil toil) =>
+                {
+                    data.WriteString(toil.uniqueId);
+                },
+                (ByteReader data) =>
+                {
+                    var psychicRitualId = data.ReadString();
+
+                    // Check all maps
+                    return Find.Maps.SelectMany(map => map.lordManager.lords)
+                        // Grab all lord toils
+                        .Select(lord => lord.CurLordToil)
+                        // Grab all psychic ritual toils
+                        .OfType<LordToil_PsychicRitual>()
+                        // Select all current psychic ritual toils
+                        .Select(lordToil => lordToil.RitualData?.CurPsychicRitualToil)
+                        // But only if not null, just as a precaution
+                        .AllNotNull()
+                        // Grab the first one with matching ID
+                        .FirstOrDefault(toil => toil.uniqueId == psychicRitualId);
+                }, true // Implicit
+            },
 
             #endregion
         };
