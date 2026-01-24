@@ -241,6 +241,7 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(GroundSpawner), nameof(GroundSpawner.GetGizmos), 1).SetDebugOnly(); // Set spawn delay
             SyncDelegate.Lambda(typeof(GeneResourceDrainUtility), nameof(GeneResourceDrainUtility.GetResourceDrainGizmos), 0).SetDebugOnly(); // -10% resource
             SyncDelegate.Lambda(typeof(GeneResourceDrainUtility), nameof(GeneResourceDrainUtility.GetResourceDrainGizmos), 1).SetDebugOnly(); // +10% resource
+            SyncMethod.Register(typeof(CompBreakdownable), nameof(CompBreakdownable.Notify_Repaired)).SetDebugOnly(); // Dev repair breakdownable
 
             // Hediffs
             SyncMethod.Register(typeof(Hediff_CubeInterest), nameof(Hediff_CubeInterest.StartWithdrawal)).SetDebugOnly();
