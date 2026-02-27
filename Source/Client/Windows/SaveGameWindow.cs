@@ -9,7 +9,7 @@ namespace Multiplayer.Client;
 
 public class SaveGameWindow : Window
 {
-    public override Vector2 InitialSize => new(500f, 500f);
+    public override Vector2 InitialSize => new(400f, 500f);
 
     private string curText = "";
     private bool fileExists;
@@ -65,13 +65,15 @@ public class SaveGameWindow : Window
         int buttonWidth = 120;
         int buttonHeight = 35;
         int buttonGap = 5;
-        int button1x = (int)(windowRect.width / 2 - buttonWidth - buttonGap / 2);
+        int button1x = Prefs.DevMode ?
+            (int)(windowRect.width / 2 - buttonWidth - buttonGap / 2) :
+            (int)(windowRect.width / 2 - buttonWidth / 2);
         int button2x = (int)(windowRect.width / 2 + buttonGap / 2);
         int buttonY = (int)(windowRect.yMax - 10 - buttonHeight);
 
         if (Widgets.ButtonText(new Rect(button1x, buttonY, buttonWidth, buttonHeight), "OK".Translate()))
             Accept(false);
-        if (Widgets.ButtonText(new Rect(button2x, buttonY, buttonWidth, buttonHeight), "Dev: save replay"))
+        if (Prefs.DevMode && Widgets.ButtonText(new Rect(button2x, buttonY, buttonWidth, buttonHeight), "Dev: save replay"))
             Accept(true);
 
         // Draw save list
