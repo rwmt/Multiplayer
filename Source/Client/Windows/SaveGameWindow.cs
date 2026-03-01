@@ -16,7 +16,7 @@ public class SaveGameWindow : Window
     private bool filesRead;
     private SaveFileReader reader;
     private FileInfo selectedFile;
-    private static Vector2 saveListScroll;
+    private Vector2 saveListScroll;
     private float saveListHeight;
 
     public SaveGameWindow(string gameName)
@@ -44,17 +44,14 @@ public class SaveGameWindow : Window
             filesRead = true;
         }
 
-        GUILayout.BeginArea(windowRect.AtZero());
+        GUILayout.BeginArea(windowRect);
         GUILayout.BeginVertical();
 
         float margin = 10;
 
         // Draw text and input box at the top of the window
         using (MpStyle.Set(GameFont.Small))
-        {
-            Vector2 textSize = Text.CalcSize("MpSaveGameAs".Translate());
             GUILayout.Label("MpSaveGameAs".Translate());
-        }
 
         UpdateText(ref curText, GUILayout.TextField(curText));
 
