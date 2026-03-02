@@ -217,7 +217,7 @@ namespace Multiplayer.Client.Patches
 
             // LandingEnded calls Find.TickManager.CurTimeSpeed = TimeSpeed.Normal, but that doesn't work in MP as we
             // have our own way of changing the map speed.
-            __instance.map.AsyncTime().SetDesiredTimeSpeed(TimeSpeed.Normal);
+            __instance.map.AsyncTime().DesiredTimeSpeed = TimeSpeed.Normal;
         }
 
         static void Finalizer()
