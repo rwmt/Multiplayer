@@ -473,7 +473,7 @@ namespace Multiplayer.Client
                     if (Widgets.ButtonText(playButton, "MpJoinButton".Translate()))
                     {
                         Close(false);
-                        ClientUtil.TrySteamConnectWithWindow(friend.serverHost);
+                        ClientUtil.TryConnectWithWindow(ConnectorRegistry.Steam(friend.serverHost));
                     }
                 }
                 else
@@ -523,7 +523,7 @@ namespace Multiplayer.Client
 
             try
             {
-                ClientUtil.TryConnectWithWindow(addr, port);
+                ClientUtil.TryConnectWithWindow(ConnectorRegistry.LiteNet(addr, port));
                 Multiplayer.settings.Write();
                 return true;
             }
@@ -570,7 +570,7 @@ namespace Multiplayer.Client
 
                     var address = server.endpoint.Address.ToString();
                     var port = server.endpoint.Port;
-                    ClientUtil.TryConnectWithWindow(address, port);
+                    ClientUtil.TryConnectWithWindow(ConnectorRegistry.LiteNet(address, port));
                 }
 
                 y += entryRect.height;

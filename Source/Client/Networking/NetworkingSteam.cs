@@ -48,8 +48,13 @@ namespace Multiplayer.Client.Networking
         public override string ToString() => $"SteamP2P ({remoteId}:{username})";
     }
 
-    public class SteamClientConn(CSteamID remoteId) : SteamBaseConn(remoteId, RandomChannelId(), 0), ITickableConnection
+    public class SteamClientConn : SteamBaseConn, ITickableConnection
     {
+        public SteamClientConn(CSteamID remoteId) : base(remoteId, RandomChannelId(), 0)
+        {
+            ChangeState(ConnectionStateEnum.ClientSteam);
+        }
+
         static ushort RandomChannelId() => (ushort)new Random().Next();
 
         public void Tick()

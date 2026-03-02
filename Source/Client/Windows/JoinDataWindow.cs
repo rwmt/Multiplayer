@@ -759,12 +759,8 @@ namespace Multiplayer.Client
                     File.WriteAllText(Path.Combine(tempPath, $"{config.ModId}-{config.FileName}"), config.Contents);
             }
 
-            var connectTo = data.remoteSteamHost != null
-                ? $"{data.remoteSteamHost}"
-                : $"{data.remoteAddress}:{data.remotePort}";
-
             // The env variables will get inherited by the child process started in GenCommandLine.Restart
-            Environment.SetEnvironmentVariable(EarlyInit.RestartConnectVariable, connectTo);
+            Environment.SetEnvironmentVariable(EarlyInit.RestartConnectVariable, data.connectionString);
             Environment.SetEnvironmentVariable(EarlyInit.RestartConfigsVariable, applyConfigs ? "true" : "false");
 
             GenCommandLine.Restart();

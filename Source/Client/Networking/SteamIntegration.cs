@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Multiplayer.Client.Networking;
+using Multiplayer.Client.Util;
 using Multiplayer.Client.Windows;
 using RimWorld;
 using Steamworks;
@@ -56,7 +57,7 @@ namespace Multiplayer.Client
             {
                 if (Current.Game == null)
                 {
-                    ClientUtil.TrySteamConnectWithWindow(req.m_steamIDFriend, false);
+                    ClientUtil.TryConnectWithWindow(ConnectorRegistry.Steam(req.m_steamIDFriend), false);
                 }
                 else
                 {

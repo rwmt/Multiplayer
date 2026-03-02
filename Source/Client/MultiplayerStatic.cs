@@ -14,7 +14,6 @@ using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
-using Steamworks;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
@@ -154,41 +153,30 @@ namespace Multiplayer.Client
 
         private static void HandleRestartConnect()
         {
-            if (Multiplayer.restartConnect == null)
-                return;
+            var connString = Multiplayer.restartConnect;
+            if (connString == null) return;
 
-            // No colon means the connect string is a steam user id
-            if (!Multiplayer.restartConnect.Contains(':'))
+            if (!ConnectorRegistry.TryParse(connString, out var connector))
             {
-                if (ulong.TryParse(Multiplayer.restartConnect, out ulong steamUser))
-                    DoubleLongEvent(() => ClientUtil.TrySteamConnectWithWindow((CSteamID)steamUser, false), "MpConnecting");
-
+                Log.Error($"Failed to parse connection string from restartConnect: {connString}");
                 return;
             }
 
-            var split = Multiplayer.restartConnect.Split(new[]{':'}, StringSplitOptions.RemoveEmptyEntries);
-            if (split.Length == 2 && int.TryParse(split[1], out int port))
-                DoubleLongEvent(() => ClientUtil.TryConnectWithWindow(split[0], port, false), "MpConnecting");
+            DoubleLongEvent(() => ClientUtil.TryConnectWithWindow(connector, false), "MpConnecting");
         }
 
         private static void HandleCommandLine()
         {
             if (GenCommandLine.TryGetCommandLineArg("connect", out string addressPort) && Multiplayer.restartConnect == null)
             {
-                int port = MultiplayerServer.DefaultPort;
-
-                string address = null;
-                var split = addressPort.Split(':');
-
-                if (split.Length == 0)
-                    address = "127.0.0.1";
-                else if (split.Length >= 1)
-                    address = split[0];
-
-                if (split.Length == 2)
-                    int.TryParse(split[1], out port);
-
-                DoubleLongEvent(() => ClientUtil.TryConnectWithWindow(address, port, false), "Connecting");
+                if (LiteNetConnector.TryParse(addressPort, out var connector))
+                {
+                    DoubleLongEvent(() => ClientUtil.TryConnectWithWindow(connector, false), "Connecting");
+                }
+                else
+                {
+                    Log.Error($"Failed to parse connection string from command line: {addressPort}");
+                }
             }
 
             if (GenCommandLine.CommandLineArgPassed("arbiter"))
