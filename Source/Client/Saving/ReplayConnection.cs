@@ -7,7 +7,7 @@ public class ReplayConnection : ConnectionBase
 {
     public static Action<ScheduledCommand> replayCmdEvent;
 
-    public override void Send(Packets id, byte[] message, bool reliable = true)
+    protected override void Send(Packets id, byte[] message, bool reliable = true)
     {
         if (id == Packets.Client_Command)
             replayCmdEvent?.Invoke(DeserializeCmd(new ByteReader(message)));

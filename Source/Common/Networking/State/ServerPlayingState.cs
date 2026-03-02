@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using Multiplayer.Common.Networking.Packet;
@@ -20,26 +19,15 @@ namespace Multiplayer.Common
             Player.ResetTimeVotes();
         }
 
-        [PacketHandler(Packets.Client_Desynced)]
-        public void HandleDesynced(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleDesynced(ClientDesyncedPacket packet) =>
+            Server.playerManager.OnDesync(Player, packet.tick, packet.diffAt);
+
+        [TypedPacketHandler]
+        public void HandleTraces(ClientTracesPacket packet)
         {
-            var tick = data.ReadInt32();
-            var diffAt = data.ReadInt32();
-
-            Server.playerManager.OnDesync(Player, tick, diffAt);
-        }
-
-        [PacketHandler(Packets.Client_Traces, allowFragmented: true)]
-        public void HandleTraces(ByteReader data)
-        {
-            var type = data.ReadEnum<TracesPacket>();
-
-            if (type == TracesPacket.Response && Player.IsHost)
-            {
-                var playerId = data.ReadInt32();
-                var traces = data.ReadPrefixedBytes();
-                Server.GetPlayer(playerId)?.SendPacket(Packets.Server_Traces, new object[] { TracesPacket.Transfer, traces });
-            }
+            if (!Player.IsHost) return;
+            Server.GetPlayer(packet.playerId)?.SendPacket(ServerTracesPacket.Transfer(packet.rawTraces));
         }
 
         [TypedPacketHandler]
@@ -117,20 +105,9 @@ namespace Multiplayer.Common
             Server.SendToIngame(serverPacket, reliable: false, excluding: Player);
         }
 
-        [PacketHandler(Packets.Client_Selected)]
-        public void HandleSelected(ByteReader data)
-        {
-            bool reset = data.ReadBool();
-
-            var writer = new ByteWriter();
-
-            writer.WriteInt32(Player.id);
-            writer.WriteBool(reset);
-            writer.WritePrefixedInts(data.ReadPrefixedInts(200));
-            writer.WritePrefixedInts(data.ReadPrefixedInts(200));
-
-            Server.SendToPlaying(Packets.Server_Selected, writer.ToArray(), excluding: Player);
-        }
+        [TypedPacketHandler]
+        public void HandleSelected(ClientSelectedPacket packet) =>
+            Server.SendToPlaying(new ServerSelectedPacket(Player.id, packet));
 
         [TypedPacketHandler]
         public void HandlePing(ClientPingLocPacket packet) =>
@@ -184,15 +161,15 @@ namespace Multiplayer.Common
                 Server.worldData.TryStartJoinPointCreation();
         }
 
-        [PacketHandler(Packets.Client_Debug)]
-        public void HandleDebug(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleDebug(ClientDebugPacket _)
         {
             // todo restrict handling
 
             Server.worldData.mapCmds.Clear();
             Server.gameTimer = Server.startingTimer;
 
-            Server.SendToPlaying(Packets.Server_Debug, Array.Empty<object>());
+            Server.SendToPlaying(new ServerDebugPacket());
         }
 
         [TypedPacketHandler]
@@ -213,10 +190,5 @@ namespace Multiplayer.Common
 
         [TypedPacketHandler]
         public void HandleFrameTime(ClientFrameTimePacket packet) => Player.frameTime = packet.frameTime;
-    }
-
-    public enum TracesPacket : byte
-    {
-        Request, Response, Transfer
     }
 }

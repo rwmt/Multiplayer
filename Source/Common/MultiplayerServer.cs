@@ -214,30 +214,18 @@ namespace Multiplayer.Common
 
         public void SendToPlaying<T>(T packet, bool reliable = true, ServerPlayer? excluding = null) where T : IPacket
         {
-            var materialized = packet.Serialize();
-            SendToPlaying(materialized.id, materialized.data, reliable, excluding);
-        }
-
-        public void SendToPlaying(Packets id, object[] data) => SendToPlaying(id, ByteWriter.GetBytes(data));
-
-        public void SendToIngame(Packets id, byte[] data, bool reliable = true, ServerPlayer? excluding = null)
-        {
-            foreach (ServerPlayer player in PlayingIngamePlayers)
+            var serialized = packet.Serialize();
+            foreach (ServerPlayer player in PlayingPlayers)
                 if (player != excluding)
-                    player.conn.Send(id, data, reliable);
+                    player.conn.Send(serialized, reliable);
         }
 
         public void SendToIngame<T>(T packet, bool reliable = true, ServerPlayer? excluding = null) where T : IPacket
         {
             var serialized = packet.Serialize();
-            SendToIngame(serialized.id, serialized.data, reliable, excluding);
-        }
-
-        public void SendToPlaying(Packets id, byte[] data, bool reliable = true, ServerPlayer? excluding = null)
-        {
-            foreach (ServerPlayer player in PlayingPlayers)
+            foreach (ServerPlayer player in PlayingIngamePlayers)
                 if (player != excluding)
-                    player.conn.Send(id, data, reliable);
+                    player.conn.Send(serialized, reliable);
         }
 
         public ServerPlayer? GetPlayer(string username)
@@ -256,10 +244,8 @@ namespace Multiplayer.Common
             SendToPlaying(ServerChatPacket.Create(msg));
         }
 
-        public void SendNotification(string key, params string[] args)
-        {
-            SendToPlaying(Packets.Server_Notification, new object[] { key, args });
-        }
+        public void SendNotification(string key, params string[] args) =>
+            SendToPlaying(new ServerNotificationPacket(key) { args = args });
 
         public void RegisterChatCmd(string cmdName, ChatCmdHandler handler) =>
             chatCmdManager.AddCommandHandler(cmdName, handler);

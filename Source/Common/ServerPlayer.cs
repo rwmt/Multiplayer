@@ -73,21 +73,14 @@ namespace Multiplayer.Common
             Server.playerManager.SetDisconnected(conn, reason);
         }
 
+        public void SendPacket<T>(T packet, bool reliable = true) where T : struct, IPacket =>
+            conn.Send(packet, reliable);
+
         public void SendKeepAlivePacket() =>
-            conn.Send(new ServerKeepAlivePacket(keepAliveId), false);
-
-        public void SendPacket(Packets packet, byte[] data, bool reliable = true)
-        {
-            conn.Send(packet, data, reliable);
-        }
-
-        public void SendPacket(Packets packet, object[] data)
-        {
-            conn.Send(packet, data);
-        }
+            SendPacket(new ServerKeepAlivePacket(keepAliveId), false);
 
         public void SendPlayerList() =>
-            conn.Send(ServerPlayerListPacket.List(Server.JoinedPlayers.Select(p => p.PlayerInfoPacket())));
+            SendPacket(ServerPlayerListPacket.List(Server.JoinedPlayers.Select(p => p.PlayerInfoPacket())));
 
         public ServerPlayerListPacket.PlayerInfo PlayerInfoPacket() => new()
         {
@@ -134,7 +127,7 @@ namespace Multiplayer.Common
             );
         }
 
-        public void SendMsg(string msg) => conn.Send(ServerChatPacket.Create(msg));
+        public void SendMsg(string msg) => SendPacket(ServerChatPacket.Create(msg));
     }
 
     public enum PlayerStatus : byte

@@ -43,7 +43,7 @@ public class ServerJoiningState : AsyncConnectionState
         if (packet.protocolVersion != MpVersion.Protocol)
             Player.Disconnect(MpDisconnectReason.Protocol, ByteWriter.GetBytes(MpVersion.Version, MpVersion.Protocol));
         else
-            Player.conn.Send(new ServerProtocolOkPacket(Server.settings.hasPassword));
+            Player.SendPacket(new ServerProtocolOkPacket(Server.settings.hasPassword));
     }
 
     private void HandleUsername(ClientUsernamePacket packet)
@@ -87,7 +87,7 @@ public class ServerJoiningState : AsyncConnectionState
         var completionSource = Server.StartInitData();
         try
         {
-            Player.conn.Send(new ServerInitDataRequestPacket(Server.settings.syncConfigs));
+            Player.SendPacket(new ServerInitDataRequestPacket(Server.settings.syncConfigs));
 
             ServerLog.Verbose("Sent initial data request");
             initData = await TypedPacketOrNull<ClientInitDataPacket>();

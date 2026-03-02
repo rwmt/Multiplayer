@@ -113,25 +113,20 @@ namespace Multiplayer.Client
             player.dragStart = data.HasDrag ? new Vector3(data.dragX, 0, data.dragZ) : PlayerInfo.Invalid;
         }
 
-        [PacketHandler(Packets.Server_Selected)]
-        public void HandleSelected(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleSelected(ServerSelectedPacket packet)
         {
-            int playerId = data.ReadInt32();
-            var player = Multiplayer.session.GetPlayerInfo(playerId);
+            var player = Multiplayer.session.GetPlayerInfo(packet.playerId);
             if (player == null) return;
 
-            bool reset = data.ReadBool();
+            var data = packet.data;
+            if (data.reset) player.selectedThings.Clear();
 
-            if (reset)
-                player.selectedThings.Clear();
+            foreach (var id in data.newlySelectedIds)
+                player.selectedThings[id] = Time.realtimeSinceStartup;
 
-            int[] add = data.ReadPrefixedInts();
-            for (int i = 0; i < add.Length; i++)
-                player.selectedThings[add[i]] = Time.realtimeSinceStartup;
-
-            int[] remove = data.ReadPrefixedInts();
-            for (int i = 0; i < remove.Length; i++)
-                player.selectedThings.Remove(remove[i]);
+            foreach (var id in data.unselectedIds)
+                player.selectedThings.Remove(id);
         }
 
         [TypedPacketHandler]
@@ -156,15 +151,13 @@ namespace Multiplayer.Client
             // todo Multiplayer.client.Send(Packets.CLIENT_MAP_LOADED);
         }
 
-        [PacketHandler(Packets.Server_Notification)]
-        public void HandleNotification(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleNotification(ServerNotificationPacket packet)
         {
-            string key = data.ReadString();
-            string[] args = data.ReadPrefixedStrings();
-
-            var msg = key.Translate(Array.ConvertAll(args, s => (NamedArgument)s));
+            var namedArgs = Array.ConvertAll(packet.args, s => (NamedArgument)s);
+            var msg = packet.key.Translate(namedArgs);
             Messages.Message(msg, MessageTypeDefOf.SilentInput, false);
-            ServerLog.Log($"Notification: {msg} ({key}, {args.Join(", ")})");
+            ServerLog.Log($"Notification: {msg} ({packet.key}, {packet.args.Join(", ")})");
         }
 
         [TypedPacketHandler]
@@ -178,34 +171,25 @@ namespace Multiplayer.Client
             TickPatch.frozenAt = packet.gameTimer;
         }
 
-        [PacketHandler(Packets.Server_Traces, allowFragmented: true)]
-        public void HandleTraces(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleTraces(ServerTracesPacket packet)
         {
-            var type = data.ReadEnum<TracesPacket>();
-
-            if (type == TracesPacket.Request)
+            if (packet.mode == ServerTracesPacket.Mode.Request)
             {
-                var tick = data.ReadInt32();
-                var diffAt = data.ReadInt32();
-                var playerId = data.ReadInt32();
+                var info = Multiplayer.game.sync.knownClientOpinions.FirstOrDefault(b => b.startTick == packet.tick);
+                var response = info?.GetFormattedStackTracesForRange(packet.diffAt) ?? "Traces not available";
 
-                var info = Multiplayer.game.sync.knownClientOpinions.FirstOrDefault(b => b.startTick == tick);
-                var response = info?.GetFormattedStackTracesForRange(diffAt);
-
-                connection.Send(Packets.Client_Traces, TracesPacket.Response, playerId, GZipStream.CompressString(response));
+                connection.Send(new ClientTracesPacket
+                    { playerId = packet.playerId, rawTraces = GZipStream.CompressString(response) });
             }
-            else if (type == TracesPacket.Transfer)
+            else if (packet.mode == ServerTracesPacket.Mode.Transfer)
             {
-                var traces = data.ReadPrefixedBytes();
-                Multiplayer.session.desyncTracesFromHost = GZipStream.UncompressString(traces);
+                Multiplayer.session.desyncTracesFromHost = GZipStream.UncompressString(packet.rawTraces);
             }
         }
 
-        [PacketHandler(Packets.Server_Debug)]
-        public void HandleDebug(ByteReader data)
-        {
-            Rejoiner.DoRejoin();
-        }
+        [TypedPacketHandler]
+        public void HandleDebug(ServerDebugPacket _) => Rejoiner.DoRejoin();
 
         [TypedPacketHandler]
         public void HandleSetFaction(ServerSetFactionPacket packet)
