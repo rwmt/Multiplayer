@@ -1,12 +1,12 @@
+using System;
+using System.Collections.Generic;
+using System.Reflection;
 using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Client.Persistent;
 using Multiplayer.Client.Util;
 using RimWorld;
 using RimWorld.Planet;
-using System;
-using System.Collections.Generic;
-using System.Reflection;
 using Verse;
 using Verse.Sound;
 
@@ -214,6 +214,10 @@ namespace Multiplayer.Client.Patches
 
             GravshipTravelUtils.StopFreeze();
             GravshipTravelUtils.CloseSessionAt(__instance.gravship.destinationTile);
+
+            // LandingEnded calls Find.TickManager.CurTimeSpeed = TimeSpeed.Normal, but that doesn't work in MP as we
+            // have our own way of changing the map speed.
+            __instance.map.AsyncTime().SetDesiredTimeSpeed(TimeSpeed.Normal);
         }
 
         static void Finalizer()
