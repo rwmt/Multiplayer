@@ -90,9 +90,9 @@ namespace Multiplayer.Client
 
         private static void SetGameState(ServerSettings settings)
         {
-            Multiplayer.AsyncWorldTime.SetDesiredTimeSpeed(TimeSpeed.Paused);
+            Multiplayer.AsyncWorldTime.DesiredTimeSpeed = TimeSpeed.Paused;
             foreach (var map in Find.Maps)
-                map.AsyncTime().SetDesiredTimeSpeed(TimeSpeed.Paused);
+                map.AsyncTime().DesiredTimeSpeed = TimeSpeed.Paused;
 
             Find.TickManager.CurTimeSpeed = TimeSpeed.Paused;
 

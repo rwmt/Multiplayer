@@ -1,10 +1,10 @@
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using HarmonyLib;
 using Multiplayer.Client.Factions;
 using RimWorld;
 using RimWorld.Planet;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
 using Verse;
 
 namespace Multiplayer.Client.AsyncTime
@@ -205,7 +205,7 @@ namespace Multiplayer.Client.AsyncTime
             if (Multiplayer.GameComp.asyncTime)
             {
                 var tickable = (ITickable)Multiplayer.MapContext.AsyncTime() ?? Multiplayer.AsyncWorldTime;
-                tickable.SetDesiredTimeSpeed(TimeSpeed.Paused);
+                tickable.DesiredTimeSpeed = TimeSpeed.Paused;
                 Multiplayer.GameComp.ResetAllTimeVotes(tickable.TickableId);
             }
             else

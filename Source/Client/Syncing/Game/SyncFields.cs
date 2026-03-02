@@ -256,24 +256,14 @@ namespace Multiplayer.Client
         static void StorytellerDef_Post(object target, object value)
         {
             Find.Storyteller.Notify_DefChanged();
-
-            foreach (var comp in Multiplayer.game.asyncTimeComps)
-            {
-                comp.storyteller.def = Find.Storyteller.def;
-                comp.storyteller.Notify_DefChanged();
-            }
         }
 
         static void StorytellerDifficultyDef_Post(object target, object value)
         {
-            foreach (var comp in Multiplayer.game.asyncTimeComps)
-                comp.storyteller.difficultyDef = Find.Storyteller.difficultyDef;
         }
 
         static void StorytellerDifficulty_Post(object target, object value)
         {
-            foreach (var comp in Multiplayer.game.asyncTimeComps)
-                comp.storyteller.difficulty = Find.Storyteller.difficulty;
         }
 
         [MpPrefix(typeof(HealthCardUtility), nameof(HealthCardUtility.DrawOverviewTab))]

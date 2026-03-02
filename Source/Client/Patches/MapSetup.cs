@@ -9,24 +9,19 @@ namespace Multiplayer.Client;
 [HarmonyPatch(typeof(MapGenerator), nameof(MapGenerator.GenerateMap))]
 public static class MapSetup
 {
-    public static bool SetupNextMapFromTickZero = false;
+    public static bool SetupNextMapFromTickZero;
 
     static void Prefix(ref Action<Map> extraInitBeforeContentGen)
     {
         if (Multiplayer.Client == null) return;
-        extraInitBeforeContentGen += SetupMap;
-    }
-
-    public static void SetupMap(Map map)
-    {
-        SetupMap(map, false);
+        extraInitBeforeContentGen += map => SetupMap(map);
     }
 
     public static void SetupMap(Map map, bool usingMapTimeFromSingleplayer = false)
     {
         Log.Message("MP: Setting up map " + map.uniqueID);
 
-        // Initialize and store Multiplayer 
+        // Initialize and store Multiplayer
 
         var mapComp = new MultiplayerMapComp(map);
         Multiplayer.game.mapComps.Add(mapComp);
@@ -40,7 +35,7 @@ public static class MapSetup
         // Add all other (non Faction.OfPlayer) factions to the map
         foreach (var faction in Find.FactionManager.AllFactions.Where(f => f.IsPlayer))
             if (faction != Faction.OfPlayer)
-                InitNewFactionData(map, faction);       
+                InitNewFactionData(map, faction);
     }
 
     private static AsyncTimeComp CreateAsyncTimeCompForMap(Map map, bool usingMapTimeFromSingleplayer)
@@ -48,7 +43,6 @@ public static class MapSetup
         int startingMapTicks;
         int gameStartAbsTick;
         TimeSpeed startingTimeSpeed;
-        AsyncTimeComp asyncTimeCompForMap;
 
         bool startingMapTimeFromBeginning =
             Multiplayer.GameComp.multifaction &&
@@ -77,12 +71,11 @@ public static class MapSetup
         if (!Multiplayer.GameComp.asyncTime)
             startingTimeSpeed = Find.TickManager.CurTimeSpeed;
 
-        asyncTimeCompForMap = new AsyncTimeComp(map, gameStartAbsTick);
-        asyncTimeCompForMap.mapTicks = startingMapTicks;
-        asyncTimeCompForMap.SetDesiredTimeSpeed(startingTimeSpeed);
-
-        asyncTimeCompForMap.storyteller = new Storyteller(Find.Storyteller.def, Find.Storyteller.difficultyDef, Find.Storyteller.difficulty);
-        asyncTimeCompForMap.storyWatcher = new StoryWatcher();
+        var asyncTimeCompForMap = new AsyncTimeComp(map, gameStartAbsTick)
+        {
+            mapTicks = startingMapTicks,
+            DesiredTimeSpeed = startingTimeSpeed
+        };
 
         SetupNextMapFromTickZero = false;
 

@@ -50,11 +50,10 @@ namespace Multiplayer.Client
             }
         }
 
-        public TimeSpeed DesiredTimeSpeed => timeSpeedInt;
-
-        public void SetDesiredTimeSpeed(TimeSpeed speed)
+        public TimeSpeed DesiredTimeSpeed
         {
-            timeSpeedInt = speed;
+            get => timeSpeedInt;
+            set => timeSpeedInt = value;
         }
 
         public bool Paused => this.ActualRateMultiplier(DesiredTimeSpeed) == 0f;
@@ -85,8 +84,6 @@ namespace Multiplayer.Client
         public bool forcedNormalSpeed;
         public int eventCount;
 
-        public Storyteller storyteller;
-        public StoryWatcher storyWatcher;
         public TimeSlower slower = new();
 
         public TickList tickListNormal = new(TickerType.Normal);
@@ -130,8 +127,8 @@ namespace Multiplayer.Client
 
                 TickMapSessions();
 
-                storyteller.StorytellerTick();
-                storyWatcher.StoryWatcherTick();
+                Find.Storyteller.StorytellerTick();
+                Find.StoryWatcher.StoryWatcherTick();
 
                 QuestManagerTickAsyncTime();
 
@@ -172,27 +169,16 @@ namespace Multiplayer.Client
         }
 
         private TimeSnapshot? prevTime;
-        private Storyteller prevStoryteller;
-        private StoryWatcher prevStoryWatcher;
 
         public void PreContext()
         {
-            if (Multiplayer.GameComp.multifaction)
-            {
-                map.PushFaction(
-                    map.ParentFaction is { IsPlayer: true }
+            map.PushFaction(
+                !Multiplayer.GameComp.multifaction || map.ParentFaction is { IsPlayer: true }
                     ? map.ParentFaction
                     : Multiplayer.WorldComp.spectatorFaction,
-                    force: true);
-            }
+                force: true);
 
             prevTime = TimeSnapshot.GetAndSetFromMap(map);
-
-            prevStoryteller = Current.Game.storyteller;
-            prevStoryWatcher = Current.Game.storyWatcher;
-
-            Current.Game.storyteller = storyteller;
-            Current.Game.storyWatcher = storyWatcher;
 
             Rand.PushState();
             Rand.StateCompressed = randState;
@@ -203,16 +189,12 @@ namespace Multiplayer.Client
 
         public void PostContext()
         {
-            Current.Game.storyteller = prevStoryteller;
-            Current.Game.storyWatcher = prevStoryWatcher;
-
             prevTime?.Set();
 
             randState = Rand.StateCompressed;
             Rand.PopState();
 
-            if (Multiplayer.GameComp.multifaction)
-                map.PopFaction();
+            map.PopFaction();
         }
 
         public void ExposeData()
@@ -221,12 +203,6 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref timeSpeedInt, "timeSpeed");
 
             Scribe_Values.Look(ref gameStartAbsTickMap, "gameStartAbsTickMap");
-
-            Scribe_Deep.Look(ref storyteller, "storyteller");
-
-            Scribe_Deep.Look(ref storyWatcher, "storyWatcher");
-            if (Scribe.mode == LoadSaveMode.LoadingVars && storyWatcher == null)
-                storyWatcher = new StoryWatcher();
 
             Scribe_Custom.LookULong(ref randState, "randState", 1);
         }
@@ -265,7 +241,7 @@ namespace Multiplayer.Client
             TickPatch.currentExecutingCmdType = cmdType;
 
             PreContext();
-            map.PushFaction(cmd.GetFaction());
+            map.PushFaction(cmd.GetFaction(), force: true);
 
             context.map = map;
 
@@ -294,7 +270,7 @@ namespace Multiplayer.Client
                 if (cmdType == CommandType.MapTimeSpeed && Multiplayer.GameComp.asyncTime)
                 {
                     TimeSpeed speed = (TimeSpeed)data.ReadByte();
-                    SetDesiredTimeSpeed(speed);
+                    DesiredTimeSpeed = speed;
 
                     MpLog.Debug("Set map time speed " + speed);
                 }
