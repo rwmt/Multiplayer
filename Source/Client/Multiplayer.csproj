@@ -64,6 +64,10 @@
     <ModOutputPath>..\..\</ModOutputPath>
   </PropertyGroup>
 
+  <PropertyGroup Label="Normalise stack trace file locations">
+    <PathMap>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)'))=$(AssemblyName)/</PathMap>
+  </PropertyGroup>
+
   <Target Name="CopyToRimworld" AfterTargets="Build">
     <Copy SourceFiles="bin\Multiplayer.dll" DestinationFiles="$(ModOutputPath)\AssembliesCustom\Multiplayer.dll" />
     <Copy SourceFiles="bin\Multiplayer.pdb" DestinationFiles="$(ModOutputPath)\AssembliesCustom\Multiplayer.pdb" />
