@@ -620,7 +620,7 @@ namespace Multiplayer.Client
         }
 
         [MpPrefix(typeof(Gizmo_Slider), nameof(Gizmo_Slider.GizmoOnGUI))]
-        static void SyncGizmoSlider(Gizmo_Slider __instance)
+        static void SyncGizmoSliderChanges(Gizmo_Slider __instance)
         {
             if (__instance is GeneGizmo_Resource geneGizmo)
             {
@@ -638,12 +638,16 @@ namespace Multiplayer.Client
                 SyncActivityCompTarget.Watch(comp);
                 SyncActivityCompSuppression.Watch(comp);
             }
-            else if (__instance is Gizmo_SetFuelLevel fuelGizmo)
-            {
-                var refuelable = fuelGizmo.refuelable;
-                SyncCompRefuelableValue.Watch(refuelable);
-                SyncCompRefuelableTargetFuelLevel.Watch(refuelable);
-            }
+        }
+
+        [MpPrefix(typeof(Gizmo_SetFuelLevel), nameof(Gizmo_SetFuelLevel.GizmoOnGUI))]
+        static void SyncRefuelableChanges(Gizmo_SetFuelLevel __instance)
+        {
+            // Must be separate from SyncGizmoSliderChanges, as this type overrides the base
+            // method and modifies the field in there (toggle the value using a hotkey).
+            var refuelable = __instance.refuelable;
+            SyncCompRefuelableValue.Watch(refuelable);
+            SyncCompRefuelableTargetFuelLevel.Watch(refuelable);
         }
 
         [MpPrefix(typeof(ITab_ContentsGenepackHolder), nameof(ITab_ContentsGenepackHolder.DoItemsLists))]

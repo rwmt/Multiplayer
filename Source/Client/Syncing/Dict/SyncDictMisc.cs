@@ -113,6 +113,18 @@ namespace Multiplayer.Client
                     return context;
                 }
             },
+            {
+                (ByteWriter data, AcceptanceReport report) =>
+                {
+                    data.WriteBool(report.acceptedInt);
+                    data.WriteString(report.reasonTextInt);
+                },
+                (ByteReader data) => new AcceptanceReport
+                {
+                    acceptedInt = data.ReadBool(),
+                    reasonTextInt = data.ReadStringNullable()
+                }
+            },
             #endregion
 
             #region Unity
