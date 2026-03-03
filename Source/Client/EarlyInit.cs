@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
 using Multiplayer.Client.Patches;
@@ -12,7 +11,6 @@ namespace Multiplayer.Client;
 public static class EarlyInit
 {
     public const string RestartConnectVariable = "MultiplayerRestartConnect";
-    public const string RestartConfigsVariable = "MultiplayerRestartConfigs";
 
     internal static void ProcessEnvironment()
     {
@@ -22,11 +20,7 @@ public static class EarlyInit
             Environment.SetEnvironmentVariable(RestartConnectVariable, ""); // Effectively unsets it
         }
 
-        if (!Environment.GetEnvironmentVariable(RestartConfigsVariable).NullOrEmpty())
-        {
-            Multiplayer.restartConfigs = Environment.GetEnvironmentVariable(RestartConfigsVariable) == "true";
-            Environment.SetEnvironmentVariable(RestartConfigsVariable, "");
-        }
+        SyncConfigs.Init();
     }
 
     internal static void EarlyPatches(Harmony harmony)

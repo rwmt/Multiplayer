@@ -75,7 +75,6 @@ namespace Multiplayer.Client
         public static Stopwatch harmonyWatch = new();
 
         public static string restartConnect;
-        public static bool restartConfigs;
 
         public static ModContentPack modContentPack;
 

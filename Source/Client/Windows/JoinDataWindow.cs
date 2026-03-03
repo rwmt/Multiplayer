@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
 using System.Linq;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
@@ -168,7 +167,7 @@ namespace Multiplayer.Client
                 }
             }
 
-            var localConfigs = JoinData.GetSyncableConfigContents(remote.RemoteModIds.ToList());
+            var localConfigs = SyncConfigs.GetSyncableConfigContents(remote.RemoteModIds.ToList());
 
             if (remote.hasConfigs)
             {
@@ -750,18 +749,12 @@ namespace Multiplayer.Client
 
             if (applyConfigs)
             {
-                var tempPath = GenFilePaths.FolderUnderSaveData(JoinData.TempConfigsDir);
-                var tempDir = new DirectoryInfo(tempPath);
-                tempDir.Delete(true);
-                tempDir.Create();
-
-                foreach (var config in data.remoteModConfigs)
-                    File.WriteAllText(Path.Combine(tempPath, $"{config.ModId}-{config.FileName}"), config.Contents);
+                SyncConfigs.SaveConfigs(data.remoteModConfigs);
+                SyncConfigs.MarkApplicableForChildProcess();
             }
 
             // The env variables will get inherited by the child process started in GenCommandLine.Restart
             Environment.SetEnvironmentVariable(EarlyInit.RestartConnectVariable, data.connectionString);
-            Environment.SetEnvironmentVariable(EarlyInit.RestartConfigsVariable, applyConfigs ? "true" : "false");
 
             GenCommandLine.Restart();
         }
