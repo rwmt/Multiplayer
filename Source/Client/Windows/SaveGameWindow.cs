@@ -164,7 +164,7 @@ public class SaveGameWindow : Window
             {
                 if (Event.current.button == 0)
                 {
-                    UpdateText(ref curText, file.Name[..file.Name.IndexOf('.')]);
+                    UpdateText(ref curText, file.Name[..file.Name.LastIndexOf('.')]);
                     selectedFile = file;
                 }
             }
