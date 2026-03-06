@@ -14,10 +14,6 @@
     <AssemblyName>Multiplayer</AssemblyName>
   </PropertyGroup>
 
-  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
-    <DebugType>portable</DebugType>
-  </PropertyGroup>
-
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <Optimize>False</Optimize>
   </PropertyGroup>
@@ -27,10 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Krafs.Publicizer" Version="2.3.0">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
+    <PackageReference Include="Krafs.Publicizer" Version="2.3.0" />
     <PackageReference Include="Lib.Harmony" Version="2.4.1" ExcludeAssets="runtime" />
     <PackageReference Include="Krafs.Rimworld.Ref" Version="1.6.4566" />
     <PackageReference Include="RestSharp" Version="106.15.0" />
@@ -52,13 +45,18 @@
     <ProjectReference Include="..\Common\Common.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+<!--    <Reference Include="Multiplayer">-->
+<!--      <HintPath>bin\Multiplayer.dll_orig</HintPath>-->
+<!--    </Reference>-->
+  </ItemGroup>
+
   <!-- Ignore any system frameworks and get the system assemblies from Krafs.Rimworld.Ref -->
   <Target Name="RemoveFramework" BeforeTargets="PrepareForBuild" DependsOnTargets="GetReferenceAssemblyPaths">
     <PropertyGroup>
       <TargetFrameworkDirectory></TargetFrameworkDirectory>
     </PropertyGroup>
   </Target>
-
 
   <PropertyGroup>
     <ModOutputPath>..\..\</ModOutputPath>
@@ -74,12 +72,13 @@
     <Copy SourceFiles="bin\MultiplayerCommon.dll" DestinationFiles="$(ModOutputPath)\AssembliesCustom\MultiplayerCommon.dll" />
     <Copy SourceFiles="bin\MultiplayerCommon.pdb" DestinationFiles="$(ModOutputPath)\AssembliesCustom\MultiplayerCommon.pdb" />
 
-    <Copy SourceFiles="bin\0MultiplayerAPI.dll" DestinationFiles="$(ModOutputPath)\Assemblies\0MultiplayerAPI.dll" />
-    <Copy SourceFiles="bin\0PrepatcherAPI.dll" DestinationFiles="$(ModOutputPath)\Assemblies\0PrepatcherAPI.dll" />
-    <Copy SourceFiles="bin\LiteNetLib.dll" DestinationFiles="$(ModOutputPath)\Assemblies\LiteNetLib.dll" />
-    <Copy SourceFiles="bin\MultiplayerLoader.dll" DestinationFiles="$(ModOutputPath)\Assemblies\MultiplayerLoader.dll" />
-    <Copy SourceFiles="bin\RestSharp.dll" DestinationFiles="$(ModOutputPath)\Assemblies\RestSharp.dll" />
-    <Copy SourceFiles="bin\System.IO.Compression.dll" DestinationFiles="$(ModOutputPath)\Assemblies\System.IO.Compression.dll" />
+    <ItemGroup>
+      <CopyToRimworld_ItemsToCopy Include="bin\*.dll" Exclude="bin\Multiplayer.dll;bin\MultiplayerCommon.dll" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(CopyToRimworld_ItemsToCopy)" DestinationFolder="$(ModOutputPath)\Assemblies\" />
   </Target>
+
+  <Import Project="PersonalDefinitions.targets" Condition="exists('PersonalDefinitions.targets')" />
 
 </Project>

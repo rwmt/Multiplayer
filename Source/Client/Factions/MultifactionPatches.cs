@@ -21,7 +21,7 @@ public static class MainTabWindow_QuestsDoRowPatch
 {
     public static void Prefix(ref Rect rect, Quest quest)
     {
-        if(Multiplayer.Client != null && !Multiplayer.settings.hideOtherPlayersQuests)
+        if (Multiplayer.Client != null && !Multiplayer.settings.hideOtherPlayersQuests)
         {
             Faction playerFaction;
             if (quest.TryGetPlayerFaction(out playerFaction))

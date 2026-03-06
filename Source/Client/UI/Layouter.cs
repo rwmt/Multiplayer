@@ -433,7 +433,7 @@ public static class Layouter
                 parent.rect.height += el.rect.height;
 
             if (parent.children.Any())
-                parent.rect.height += parent.spacing * parent.children.Count - 1;
+                parent.rect.height += parent.spacing * (parent.children.Count - 1);
 
             parent.heightMode = DimensionMode.Fixed;
         }

@@ -27,7 +27,7 @@ namespace Multiplayer.Common
         public void HandleTraces(ClientTracesPacket packet)
         {
             if (!Player.IsHost) return;
-            Server.GetPlayer(packet.playerId)?.SendPacket(ServerTracesPacket.Transfer(packet.rawTraces));
+            Server.GetPlayer(packet.playerId)?.SendPacket(ServerTracesPacket.Transfer(packet.rawTraces, packet.rawJittedMethods));
         }
 
         [TypedPacketHandler]

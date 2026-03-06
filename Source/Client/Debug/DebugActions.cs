@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -128,6 +129,81 @@ namespace Multiplayer.Client
             var shuttle = ThingMaker.MakeThing(ThingDefOf.Shuttle);
             shuttle.TryGetComp<CompShuttle>().acceptColonists = true;
             GenPlace.TryPlaceThing(shuttle, UI.MouseCell(), Find.CurrentMap, ThingPlaceMode.Near);
+        }
+
+        [DebugAction(MultiplayerCategory, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void RegenerateEverythingNowWithTiming()
+        {
+            var drawer = Find.CurrentMap.mapDrawer;
+            Dictionary<Type, long> timing = new();
+
+            void RegenerateEverythingNow()
+            {
+                drawer.EnsureGlobalLayersInitialized();
+
+                for (int i = 0; i < drawer.global.Count; i++)
+                {
+                    MapDrawLayer mapDrawLayer = drawer.global[i];
+                    if (mapDrawLayer.Visible)
+                    {
+                        var stopwatch = Stopwatch.StartNew();
+                        {
+                            mapDrawLayer.Regenerate();
+                            mapDrawLayer.RefreshSubMeshBounds();
+                        }
+                        if (timing.ContainsKey(mapDrawLayer.GetType()))
+                            timing[mapDrawLayer.GetType()] += stopwatch.ElapsedMilliseconds;
+                        else
+                            timing[mapDrawLayer.GetType()] = stopwatch.ElapsedMilliseconds;
+                    }
+                }
+                for (int j = 0; j < drawer.SectionCount.x; j++)
+                {
+                    for (int k = 0; k < drawer.SectionCount.z; k++)
+                    {
+                        RegenerateAllLayers(drawer.sections[j, k]);
+                    }
+                }
+            }
+
+            void RegenerateAllLayers(Section s)
+            {
+                s.bounds = s.CellRect;
+                for (int i = 0; i < s.layers.Count; i++)
+                {
+                    if (!s.layers[i].Visible)
+                    {
+                        continue;
+                    }
+                    try
+                    {
+                        var stopwatch = Stopwatch.StartNew();
+                        {
+                            s.layers[i].Regenerate();
+                            if (s.layers[i].Isnt<SectionLayer_Dynamic>())
+                            {
+                                s.bounds = s.bounds.Encapsulate(s.layers[i].GetBoundaryRect());
+                            }
+                        }
+                        if (timing.ContainsKey(s.layers[i].GetType()))
+                            timing[s.layers[i].GetType()] += stopwatch.ElapsedMilliseconds;
+                        else
+                            timing[s.layers[i].GetType()] = stopwatch.ElapsedMilliseconds;
+                    }
+                    catch (Exception arg)
+                    {
+                        Log.Error($"Could not regenerate layer {s.layers[i].ToStringSafe()}: {arg}");
+                    }
+                }
+                for (int j = 0; j < s.layers.Count; j++)
+                {
+                    s.layers[j].RefreshSubMeshBounds();
+                }
+            }
+
+            // RegenerateEverythingNow();
+            Find.CurrentMap.mapDrawer.WholeMapChanged(~(ulong)MapMeshFlagDefOf.None);
+            Log.Message(timing.ToStringFullContents());
         }
 
         [DebugAction(MultiplayerCategory, "Save Game", allowedGameStates = AllowedGameStates.Playing)]

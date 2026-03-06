@@ -30,4 +30,7 @@
   <PropertyGroup Label="Normalise stack trace file locations">
     <PathMap>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)'))=$(AssemblyName)/</PathMap>
   </PropertyGroup>
+
+  <Import Project="PersonalDefinitions.targets" Condition="exists('PersonalDefinitions.targets')" />
+
 </Project>

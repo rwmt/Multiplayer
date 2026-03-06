@@ -13,6 +13,7 @@ public static class MpSettingsUI
 {
     private static string slotsBuffer;
     private static string desyncRadiusBuffer;
+    private static string jittedMethodsBuffer;
 
     private static Vector2 scrollPosition = Vector2.zero;
     private static SettingsPage currentPage = SettingsPage.General;
@@ -102,7 +103,7 @@ public static class MpSettingsUI
             }
         }
 
-        if (VersionChecker.isContinuousRelease || VersionChecker.isLocalBuild)
+        if (VersionChecker.IsContinuousRelease || VersionChecker.IsLocalBuild)
             listing.CheckboxLabeled("MpIncludeReplayInDesync".Translate(), ref settings.includeReplayInDesync);
 
         if (Prefs.DevMode)
@@ -110,6 +111,7 @@ public static class MpSettingsUI
             listing.CheckboxLabeled("Show debug info", ref settings.showDevInfo);
             listing.TextFieldNumericLabeled("Desync radius:  ", ref settings.desyncTracesRadius, ref desyncRadiusBuffer, 1f,
                 200f);
+            listing.TextFieldNumericLabeled("Jitted methods:  ", ref settings.jittedMethodsInDesync, ref jittedMethodsBuffer);
 
             if (MpVersion.IsDebug && FileAssoc.IsSupported())
             {

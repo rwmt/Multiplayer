@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using HarmonyLib;
 using Multiplayer.Client;
@@ -40,7 +41,7 @@ static class Program
     }
 
     // Test patching generic methods with Harmony
-    public static void Main(string[] args)
+    public static void Main3(string[] args)
     {
         TestClassForPatches<SomeClassDerived> test = new()
         {
@@ -55,6 +56,28 @@ static class Program
         );
 
         Console.WriteLine(test.GetField().b);
+    }
+
+    public static void Main(string[] args)
+    {
+        var profiler = Native.mono_profiler_create(IntPtr.Zero);
+        Native.mono_profiler_set_jit_done_callback(profiler, (_, method, _) =>
+        {
+            var methodBase = Native.GetMethodBaseFromRuntimePointer(method);
+            Console.WriteLine($"{methodBase.DeclaringType}.{methodBase.Name}");
+            Console.WriteLine(MethodBase.GetCurrentMethod());
+        });
+        Test();
+    }
+
+    private static void Test()
+    {
+        Test2();
+    }
+
+    private static void Test2()
+    {
+
     }
 
     public static void GenericPostfix(ref SomeClass __result)

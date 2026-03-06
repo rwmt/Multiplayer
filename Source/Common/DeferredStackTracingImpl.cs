@@ -292,7 +292,7 @@ public static class DeferredStackTracingImpl
             for (int i = 0; i < maxLen; i++)
             {
                 byte* at = (byte*)instStart + i;
-                var matches = new ReadOnlySpan<byte>(at, magicBytes.Length).SequenceEqual(magicBytes);
+                var matches = ByteSpanEqual(at, magicBytes.Length, magicBytes);
                 if (!matches) continue;
 
                 uint* match = (uint*)(at + magicBytes.Length);
@@ -307,7 +307,7 @@ public static class DeferredStackTracingImpl
             // To analyze the assembly dump, remove the offset prefixes at the start of each line and paste the hex to
             // a site like https://defuse.ca/online-x86-assembler.htm#disassembly2. Choose x64. Search for the
             // magic number and compare the code with the loop above.
-            var asm = HexDump(new ReadOnlySpan<byte>((void*)instStart, instLen));
+            var asm = HexDump((byte*)instStart, instLen);
             ServerLog.Error(
                 $"Unexpected GetRpb asm structure. Couldn't find a magic bytes match. " +
                 $"Using fallback offset ({offsetFromRbp}). " +
@@ -315,15 +315,23 @@ public static class DeferredStackTracingImpl
         }
     }
 
-    private static string HexDump(ReadOnlySpan<byte> data, int bytesPerLine = 16)
+    private static unsafe bool ByteSpanEqual(byte* start, int len, byte[] arr)
+    {
+        for (var i = 0; i < len; i++)
+            if (*(start + i) != arr[i])
+                return false;
+        return true;
+    }
+
+    private static unsafe string HexDump(byte* start, int len, int bytesPerLine = 16)
     {
         var sb = new StringBuilder();
 
-        for (int i = 0; i < data.Length; i += bytesPerLine)
+        for (int i = 0; i < len; i += bytesPerLine)
         {
             sb.Append($"{i:X4}: ");
 
-            for (int j = 0; j < bytesPerLine && i + j < data.Length; j++) sb.Append($"{data[i + j]:X2} ");
+            for (int j = 0; j < bytesPerLine && i + j < len; j++) sb.Append($"{start[i + j]:X2} ");
 
             sb.AppendLine();
         }

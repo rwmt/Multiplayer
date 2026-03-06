@@ -19,7 +19,7 @@ public static class VersionChecker
         {
             try
             {
-                if (isContinuousRelease)
+                if (IsContinuousRelease)
                 {
                     latestContinuousRelease = await GetLatestContinuousRelease();
                     if (MpVersion.IsDebug) return;
@@ -34,12 +34,12 @@ public static class VersionChecker
         });
     }
 
-    public static bool isContinuousRelease =
+    public static bool IsContinuousRelease =>
         Multiplayer.modContentPack.ModMetaData.Source == ContentSource.ModsFolder &&
         MpVersion.GitDescription?.StartsWith("continuous") == true &&
         MpVersion.GitHash?.EndsWith("dirty") == false;
 
-    public static bool isLocalBuild =
+    public static bool IsLocalBuild =>
         Multiplayer.modContentPack.ModMetaData.Source == ContentSource.ModsFolder &&
         MpVersion.GitHash?.EndsWith("dirty") == true;
 
@@ -57,7 +57,7 @@ public static class VersionChecker
     {
         if (MpVersion.IsDebug) return;
         var release = latestContinuousRelease;
-        if (!isContinuousRelease || release is not { IsInstalled: false }) return;
+        if (!IsContinuousRelease || release is not { IsInstalled: false }) return;
         var dialog =
             new Dialog_MessageBox(
                 "A new version of Multiplayer is available. Update now for the latest features, improvements and bug fixes.",

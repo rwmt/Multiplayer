@@ -41,17 +41,9 @@ namespace Multiplayer.Common
         public void Send<T>(T packet, bool reliable = true) where T : struct, IPacket
         {
             var writer = new ByteWriter();
-            writer.WriteByte((byte)(Convert.ToByte(packet.GetId()) & 0x3F));
             packet.Bind(new PacketWriter(writer));
 
-            if (State == ConnectionStateEnum.Disconnected)
-                return;
-
-            var dataLen = writer.Position - 1; // The first byte is metadata.
-            if (dataLen > MaxSinglePacketSize)
-                throw new PacketSendException($"Packet {packet.GetId()} too big for sending ({dataLen}>{MaxSinglePacketSize})");
-
-            SendRaw(writer.ToArray(), reliable);
+            Send(packet.GetId(), writer.ToArray(), reliable);
         }
 
         protected virtual void Send(Packets id, byte[] message, bool reliable = true)

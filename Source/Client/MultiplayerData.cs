@@ -101,8 +101,8 @@ namespace Multiplayer.Client
             }
         }
 
-        internal static HashSet<Type> IgnoredVanillaDefTypes = new()
-        {
+        internal static HashSet<Type> IgnoredVanillaDefTypes =
+        [
             typeof(FeatureDef), typeof(HairDef),
             typeof(MainButtonDef), typeof(PawnTableDef),
             typeof(TransferableSorterDef), typeof(ConceptDef),
@@ -112,7 +112,7 @@ namespace Multiplayer.Client
             typeof(ScatterableDef), typeof(ShaderTypeDef),
             typeof(SongDef), typeof(SoundDef),
             typeof(SubcameraDef), typeof(PawnColumnDef)
-        };
+        ];
 
         internal static void CollectDefInfos()
         {

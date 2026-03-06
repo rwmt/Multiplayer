@@ -35,31 +35,35 @@ namespace MultiplayerLoader
                          .GetAllFilesForModPreserveOrder(Content, "AssembliesCustom/", e => e.ToLower() == ".dll")
                          .Select(f => f.Item2))
             {
-                Assembly assembly;
-                try
-                {
-                    // This would work with Assembly.Load the same as ModAssemblyHandler does it, but then the .dll
-                    // files are locked and cannot be replaced when a game instance is already running. This way it's
-                    // possible to keep a game instance open and just rebuild and reopen another instance without any
-                    // issues with replacing the dll files.
-                    byte[] rawAssembly = File.ReadAllBytes(item.FullName);
-                    FileInfo fileInfo = new FileInfo(Path.ChangeExtension(item.FullName, "pdb"));
+                var asmName = AssemblyName.GetAssemblyName(item.FullName);
+                var assembly = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(asm => asm.GetName().FullName == asmName.FullName);
 
-                    if (fileInfo.Exists)
+                if (assembly == null)
+                    try
                     {
-                        byte[] rawSymbolStore = File.ReadAllBytes(fileInfo.FullName);
-                        assembly = AppDomain.CurrentDomain.Load(rawAssembly, rawSymbolStore);
+                        // This would work with Assembly.Load the same as ModAssemblyHandler does it, but then the .dll
+                        // files are locked and cannot be replaced when a game instance is already running. This way it's
+                        // possible to keep a game instance open and just rebuild and reopen another instance without any
+                        // issues with replacing the dll files.
+
+                        byte[] rawAssembly = File.ReadAllBytes(item.FullName);
+                        FileInfo fileInfo = new FileInfo(Path.ChangeExtension(item.FullName, "pdb"));
+
+                        if (fileInfo.Exists)
+                        {
+                            byte[] rawSymbolStore = File.ReadAllBytes(fileInfo.FullName);
+                            assembly = AppDomain.CurrentDomain.Load(rawAssembly, rawSymbolStore);
+                        }
+                        else
+                        {
+                            assembly = AppDomain.CurrentDomain.Load(rawAssembly);
+                        }
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        assembly = AppDomain.CurrentDomain.Load(rawAssembly);
+                        Log.Error($"Exception loading {item.Name}: {ex}");
+                        break;
                     }
-                }
-                catch (Exception ex)
-                {
-                    Log.Error($"Exception loading {item.Name}: {ex}");
-                    break;
-                }
 
                 assemblies.Add(assembly);
             }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Ionic.Zlib;
+using Multiplayer.Client.Desyncs;
 using Multiplayer.Common;
 using Multiplayer.Common.Networking.Packet;
 using RimWorld;
@@ -180,11 +181,16 @@ namespace Multiplayer.Client
                 var response = info?.GetFormattedStackTracesForRange(packet.diffAt) ?? "Traces not available";
 
                 connection.Send(new ClientTracesPacket
-                    { playerId = packet.playerId, rawTraces = GZipStream.CompressString(response) });
+                    {
+                        playerId = packet.playerId,
+                        rawTraces = GZipStream.CompressString(response),
+                        rawJittedMethods = GZipStream.CompressString(JittedMethods.GetJittedMethodsString())
+                    });
             }
             else if (packet.mode == ServerTracesPacket.Mode.Transfer)
             {
                 Multiplayer.session.desyncTracesFromHost = GZipStream.UncompressString(packet.rawTraces);
+                Multiplayer.session.jittedMethodsFromHost = GZipStream.UncompressString(packet.rawJittedMethods);
             }
         }
 

@@ -106,7 +106,7 @@ namespace Multiplayer.Client
             return ptr == IntPtr.Zero ? null : mono_method_get_reflection_name(ptr);
         }
 
-        private static ConstructorInfo runtimeMethodHandleCtor = AccessTools.Constructor(typeof(RuntimeMethodHandle), new[]{typeof(IntPtr)});
+        private static ConstructorInfo runtimeMethodHandleCtor = AccessTools.Constructor(typeof(RuntimeMethodHandle), [typeof(IntPtr)]);
 
         public static bool GetMethodAggressiveInlining(long addr)
         {
@@ -116,12 +116,21 @@ namespace Multiplayer.Client
             if (ji == IntPtr.Zero) return false;
 
             var methodHandle = mono_jit_info_get_method(ji);
-            var rmh = (RuntimeMethodHandle)runtimeMethodHandleCtor.Invoke(new[] { (object)methodHandle });
-            var rth = new RuntimeTypeHandle();
-            var methodInfo = MethodBase.GetMethodFromHandle(rmh, rth);
-            if (methodInfo == null) return false;
+            var methodBase = GetMethodBaseFromRuntimePointer(methodHandle);
 
-            return (methodInfo.MethodImplementationFlags & MethodImplAttributes.AggressiveInlining) != 0;
+            if (methodBase == null) return false;
+
+            return (methodBase.MethodImplementationFlags & MethodImplAttributes.AggressiveInlining) != 0;
+        }
+
+        public static MethodBase? GetMethodBaseFromRuntimePointer(IntPtr methodHandle)
+        {
+            if (methodHandle == IntPtr.Zero)
+                return null;
+            var rmh = (RuntimeMethodHandle)runtimeMethodHandleCtor.Invoke([methodHandle]);
+            var rth = new RuntimeTypeHandle();
+            var methodBase = MethodBase.GetMethodFromHandle(rmh, rth);
+            return methodBase;
         }
 
         // const string MonoWindows = "mono-2.0-sgen.dll";
@@ -177,7 +186,15 @@ namespace Multiplayer.Client
         [DllImport(MonoWindows)]
         public static extern IntPtr mono_class_get_image(IntPtr klass);
 
-        public unsafe static bool CctorRan(Type t)
+        [DllImport(MonoWindows)]
+        public static extern IntPtr mono_profiler_create(IntPtr profiler);
+
+        public delegate void JitDoneCallback(IntPtr profiler, IntPtr method, IntPtr jinfo);
+
+        [DllImport(MonoWindows)]
+        public static extern IntPtr mono_profiler_set_jit_done_callback(IntPtr profiler, JitDoneCallback? cb);
+
+        public static unsafe bool CctorRan(Type t)
         {
             return *((byte*)mono_class_vtable(mono_domain_get(), mono_class_from_mono_type(t.TypeHandle.Value)) + 45) != 0;
         }

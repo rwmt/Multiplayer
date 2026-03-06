@@ -41,8 +41,12 @@ public class SaveableDesyncInfo(
             using var zip = MpZipFile.Open(Path.Combine(Multiplayer.DesyncsDir, desyncFilePath + ".zip"), ZipArchiveMode.Create);
 
             zip.AddEntry("desync_info", GetDesyncDetails());
+
             zip.AddEntry("local_traces.txt", GetLocalTraces());
             zip.AddEntry("host_traces.txt", Multiplayer.session.desyncTracesFromHost ?? "No host traces");
+
+            zip.AddEntry("local_jitted_methods.txt", JittedMethods.GetJittedMethodsString());
+            zip.AddEntry("host_jitted_methods.txt", Multiplayer.session.jittedMethodsFromHost ?? "No host jitted methods");
 
             var extraLogs = LogGenerator.PrepareLogData();
             if (extraLogs != null) zip.AddEntry("local_logs.txt", extraLogs);

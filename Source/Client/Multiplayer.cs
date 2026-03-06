@@ -8,12 +8,16 @@ using System.Threading;
 using HarmonyLib;
 using Multiplayer.Client.AsyncTime;
 using Multiplayer.Client.Comp;
+using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.Patches;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld;
 using UnityEngine;
 using Verse;
+#if EDIT_COMPILE_RELOAD
+using HotSwap;
+#endif
 
 namespace Multiplayer.Client
 {
@@ -80,6 +84,13 @@ namespace Multiplayer.Client
 
         public static void InitMultiplayer(ModContentPack content)
         {
+#if EDIT_COMPILE_RELOAD
+            EcrLog.messageCallback = Log.Message;
+            EcrLog.errorCallback = Log.Error;
+            // EditCompileReload.RegisterAssemblyWatcher("Mods/Multiplayer/Source/Client/bin", "MultiplayerCommon.dll_orig");
+            EditCompileReload.RegisterAssemblyWatcher("Mods/Multiplayer/Source/Client/bin", "Multiplayer.dll_orig");
+#endif
+
             modContentPack = content;
             Native.EarlyInit(
                 Application.platform switch
@@ -92,6 +103,7 @@ namespace Multiplayer.Client
                 });
 
             DisableOmitFramePointer();
+            JittedMethods.Init();
 
             MultiplayerLoader.Multiplayer.settingsWindowDrawer =
                 rect => MpSettingsUI.DoSettingsWindowContents(settings, rect);
