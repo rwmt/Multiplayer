@@ -124,7 +124,6 @@ namespace Multiplayer.Client
     {
         public static Dictionary<int, Texture2D> cache = new();
 
-        // Remember to flip it
         public static Texture2D GetTexture(int id)
         {
             if (cache.TryGetValue(id, out Texture2D tex))
@@ -147,11 +146,30 @@ namespace Multiplayer.Client
 
             tex = new Texture2D((int)width, (int)height, TextureFormat.RGBA32, false);
             tex.LoadRawTextureData(data);
+            FlipVertically(tex);
             tex.Apply();
 
             cache[id] = tex;
 
             return tex;
+        }
+
+        private static void FlipVertically(Texture2D tex)
+        {
+            var pixels = tex.GetPixels32();
+
+            for (int y = 0; y < tex.height / 2; y++)
+            {
+                for (int x = 0; x < tex.width; x++)
+                {
+                    int top = y * tex.width + x;
+                    int bottom = (tex.height - y - 1) * tex.width + x;
+
+                    (pixels[top], pixels[bottom]) = (pixels[bottom], pixels[top]);
+                }
+            }
+
+            tex.SetPixels32(pixels);
         }
     }
 
