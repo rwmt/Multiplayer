@@ -50,7 +50,7 @@ public static class JittedMethods
                     methodQueue.Enqueue(new JittedMethod
                     {
                         method = methodBase,
-                        from = new StackTrace().GetFrame(1).GetMethod(),
+                        from = new StackTrace().GetFrame(1)?.GetMethod(),
                         mapTicks = Multiplayer.game?.asyncTimeComps.Select(c => c.mapTicks).ToArray(),
                         worldTicks = Multiplayer.game?.asyncWorldTimeComp?.worldTicks ?? -1,
                         timer = TickPatch.Timer,
