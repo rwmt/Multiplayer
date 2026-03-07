@@ -2,7 +2,7 @@
 
 namespace Multiplayer.Common
 {
-    public class ServerLog
+    public static class ServerLog
     {
         public static Action<string>? info;
         public static Action<string>? error;
