@@ -18,6 +18,7 @@ namespace Multiplayer.Client
         private static Callback<FriendRichPresenceUpdate_t> friendRchpUpdate;
         private static Callback<GameRichPresenceJoinRequested_t> gameJoinReq;
         private static Callback<PersonaStateChange_t> personaChange;
+        private static Callback<AvatarImageLoaded_t> avatarLoaded;
 
         public static AppId_t RimWorldAppId;
 
@@ -69,6 +70,9 @@ namespace Multiplayer.Client
             personaChange = Callback<PersonaStateChange_t>.Create(change =>
             {
             });
+
+            avatarLoaded =
+                Callback<AvatarImageLoaded_t>.Create(loaded => SteamImages.GetTexture(loaded.m_iImage, force: true));
         }
 
         public static void AcceptPlayerJoinRequest(CSteamID id)
@@ -122,16 +126,16 @@ namespace Multiplayer.Client
 
     public static class SteamImages
     {
-        public static Dictionary<int, Texture2D> cache = new();
+        private static readonly Dictionary<int, Texture2D> Cache = new();
 
-        public static Texture2D GetTexture(int id)
+        public static Texture2D GetTexture(int id, bool force = false)
         {
-            if (cache.TryGetValue(id, out Texture2D tex))
+            if (Cache.TryGetValue(id, out Texture2D tex) && !force)
                 return tex;
 
             if (!SteamUtils.GetImageSize(id, out uint width, out uint height))
             {
-                cache[id] = null;
+                Cache[id] = null;
                 return null;
             }
 
@@ -140,7 +144,7 @@ namespace Multiplayer.Client
 
             if (!SteamUtils.GetImageRGBA(id, data, (int)sizeInBytes))
             {
-                cache[id] = null;
+                Cache[id] = null;
                 return null;
             }
 
@@ -149,7 +153,8 @@ namespace Multiplayer.Client
             FlipVertically(tex);
             tex.Apply();
 
-            cache[id] = tex;
+            if (Cache.TryGetValue(id, out var oldTex)) UnityEngine.Object.Destroy(oldTex);
+            Cache[id] = tex;
 
             return tex;
         }
