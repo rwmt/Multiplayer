@@ -4,6 +4,7 @@ using System.Diagnostics;
 using Multiplayer.Client.Networking;
 using Multiplayer.Client.Util;
 using Multiplayer.Client.Windows;
+using Multiplayer.Common;
 using RimWorld;
 using Steamworks;
 using UnityEngine;
@@ -29,6 +30,7 @@ namespace Multiplayer.Client
 
             sessionReq = Callback<P2PSessionRequest_t>.Create(req =>
             {
+                ServerLog.Log($"Received P2P session request from {req.m_steamIDRemote}");
                 var session = Multiplayer.session;
                 if (Multiplayer.LocalServer?.settings.steam == true && !session.pendingSteam.Contains(req.m_steamIDRemote))
                 {

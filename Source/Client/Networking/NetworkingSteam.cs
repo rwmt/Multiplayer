@@ -134,6 +134,7 @@ namespace Multiplayer.Client.Networking
                     var preConnect = playerManager.OnPreConnect(packet.remote);
                     if (preConnect != null)
                     {
+                        ServerLog.Log($"Rejected incoming connection from {packet.remote}: {preConnect}");
                         conn.Close(preConnect.Value);
                         continue;
                     }
@@ -149,10 +150,14 @@ namespace Multiplayer.Client.Networking
 
                     conn.Send(Packets.Server_SteamAccept);
                 }
-
-                if (!packet.joinPacket && player != null)
+                else if (!packet.joinPacket && player != null)
                 {
                     player.HandleReceive(packet.data, packet.reliable);
+                }
+                else
+                {
+                    ServerLog.Error(
+                        $"Received a join packet: {packet.joinPacket} for player: {player} (player should only be null when joinPacket is true)");
                 }
             }
         }
@@ -175,13 +180,14 @@ namespace Multiplayer.Client.Networking
         {
             p2pFail = Callback<P2PSessionConnectFail_t>.Create(fail =>
             {
+                var remoteId = fail.m_steamIDRemote;
+                var error = (EP2PSessionError)fail.m_eP2PSessionError;
+                ServerLog.Error($"Steam P2P session fail for {remoteId}: {error}");
+
                 var session = Multiplayer.session;
                 if (session == null) return;
 
-                var remoteId = fail.m_steamIDRemote;
-                var error = (EP2PSessionError)fail.m_eP2PSessionError;
-
-                if (Multiplayer.Client is SteamBaseConn clientConn && clientConn.remoteId == remoteId)
+                if (session.client is SteamBaseConn clientConn && clientConn.remoteId == remoteId)
                     clientConn.OnError(error);
 
                 var server = Multiplayer.LocalServer;
