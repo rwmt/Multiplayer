@@ -32,7 +32,7 @@ public class DebugTextWindow : Window
 
         Text.Font = GameFont.Tiny;
 
-        if (Widgets.ButtonText(new Rect(0, 0, 55f, 20f), "Copy all"))
+        if (Widgets.ButtonText(new Rect(0, 0, 65f, 20f), "Copy all"))
             GUIUtility.systemCopyBuffer = text;
 
         Text.Font = GameFont.Small;
