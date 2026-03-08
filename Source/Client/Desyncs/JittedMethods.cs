@@ -41,7 +41,7 @@ public static class JittedMethods
         profiler = Native.mono_profiler_create(IntPtr.Zero);
         Native.mono_profiler_set_jit_done_callback(profiler, (_, method, _) =>
         {
-            if (!adding && UnityData.IsInMainThread)
+            if (!adding && UnityData.IsInMainThread && Multiplayer.settings != null)
             {
                 adding = true;
                 try
