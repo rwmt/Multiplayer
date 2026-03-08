@@ -70,6 +70,10 @@ namespace Multiplayer.Client
 
             personaChange = Callback<PersonaStateChange_t>.Create(change =>
             {
+                // When a persona's avatar changes, the avatar id changes too. It's not a problem for us because we
+                // query the avatar id every frame. It'd be nice to remove the old avatar from the SteamImages cache,
+                // but realistically it's not an issue. (Also, it'd require keeping track of the avatar's owner because
+                // I don't think there's a way to query the old avatar id to easily remove it.)
             });
 
             avatarLoaded =
