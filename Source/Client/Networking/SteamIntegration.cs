@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using LudeonTK;
 using Multiplayer.Client.Networking;
 using Multiplayer.Client.Util;
 using Multiplayer.Client.Windows;
@@ -128,6 +129,14 @@ namespace Multiplayer.Client
     {
         private static readonly Dictionary<int, Texture2D> Cache = new();
 
+        [DebugAction(category = MpDebugActions.MultiplayerCategory, name = "Clear image cache",
+            allowedGameStates = AllowedGameStates.Entry)]
+        private static void ClearCache()
+        {
+            foreach (var tex in Cache.Values) UnityEngine.Object.Destroy(tex);
+            Cache.Clear();
+        }
+
         public static Texture2D GetTexture(int id, bool force = false)
         {
             if (Cache.TryGetValue(id, out Texture2D tex) && !force)
@@ -162,16 +171,14 @@ namespace Multiplayer.Client
         private static void FlipVertically(Texture2D tex)
         {
             var pixels = tex.GetPixels32();
+            var buf = new Color32[tex.width];
 
             for (int y = 0; y < tex.height / 2; y++)
             {
-                for (int x = 0; x < tex.width; x++)
-                {
-                    int top = y * tex.width + x;
-                    int bottom = (tex.height - y - 1) * tex.width + x;
-
-                    (pixels[top], pixels[bottom]) = (pixels[bottom], pixels[top]);
-                }
+                var reversedY = tex.height - y - 1;
+                Array.Copy(pixels, y * tex.width, buf, 0, tex.width);
+                Array.Copy(pixels, reversedY * tex.width, pixels, y * tex.width, tex.width);
+                Array.Copy(buf, 0, pixels, reversedY * tex.width, tex.width);
             }
 
             tex.SetPixels32(pixels);
