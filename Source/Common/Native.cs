@@ -14,6 +14,15 @@ namespace Multiplayer.Client
             Windows, OSX, Linux, Dummy
         }
 
+        public enum NativeArch
+        {
+            X64, ARM64
+        }
+
+        public static NativeArch CurrentArch =>
+            RuntimeInformation.ProcessArchitecture == Architecture.Arm64
+                ? NativeArch.ARM64 : NativeArch.X64;
+
         public static IntPtr DomainPtr { get; private set; }
 
         // LMF is Last Managed Frame
@@ -49,6 +58,13 @@ namespace Multiplayer.Client
             // Don't bother on 32 bit runtimes
             if (IntPtr.Size == 4)
                 return;
+
+            // ARM64 macOS doesn't use LMF - signal FP-only mode to DeferredStackTracingImpl
+            if (CurrentArch == NativeArch.ARM64 && os == NativeOS.OSX)
+            {
+                LmfPtr = -1;
+                return;
+            }
 
             const BindingFlags all = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public |
                                      BindingFlags.NonPublic;
