@@ -36,8 +36,13 @@ namespace Multiplayer.Common
 
             stateImpls[(int)state] = type;
 
+            // The point of this attribute is to explicitly mark how to handle packet listeners from the base type.
+            // If the base type is the lowest possible (MpConnectionState, which doesn't have any listeners), there is
+            // no reason to warn when the annotation is missing.
             var typeAttr = type.GetAttribute<PacketHandlerClassAttribute>();
-            if (typeAttr == null)
+            if (typeAttr == null &&
+                type.BaseType != typeof(MpConnectionState) &&
+                type.BaseType != typeof(AsyncConnectionState))
                 ServerLog.Log($"Packet handler {type.FullName} does not have a PacketHandlerClass attribute");
 
             var bindingFlags = BindingFlags.Instance | BindingFlags.Public;
