@@ -208,7 +208,7 @@ namespace Multiplayer.Client
 
         public IEnumerable<string> RemoteModIds => remoteMods.Select(m => m.packageId);
 
-        public string connectionString;
+        public IConnector connector;
 
         public ModListDiff CompareMods(List<ModMetaData> localMods)
         {
