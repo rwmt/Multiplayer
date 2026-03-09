@@ -122,6 +122,12 @@ namespace Multiplayer.Client
             );
             inRect.yMin += CheckboxesHeight;
 
+            if (MpUI.ButtonTextWithTip(inRect.Width(300).Height(CheckboxesHeight), "MpOpenModCompatSheet".Translate(), null))
+            {
+                Application.OpenURL("https://docs.google.com/spreadsheets/d/1jaDxV8F7bcz4E9zeIRmZGKuaX7d0kvWWq28aKckISaY/");
+            }
+            inRect.yMin += CheckboxesHeight;
+
             // Mod search field
             var nameField = inRect.Width(300).Height(CheckboxesHeight);
             var prevNameField = nameFieldStr;
