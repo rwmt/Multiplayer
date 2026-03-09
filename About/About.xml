@@ -16,10 +16,9 @@ Discord - https://discord.gg/S4bxXpv
   </description>
   <modDependencies>
     <li>
-      <packageId>brrainz.harmony</packageId>
-      <displayName>Harmony</displayName>
-      <downloadUrl>https://github.com/pardeike/HarmonyRimWorld/releases/</downloadUrl>
-      <steamWorkshopUrl>steam://url/CommunityFilePage/2009463077</steamWorkshopUrl>
+      <packageId>zetrith.prepatcher</packageId>
+      <displayName>Prepatcher</displayName>
+      <steamWorkshopUrl>steam://url/CommunityFilePage/2934420800</steamWorkshopUrl>
     </li>
   </modDependencies>
   <loadAfter>
@@ -29,6 +28,7 @@ Discord - https://discord.gg/S4bxXpv
     <li>Ludeon.RimWorld.Biotech</li>
     <li>Ludeon.RimWorld.Anomaly</li>
     <li>Ludeon.RimWorld.Odyssey</li>
+    <li>zetrith.prepatcher</li>
     <li>brrainz.harmony</li>
   </loadAfter>
   <loadBefore>
