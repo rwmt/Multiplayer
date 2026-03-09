@@ -120,6 +120,15 @@ namespace Multiplayer.Client
             Widgets.Label(inRect, Multiplayer.session.gameName);
             inRect.yMin += Text.CalcHeight(Multiplayer.session.gameName, inRect.width) + 10f;
 
+            if (Prefs.DevMode)
+            {
+                var rect = new Rect(inRect).Height(25f).Width(80f);
+                if (Widgets.ButtonText(rect, "Net info"))
+                    Find.WindowStack.Add(new DebugTextWindow(NetInfoText()));
+
+                inRect.yMin += rect.height + 10f;
+            }
+
             DrawList(
                 "MpChatPlayers".Translate(Multiplayer.session.players.Count),
                 Multiplayer.session.players,
@@ -350,9 +359,7 @@ namespace Multiplayer.Client
 
             if (currentMsg.NullOrEmpty()) return;
 
-            if (MpVersion.IsDebug && currentMsg == "/netinfo")
-                Find.WindowStack.Add(new DebugTextWindow(NetInfoText()));
-            else if (Multiplayer.Client == null)
+            if (Multiplayer.Client == null)
                 Multiplayer.session.AddMsg(Multiplayer.username + ": " + currentMsg);
             else
                 Multiplayer.Client.Send(ClientChatPacket.Create(currentMsg));
@@ -366,20 +373,12 @@ namespace Multiplayer.Client
 
             var text = new StringBuilder();
 
-            void LogNetData(string name, NetStatistics stats)
+            if (Multiplayer.Client is ClientLiteNetConnection conn)
             {
-                text.AppendLine(name);
-                text.AppendLine($"Bytes received: {stats.BytesReceived}");
-                text.AppendLine($"Bytes sent: {stats.BytesSent}");
-                text.AppendLine($"Packets received: {stats.PacketsReceived}");
-                text.AppendLine($"Packets sent: {stats.PacketsSent}");
-                text.AppendLine($"Packet loss: {stats.PacketLoss}");
-                text.AppendLine($"Packet loss percent: {stats.PacketLossPercent}");
+                text.AppendLine("Client");
+                text.AppendLine(conn.peer.Statistics.ToDebugString());
                 text.AppendLine();
             }
-
-            if (Multiplayer.Client is ClientLiteNetConnection conn)
-                LogNetData("Client", conn.peer.Statistics);
 
             if (Multiplayer.LocalServer != null)
             {
@@ -406,14 +405,17 @@ namespace Multiplayer.Client
                     text.AppendLine($"Connecting: {state.m_bConnecting}");
                     text.AppendLine($"Error: {state.m_eP2PSessionError}");
                     text.AppendLine($"Using relay: {state.m_bUsingRelay}");
-                    text.AppendLine($"Bytes to send: {state.m_nBytesQueuedForSend}");
-                    text.AppendLine($"Packets to send: {state.m_nPacketsQueuedForSend}");
-                    text.AppendLine($"Remote IP: {state.m_nRemoteIP}");
-                    text.AppendLine($"Remote port: {state.m_nRemotePort}");
+                    text.AppendLine($"Send queue: {state.m_nBytesQueuedForSend}B  {state.m_nPacketsQueuedForSend} packets");
+                    text.AppendLine($"Remote IP: {state.m_nRemoteIP}:{state.m_nRemotePort}");
                 }
                 else
                 {
                     text.AppendLine("No connection");
+                }
+
+                foreach (var pending in Multiplayer.session.pendingSteam)
+                {
+                    text.AppendLine($"Steam pending {pending}:{SteamFriends.GetFriendPersonaName(remote)}");
                 }
 
                 text.AppendLine();

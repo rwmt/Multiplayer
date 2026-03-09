@@ -70,7 +70,7 @@ namespace Multiplayer.Common
             foreach (var (endpoint, man) in netManagers)
             {
                 text.AppendLine($"{endpoint}");
-                text.AppendLine($"{man.Statistics}");
+                text.AppendLine(man.Statistics.ToDebugString());
             }
             return text.ToString();
         }
@@ -132,7 +132,7 @@ namespace Multiplayer.Common
         public void Stop() => lanManager.Stop();
 
         public string GetDiagnosticsName() => $"Lan (LiteNet) {lanAddress}:{lanManager.LocalPort}";
-        public string GetDiagnosticsInfo() => lanManager.Statistics.ToString();
+        public string GetDiagnosticsInfo() => lanManager.Statistics.ToDebugString();
     }
 
     public class LiteNetEndpoint
@@ -147,6 +147,18 @@ namespace Multiplayer.Common
                 ipv4 == null ? $"{ipv6}:{port}" :
                 ipv6 == null ? $"{ipv4}:{port}" :
                 $"{ipv4}:{port} / {ipv6}:{port}";
+        }
+    }
+
+    public static class LiteNetExtensions
+    {
+        public static string ToDebugString(this NetStatistics stats)
+        {
+            var text = new StringBuilder();
+            text.AppendLine($"Recv: {stats.BytesReceived}B  {stats.PacketsReceived} packets");
+            text.AppendLine($"Sent: {stats.BytesSent}B  {stats.PacketsSent} packets");
+            text.AppendLine($"Loss: {stats.PacketLoss} packets ({stats.PacketLossPercent}%)");
+            return text.ToString();
         }
     }
 }
