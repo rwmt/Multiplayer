@@ -457,7 +457,7 @@ namespace Multiplayer.Client
                     Widgets.DrawAltRect(entryRect);
 
                 if (Event.current.type == EventType.Repaint)
-                    GUI.DrawTextureWithTexCoords(new Rect(5, entryRect.y + 4, 32, 32), SteamImages.GetTexture(friend.avatar), new Rect(0, 1, 1, -1));
+                    GUI.DrawTexture(new Rect(5, entryRect.y + 4, 32, 32), SteamImages.GetTexture(friend.avatar));
 
                 using (MpStyle.Set(TextAnchor.MiddleLeft))
                     Widgets.Label(entryRect.Right(45).Up(5), friend.username);

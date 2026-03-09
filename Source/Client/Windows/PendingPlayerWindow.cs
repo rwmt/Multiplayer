@@ -132,7 +132,7 @@ public class PendingPlayerWindow : Window
             var avatarRect = new Rect(0, 0, 80, 80).CenteredOnYIn(inRect).Right(4);
             InvisibleOpenSteamProfileButton(avatarRect, req.steamId, doMouseoverSound: false);
             if (avatarTex != null)
-                GUI.DrawTextureWithTexCoords(avatarRect, avatarTex, new Rect(0, 1, 1, -1));
+                GUI.DrawTexture(avatarRect, avatarTex);
             inRect.xMin = avatarRect.xMax + 6f;
         }
         else
