@@ -21,7 +21,7 @@ public class JittedMethod
 
     public string TimeString()
     {
-        return $"m:{mapTicks.Join(delimiter: ",")} w:{worldTicks} t:{timer}";
+        return $"m:{mapTicks?.Join(delimiter: ",") ?? "[]"} w:{worldTicks} t:{timer}";
     }
 
     public override string ToString()
