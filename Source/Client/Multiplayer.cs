@@ -23,6 +23,10 @@ namespace Multiplayer.Client
 {
     public static class Multiplayer
     {
+        public const string WebsiteLink = "https://rimworldmultiplayer.com";
+        // There is also a link in About.xml. Remember to update both
+        public const string DiscordLink = "https://discord.gg/S4bxXpv";
+
         public static Harmony harmony = new("multiplayer");
         public static MpSettings settings;
 
