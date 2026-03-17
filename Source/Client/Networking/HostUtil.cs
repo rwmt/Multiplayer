@@ -85,7 +85,7 @@ namespace Multiplayer.Client
             Find.MainTabsRoot.EscapeCurrentTab(false);
 
             Multiplayer.session.AddMsg("If you are having any issues with the mod and would like some help resolving them, then please reach out to us on our Discord server:", false);
-            Multiplayer.session.AddMsg(new ChatMsg_Url("https://discord.gg/S4bxXpv"), false);
+            Multiplayer.session.AddMsg(new ChatMsg_Url(Multiplayer.DiscordLink), false);
         }
 
         private static void SetGameState(ServerSettings settings)

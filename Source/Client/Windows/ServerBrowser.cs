@@ -80,9 +80,6 @@ namespace Multiplayer.Client
         {
             float x = 0;
 
-            const string websiteLink = "https://rimworldmultiplayer.com";
-            const string discordLink = "https://discord.gg/n5E2cb2Y4Z";
-
             bool Button(Texture2D icon, string labelKey, string tip, Color baseIconColor, float iconSize = 24f)
             {
                 var label = labelKey.Translate();
@@ -117,11 +114,11 @@ namespace Multiplayer.Client
             if (Button(TexButton.ToggleLog, compatLabel, MpUtil.TranslateWithDoubleNewLines(compatLabelDesc, 2), Color.grey, 20))
                 Find.WindowStack.Add(new ModCompatWindow(null, false, false, null));
 
-            if (Button(MultiplayerStatic.WebsiteIcon, "MpWebsiteButton", "MpLinkButtonDesc".Translate() + " " + websiteLink, Color.grey, 20))
-                Application.OpenURL(websiteLink);
+            if (Button(MultiplayerStatic.WebsiteIcon, "MpWebsiteButton", "MpLinkButtonDesc".Translate() + " " + Multiplayer.WebsiteLink, Color.grey, 20))
+                Application.OpenURL(Multiplayer.WebsiteLink);
 
-            if (Button(MultiplayerStatic.DiscordIcon, "MpDiscordButton", "MpLinkButtonDesc".Translate() + " " + discordLink, Color.white))
-                Application.OpenURL(discordLink);
+            if (Button(MultiplayerStatic.DiscordIcon, "MpDiscordButton", "MpLinkButtonDesc".Translate() + " " + Multiplayer.DiscordLink, Color.white))
+                Application.OpenURL(Multiplayer.DiscordLink);
 
             x += 10;
             Widgets.Label(new Rect(x, 0, 400, 24), "Note: Multiplayer for 1.6 is a work in progress.");
