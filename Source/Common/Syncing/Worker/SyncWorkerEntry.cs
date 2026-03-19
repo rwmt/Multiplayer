@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using Multiplayer.API;
@@ -12,6 +13,7 @@ public class SyncWorkerEntry
     delegate void SyncWorkerDelegateNoReturn(SyncWorker sync, ref object? obj);
 
     public Type type;
+    public MethodInfo addGenericMethod;
     public bool shouldConstruct;
     private List<SyncWorkerDelegate> syncWorkers;
     private List<SyncWorkerEntry> subclasses = [];
@@ -24,11 +26,20 @@ public class SyncWorkerEntry
         this.type = type;
         syncWorkers = new List<SyncWorkerDelegate>();
         this.shouldConstruct = shouldConstruct;
+
+        if (type != typeof(object)) {
+            var delegateType = typeof(SyncWorkerDelegate<>).MakeGenericType(type);
+            addGenericMethod = typeof(SyncWorkerEntry)
+                .GetMethods()
+                .First(m => m.Name == nameof(Add) && m.IsGenericMethodDefinition)
+                .MakeGenericMethod(type);
+        }
     }
 
     public SyncWorkerEntry(SyncWorkerEntry other)
     {
         type = other.type;
+        addGenericMethod = other.addGenericMethod;
         syncWorkers = other.syncWorkers;
         subclasses = other.subclasses;
         shouldConstruct = other.shouldConstruct;
@@ -41,12 +52,21 @@ public class SyncWorkerEntry
     {
         if (method.ReturnType == typeof(void))
         {
-            var func = (SyncWorkerDelegateNoReturn)Delegate.CreateDelegate(typeof(SyncWorkerDelegateNoReturn), method);
-            Add((SyncWorker sync, ref object obj) =>
+            if (type == typeof(object)) {
+                SyncWorkerDelegateNoReturn func = (SyncWorkerDelegateNoReturn)Delegate.CreateDelegate(typeof(SyncWorkerDelegateNoReturn), method);
+                Add((SyncWorker sync, ref object? obj) =>
+                {
+                    func(sync, ref obj);
+                    return true;
+                }, true);
+                return;
+            }
+            else
             {
-                func(sync, ref obj);
-                return true;
-            }, true);
+                var delegateType = typeof(SyncWorkerDelegate<>).MakeGenericType(this.type);
+                var func = Delegate.CreateDelegate(delegateType, method);
+                typeof(SyncWorkerEntry).GetMethods().First(m => m.Name == nameof(Add) && m.IsGenericMethod).MakeGenericMethod(type).Invoke(this, [func]);
+            }
         }
         else
         {
