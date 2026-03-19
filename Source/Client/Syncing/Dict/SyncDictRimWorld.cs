@@ -1,19 +1,16 @@
-using HarmonyLib;
-using Multiplayer.API;
-using Multiplayer.Client.Patches;
-using Multiplayer.Common;
-using RimWorld;
-using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
+using Multiplayer.API;
+using Multiplayer.Common;
+using RimWorld;
+using RimWorld.Planet;
 using Verse;
 using Verse.AI;
 using Verse.AI.Group;
 using static Multiplayer.Client.CompSerialization;
 using static Multiplayer.Client.SyncSerialization;
-using static UnityEngine.GraphicsBuffer;
+
 // ReSharper disable RedundantLambdaParameterType
 
 namespace Multiplayer.Client
@@ -1249,9 +1246,15 @@ namespace Multiplayer.Client
                         data.WriteByte(2);
                         WriteSync(data, info.WorldObject);
                     }
-                    else {
+                    else if (info.Tile.Valid) {
                         data.WriteByte(3);
                         WriteSync(data, info.Tile);
+                    }
+                    else
+                    {
+                        if (info.IsValid)
+                            throw new SerializationException($"Unable to serialize GlobalTargetInfo {info}");
+                        data.WriteByte(byte.MaxValue);
                     }
                 },
                 (ByteReader data) =>
@@ -1263,8 +1266,10 @@ namespace Multiplayer.Client
                             true) // True to prevent errors/warnings if synced map was null
                         ,
                         2 => new GlobalTargetInfo(ReadSync<WorldObject>(data)),
-                        3 => new GlobalTargetInfo(data.ReadInt32()),
-                        _ => GlobalTargetInfo.Invalid
+                        3 => new GlobalTargetInfo(ReadSync<PlanetTile>(data)),
+                        byte.MaxValue => GlobalTargetInfo.Invalid,
+                        var type =>
+                            throw new SerializationException($"Unable to deserialize GlobalTargetInfo with type {type}"),
                     };
                 }
             },
