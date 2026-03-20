@@ -44,6 +44,7 @@ namespace Multiplayer.Client
             Text.Anchor = TextAnchor.UpperCenter;
             var label = "MpDesynced".Translate();
             if (MpVersion.IsDebug || Prefs.DevMode) label += "\n" + text;
+            else label += "\n" + "MpDesyncedSubtitle".Translate();
             Widgets.Label(new Rect(0, 0, inRect.width, 40), label);
             Text.Anchor = TextAnchor.UpperLeft;
 
