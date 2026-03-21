@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using HarmonyLib;
 using LiteNetLib;
+using LudeonTK;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using Multiplayer.Common.Util;
@@ -31,6 +33,18 @@ namespace Multiplayer.Client
             if (SteamManager.Initialized) SteamNetworkingUtils.InitRelayNetworkAccess();
             lanListener = new LanListener(expirationMillis: 5000);
             doCloseX = true;
+        }
+
+        [TweakValue("Multiplayer")] private static bool simulateMacOsForCompatWindow = false;
+        public override void PostOpen()
+        {
+            base.PostOpen();
+
+            var arch = RuntimeInformation.ProcessArchitecture;
+            if (simulateMacOsForCompatWindow || arch is Architecture.Arm or Architecture.Arm64)
+            {
+                Find.WindowStack.Add(new Dialog_MessageBox("MpMacCompatibility".Translate()));
+            }
         }
 
         private Vector2 lanScroll;
