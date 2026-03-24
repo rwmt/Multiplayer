@@ -870,7 +870,7 @@ namespace Multiplayer.Client
             }
         }
 
-        [HarmonyPatch(typeof(ITab_ContentsBooks), "DoRow")]
+        [HarmonyPatch(typeof(ITab_ContentsBooks), nameof(ITab_ContentsBooks.DoRow))]
         static class ITab_ContentsBooks_DoRow_Patch
         {
             static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
