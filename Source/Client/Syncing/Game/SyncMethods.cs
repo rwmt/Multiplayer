@@ -875,12 +875,16 @@ namespace Multiplayer.Client
         {
             static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
             {
-                var target = AccessTools.Method(typeof(ThingOwner), nameof(ThingOwner.TryDrop), new[] { typeof(Thing), typeof(IntVec3), typeof(Map), typeof(ThingPlaceMode), typeof(int), typeof(Thing).MakeByRefType(), typeof(Action<Thing, int>), typeof(Predicate<IntVec3>) });
-                var replacement = AccessTools.Method(typeof(SyncMethods), nameof(SyncThingOwnerTryDrop));
+                var getDirectlyHeldThings = AccessTools.Method(typeof(Building_Bookcase), nameof(Building_Bookcase.GetDirectlyHeldThings));
+                var tryDrop = AccessTools.Method(typeof(ThingOwner), nameof(ThingOwner.TryDrop), new[] { typeof(Thing), typeof(IntVec3), typeof(Map), typeof(ThingPlaceMode), typeof(int), typeof(Thing).MakeByRefType(), typeof(Action<Thing, int>), typeof(Predicate<IntVec3>) });
+                var replacement = AccessTools.Method(typeof(SyncMethods), nameof(SyncBookcaseTryDrop));
 
                 foreach (var ci in insts)
                 {
-                    if (ci.Calls(target))
+                    if (ci.Calls(getDirectlyHeldThings))
+                        continue;
+
+                    if (ci.Calls(tryDrop))
                         ci.operand = replacement;
                     yield return ci;
                 }
@@ -890,13 +894,14 @@ namespace Multiplayer.Client
         // Seems can't sync Action & Predicate so have to deduct params
         // This is enough for bookcase to use but needs update for new situation if needed.
         
-        static bool SyncThingOwnerTryDrop(ThingOwner owner, Thing thing, IntVec3 dropLoc, Map map, ThingPlaceMode mode, int count, out Thing resultingThing, Action<Thing, int> placedAction = null, Predicate<IntVec3> nearPlaceValidator = null)
+        static bool SyncBookcaseTryDrop(Building_Bookcase bookcase, Thing thing, IntVec3 dropLoc, Map map, ThingPlaceMode mode, int count, out Thing resultingThing, Action<Thing, int> placedAction = null, Predicate<IntVec3> nearPlaceValidator = null)
         {
-            return DoSyncThingOwnerTryDrop(owner, thing, dropLoc, map, mode, count, out resultingThing);
+            return DoSyncBookcaseTryDrop(bookcase, thing, dropLoc, map, mode, count, out resultingThing);
         }
         [SyncMethod]
-        static bool DoSyncThingOwnerTryDrop(ThingOwner owner, Thing thing, IntVec3 dropLoc, Map map, ThingPlaceMode mode, int count, out Thing resultingThing)
+        static bool DoSyncBookcaseTryDrop(Building_Bookcase bookcase, Thing thing, IntVec3 dropLoc, Map map, ThingPlaceMode mode, int count, out Thing resultingThing)
         {
+            ThingOwner owner = bookcase.GetDirectlyHeldThings();
             return owner.TryDrop(thing, dropLoc, map, mode, count, out resultingThing,
                null, null);
         }

@@ -912,36 +912,6 @@ namespace Multiplayer.Client
                     }
                 }
             },
-            {
-                (SyncWorker sync, ref ThingOwner thingOwner) =>
-                {
-                    if(sync.isWriting)
-                    {
-                        if(thingOwner != null)
-                        {
-                            if(thingOwner.owner != null && thingOwner.owner is Thing)
-                            {
-                                sync.Write((Thing)thingOwner.owner);
-                            } else
-                            {
-                                // Dunno other situation yet.
-                                sync.Write<Thing>(null);
-                            }
-                        } else
-                        {
-                            sync.Write<Thing>(null);
-                        }
-                    }
-                    else
-                    {
-                        IThingHolder thingHolder = sync.Read<Thing>() as IThingHolder;
-                        if(thingHolder != null)
-                        {
-                            thingOwner = thingHolder.GetDirectlyHeldThings();
-                        }
-                    }
-                }
-            },
             #endregion
 
             #region Databases
