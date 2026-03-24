@@ -118,6 +118,9 @@ namespace Multiplayer.Client
             try
             {
                 map.MapPreTick();
+
+                map.pathFinder.ForceCompleteScheduledJobs();
+
                 mapTicks++;
                 Find.TickManager.ticksGameInt = mapTicks;
 

@@ -7,6 +7,40 @@ namespace Multiplayer.Client
 {
     // todo handle conversion to singleplayer and PostSplitOff
 
+    [HarmonyPatch(typeof(ForbidUtility), nameof(ForbidUtility.IsForbidden),
+    typeof(Thing), typeof(Faction))]
+    static class IsForbiddenPatch
+    {
+        public static bool IsForbiddenByFaction(Thing t, Faction faction)
+        {
+            if (Multiplayer.Client == null)
+                return t.TryGetComp<CompForbiddable>()?.Forbidden ?? false;  // singleplayer: use vanilla
+
+            if (!t.Spawned) return false;
+
+            return !t.Map.MpComp().GetCustomFactionData(faction).unforbidden.Contains(t);
+        }
+        static bool Prefix(Thing t, Faction faction, ref bool __result)
+        {
+            if (Multiplayer.Client == null) return true;  // singleplayer: run vanilla
+
+            if (faction == null) { __result = false; return false; }
+            if (!faction.IsPlayer) { __result = false; return false; }  // guests/enemies unblocked
+
+            ThingWithComps thingWithComps = t as ThingWithComps;
+            if (thingWithComps == null)
+            {
+                __result = false;
+                return false;
+            }
+            CompForbiddable compForbiddable = thingWithComps.compForbiddable;
+
+            __result = compForbiddable != null && IsForbiddenByFaction(t, faction);  // use faction-specific data directly
+            return false;  // skip vanilla
+        }
+
+    }
+
     [HarmonyPatch(typeof(CompForbiddable), nameof(CompForbiddable.Forbidden), MethodType.Getter)]
     static class GetForbidPatch
     {
