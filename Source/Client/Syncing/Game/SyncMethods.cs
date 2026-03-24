@@ -419,6 +419,9 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(Gene_Healing), nameof(Gene_Healing.GetGizmos), 0).SetDebugOnly(); // Heal permament wound
             SyncMethod.Lambda(typeof(Gene_PsychicBonding), nameof(Gene_PsychicBonding.GetGizmos), 0).SetDebugOnly(); // Bond to random pawn
 
+            // Outfit stand
+            SyncMethod.Register(typeof(Building_OutfitStand), nameof(Building_OutfitStand.TryDrop));
+
             // Baby feeding
             SyncMethod.Register(typeof(Pawn_MindState), nameof(Pawn_MindState.SetAutofeeder)); // Called from ITab_Pawn_Feeding.GenerateFloatMenuOption
 
