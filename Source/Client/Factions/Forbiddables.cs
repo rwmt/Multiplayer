@@ -11,21 +11,9 @@ namespace Multiplayer.Client
     typeof(Thing), typeof(Faction))]
     static class IsForbiddenPatch
     {
-        public static bool IsForbiddenByFaction(Thing t, Faction faction)
-        {
-            if (Multiplayer.Client == null)
-                return t.TryGetComp<CompForbiddable>()?.Forbidden ?? false;  // singleplayer: use vanilla
-
-            if (!t.Spawned) return false;
-
-            return !t.Map.MpComp().GetCustomFactionData(faction).unforbidden.Contains(t);
-        }
         static bool Prefix(Thing t, Faction faction, ref bool __result)
         {
-            if (Multiplayer.Client == null) return true;  // singleplayer: run vanilla
-
-            if (faction == null) { __result = false; return false; }
-            if (!faction.IsPlayer) { __result = false; return false; }  // guests/enemies unblocked
+            if (Multiplayer.Client == null || faction == null || !faction.IsPlayer) return true;  // singleplayer: run vanilla
 
             ThingWithComps thingWithComps = t as ThingWithComps;
             if (thingWithComps == null)
@@ -35,7 +23,18 @@ namespace Multiplayer.Client
             }
             CompForbiddable compForbiddable = thingWithComps.compForbiddable;
 
-            __result = compForbiddable != null && IsForbiddenByFaction(t, faction);  // use faction-specific data directly
+            if(compForbiddable == null) {
+                __result = false;
+                return false;
+            }
+
+            if(!t.Spawned)
+            {
+                __result = false;
+                return false;
+            }
+
+            __result = !t.Map.MpComp().GetCustomFactionData(faction).unforbidden.Contains(t);  // use faction-specific data directly
             return false;  // skip vanilla
         }
 
