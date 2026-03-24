@@ -869,6 +869,36 @@ namespace Multiplayer.Client
                     table.SetDirty();
             }
         }
-    }
 
+        [HarmonyPatch(typeof(ITab_ContentsBooks), "DoRow")]
+        static class ITab_ContentsBooks_DoRow_Patch
+        {
+            static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+            {
+                var target = AccessTools.Method(typeof(ThingOwner), nameof(ThingOwner.TryDrop), new[] { typeof(Thing), typeof(IntVec3), typeof(Map), typeof(ThingPlaceMode), typeof(int), typeof(Thing).MakeByRefType(), typeof(Action<Thing, int>), typeof(Predicate<IntVec3>) });
+                var replacement = AccessTools.Method(typeof(SyncMethods), nameof(SyncThingOwnerTryDrop));
+
+                foreach (var ci in insts)
+                {
+                    if (ci.Calls(target))
+                        ci.operand = replacement;
+                    yield return ci;
+                }
+            }
+        }
+
+        // Seems can't sync Action & Predicate so have to deduct params
+        // This is enough for bookcase to use but needs update for new situation if needed.
+        
+        static bool SyncThingOwnerTryDrop(ThingOwner owner, Thing thing, IntVec3 dropLoc, Map map, ThingPlaceMode mode, int count, out Thing resultingThing, Action<Thing, int> placedAction = null, Predicate<IntVec3> nearPlaceValidator = null)
+        {
+            return DoSyncThingOwnerTryDrop(owner, thing, dropLoc, map, mode, count, out resultingThing);
+        }
+        [SyncMethod]
+        static bool DoSyncThingOwnerTryDrop(ThingOwner owner, Thing thing, IntVec3 dropLoc, Map map, ThingPlaceMode mode, int count, out Thing resultingThing)
+        {
+            return owner.TryDrop(thing, dropLoc, map, mode, count, out resultingThing,
+               null, null);
+        }
+    }
 }
