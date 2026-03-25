@@ -866,6 +866,39 @@ namespace Multiplayer.Client
                     table.SetDirty();
             }
         }
+        [HarmonyPatch(typeof(FlyShipLeaving), nameof(FlyShipLeaving.LeaveMap))]
+        static class FlyShipLeaving_LeaveMap_Patch
+        {
+            //When launch transporter, should try to use pawn inside's faction instead of Faction.OfPlayer
+            static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+            {
+                var ofPlayerGetter = AccessTools.PropertyGetter(typeof(Faction), nameof(Faction.OfPlayer));
+                var replacement = AccessTools.Method(typeof(FlyShipLeaving_LeaveMap_Patch),
+                    nameof(GetFactionFromContents));
+
+                foreach (var ci in insts)
+                {
+                    if (ci.Calls(ofPlayerGetter))
+                    {
+                        yield return new CodeInstruction(OpCodes.Ldarg_0);
+                        ci.opcode = OpCodes.Call;
+                        ci.operand = replacement;
+                    }
+                    yield return ci;
+                }
+            }
+
+            static Faction GetFactionFromContents(FlyShipLeaving flyShip)
+            {
+                foreach (Thing t in flyShip.Contents.innerContainer)
+                {
+                    Pawn pawn = t as Pawn;
+                    if (pawn?.Faction != null && pawn.Faction.IsPlayer)
+                        return pawn.Faction;
+                }
+                return Faction.OfPlayer; // fallback
+            }
+        }
     }
 
 }
