@@ -143,6 +143,11 @@ namespace Multiplayer.Client
             return customFactionData[Faction.OfPlayer.loadID];
         }
 
+        public CustomFactionMapData GetCustomFactionData(Faction faction)
+        {
+            return customFactionData[faction.loadID];
+        }
+
         public void Notify_ThingDespawned(Thing t)
         {
             foreach (var data in customFactionData.Values)
