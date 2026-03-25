@@ -65,7 +65,7 @@ public class SyncWorkerEntry
             {
                 var delegateType = typeof(SyncWorkerDelegate<>).MakeGenericType(this.type);
                 var func = Delegate.CreateDelegate(delegateType, method);
-                typeof(SyncWorkerEntry).GetMethods().First(m => m.Name == nameof(Add) && m.IsGenericMethod).MakeGenericMethod(type).Invoke(this, [func]);
+                addGenericMethod.Invoke(this, [func]);
             }
         }
         else
