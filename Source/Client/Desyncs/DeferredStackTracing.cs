@@ -118,6 +118,13 @@ namespace Multiplayer.Client.Desyncs
         static void Finalizer() => DeferredStackTracing.ignoreTraces--;
     }
 
+    [HarmonyPatch(typeof(TempTerrainManager), nameof(TempTerrainManager.Tick))]
+    static class TempTerrainManagerTickTraceIgnore
+    {
+        static void Prefix() => DeferredStackTracing.ignoreTraces++;
+        static void Finalizer() => DeferredStackTracing.ignoreTraces--;
+    }
+
     /*[HarmonyPatch(typeof(StoreUtility), nameof(StoreUtility.TryFindBestBetterStoreCellForWorker))]
     static class FindBestStorageCellTraceIgnore
     {
