@@ -178,6 +178,9 @@ namespace Multiplayer.Client
         public static extern IntPtr mono_class_vtable(IntPtr domain, IntPtr klass);
 
         [DllImport(MonoWindows)]
+        public static extern int mono_method_get_token(IntPtr method);
+
+        [DllImport(MonoWindows)]
         public static extern string mono_method_get_reflection_name(IntPtr method);
 
         [DllImport(MonoWindows)]
