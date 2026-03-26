@@ -1,0 +1,118 @@
+name: Desync report
+description: Submit desync report.
+title: "[desync]: "
+labels: ["desync"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        You can find desync reports, saves and your configs in RimWorld settings folder:
+        - Windows: `%appdata%/LocalLow/Ludeon Studios/RimWorld/`
+        - Linux (steam flatpak): `~/.var/app/com.valvesoftware.Steam/config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios/`
+        - Linux (steam native / gog): `~/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios/`
+        - Mac: `~/Library/Application Support/RimWorld/`
+  - type: textarea
+    id: report
+    attributes:
+      label: Add desync report
+      description: |
+        Attach desync report archive here. It can be found in `MpDesyncs` folder.
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: |
+        For desync to be eliminated it is important to be able to completely reproduce your game state,
+        replay files are designed to specifically do that.
+  - type: textarea
+    id: save-client
+    attributes:
+      label: Client replay
+      description: |
+        Attach **client** game replay. It can be found in `MpReplays` folder.
+    validations:
+      required: true
+  - type: textarea
+    id: save-host
+    attributes:
+      label: Host replay
+      description: |
+        Attach **host** game replay. It can be found in `MpReplays` folder.
+    validations:
+      required: true
+  - type: textarea
+    id: modsconfig
+    attributes:
+      label: ModsConfig file
+      description: |
+        Attach `ModsConfig.xml` file. It can be found in `Config` folder.
+        If you used mods that are custom made or not available in Steam workshop, attach them here too, compress them into zip files.
+    validations:
+      required: true
+  - type: textarea
+    id: reproducing
+    attributes:
+      label: Steps to reproduce
+      description: How do you trigger this desync?
+      placeholder: |
+          1. Select pawn;
+          2. Right click on this and select them do that.
+          If you do not have an explanation of what could've caused it, say so.
+          Note: some developers may not be familiar with all rimworld content, please thoroughly explain
+          what was encountered and when relevant, include links to wiki (especially with new content)
+    validations:
+      required: true
+  - type: input
+    id: rimworld-version
+    attributes:
+      label: RimWorld Version
+      placeholder: RimWorld X.Y.ZZZZ
+    validations:
+      required: true
+  - type: dropdown
+    id: rimworld-origin
+    attributes:
+      label: From where have you installed your game?
+      options:
+        - Steam
+        - GOG
+        - DRM-free
+        - Filthy pirate
+    validations:
+      required: true
+  - type: input
+    id: mod-version
+    attributes:
+      label: Multiplayer Version
+      description: How have you installed the mod, what version it is.
+      placeholder: github continuous ab5062a /// steam /// vX.Y.Z
+    validations:
+      required: true
+  - type: dropdown
+    id: host-operating-system
+    attributes:
+      label: Host Operating System
+      options:
+        - Windows
+        - Linux
+        - macOS
+    validations:
+      required: true
+  - type: dropdown
+    id: client-operating-system
+    attributes:
+      label: Client Operating System
+      options:
+        - Windows
+        - Linux
+        - macOS
+    validations:
+      required: true
+  - type: textarea
+    id: remarks
+    attributes:
+      label: Additional information
+      description: |
+        If you have any other relevant information, feel free to include it here
+    validations:
+      required: false
