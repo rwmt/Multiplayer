@@ -902,7 +902,6 @@ namespace Multiplayer.Client
                 return Faction.OfPlayer; // fallback
             }
         }
-    }
 
         [HarmonyPatch(typeof(ITab_ContentsBooks), nameof(ITab_ContentsBooks.DoRow))]
         static class ITab_ContentsBooks_DoRow_Patch
