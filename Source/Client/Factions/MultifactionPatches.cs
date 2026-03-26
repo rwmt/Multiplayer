@@ -741,3 +741,37 @@ static class CharacterCardUtilityDontDrawIdeoPlate
         return Multiplayer.Client != null && generating;
     }
 }
+
+[HarmonyPatch(typeof(CompShuttle), "ContainedColonistCount", MethodType.Getter)]
+static class CompShuttle_ContainedColonistCount_Patch
+{
+    static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+    {
+        var isFreeColonist = AccessTools.PropertyGetter(typeof(Pawn), nameof(Pawn.IsFreeColonist));
+        var replacement = AccessTools.Method(typeof(CompShuttle_ContainedColonistCount_Patch),
+            nameof(IsFreeColonistAnyPlayerFaction));
+
+        foreach (var ci in insts)
+        {
+            if (ci.Calls(isFreeColonist))
+            {
+                ci.opcode = OpCodes.Call;
+                ci.operand = replacement;
+            }
+            yield return ci;
+        }
+    }
+    static bool IsFreeColonistAnyPlayerFaction(Pawn pawn)
+    {
+        if (Multiplayer.Client == null || !Multiplayer.GameComp.multifaction)
+            return pawn.IsFreeColonist;
+
+        return pawn.Faction != null &&
+               pawn.Faction.IsPlayer &&
+               pawn.RaceProps.Humanlike &&
+               (!pawn.IsSlave || pawn.guest.SlaveIsSecure) &&
+               !pawn.IsSubhuman &&
+               pawn.HostFaction == null; 
+    }
+
+}
