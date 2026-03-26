@@ -143,6 +143,11 @@ namespace Multiplayer.Client
             return customFactionData[Faction.OfPlayer.loadID];
         }
 
+        public CustomFactionMapData GetCustomFactionData(Faction faction)
+        {
+            return customFactionData[faction.loadID];
+        }
+
         public void Notify_ThingDespawned(Thing t)
         {
             foreach (var data in customFactionData.Values)
@@ -220,7 +225,22 @@ namespace Multiplayer.Client
         {
             return factionData.First(kv => kv.Value.zoneManager == zoneManager).Key;
         }
+        public AreaManager AllAreaManager()
+        {
+            AreaManager areaManager = new AreaManager(this.map);
+
+            foreach (var data in factionData)
+            {
+                foreach (var area in data.Value.areaManager.AllAreas)
+                {
+                    areaManager.areas.Add(area);
+                }
+            }
+            return areaManager;
+        }
     }
+
+
 
     [HarmonyPatch(typeof(MapDrawer), nameof(MapDrawer.DrawMapMesh))]
     static class ForceShowDialogs
@@ -235,7 +255,8 @@ namespace Multiplayer.Client
             {
                 var newDialog = comp.mapDialogs.First().Dialog;
                 //If NO mapdialogs (Dialog_NodeTrees) are open, add the first one to the window stack
-                if (!Find.WindowStack.IsOpen(typeof(Dialog_NodeTree)) && !Find.WindowStack.IsOpen(newDialog.GetType())) {
+                if (!Find.WindowStack.IsOpen(typeof(Dialog_NodeTree)) && !Find.WindowStack.IsOpen(newDialog.GetType()))
+                {
                     Find.WindowStack.Add(newDialog);
                 }
             }

@@ -419,6 +419,9 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(Gene_Healing), nameof(Gene_Healing.GetGizmos), 0).SetDebugOnly(); // Heal permament wound
             SyncMethod.Lambda(typeof(Gene_PsychicBonding), nameof(Gene_PsychicBonding.GetGizmos), 0).SetDebugOnly(); // Bond to random pawn
 
+            // Outfit stand
+            SyncMethod.Register(typeof(Building_OutfitStand), nameof(Building_OutfitStand.TryDrop));
+
             // Baby feeding
             SyncMethod.Register(typeof(Pawn_MindState), nameof(Pawn_MindState.SetAutofeeder)); // Called from ITab_Pawn_Feeding.GenerateFloatMenuOption
 
@@ -901,4 +904,40 @@ namespace Multiplayer.Client
         }
     }
 
+        [HarmonyPatch(typeof(ITab_ContentsBooks), nameof(ITab_ContentsBooks.DoRow))]
+        static class ITab_ContentsBooks_DoRow_Patch
+        {
+            static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+            {
+                var getDirectlyHeldThings = AccessTools.Method(typeof(Building_Bookcase), nameof(Building_Bookcase.GetDirectlyHeldThings));
+                var tryDrop = AccessTools.Method(typeof(ThingOwner), nameof(ThingOwner.TryDrop), new[] { typeof(Thing), typeof(IntVec3), typeof(Map), typeof(ThingPlaceMode), typeof(int), typeof(Thing).MakeByRefType(), typeof(Action<Thing, int>), typeof(Predicate<IntVec3>) });
+                var replacement = AccessTools.Method(typeof(SyncMethods), nameof(SyncBookcaseTryDrop));
+
+                foreach (var ci in insts)
+                {
+                    if (ci.Calls(getDirectlyHeldThings))
+                        continue;
+
+                    if (ci.Calls(tryDrop))
+                        ci.operand = replacement;
+                    yield return ci;
+                }
+            }
+        }
+
+        // Seems can't sync Action & Predicate so have to deduct params
+        // This is enough for bookcase to use but needs update for new situation if needed.
+        
+        static bool SyncBookcaseTryDrop(Building_Bookcase bookcase, Thing thing, IntVec3 dropLoc, Map map, ThingPlaceMode mode, int count, out Thing resultingThing, Action<Thing, int> placedAction = null, Predicate<IntVec3> nearPlaceValidator = null)
+        {
+            return DoSyncBookcaseTryDrop(bookcase, thing, dropLoc, map, mode, count, out resultingThing);
+        }
+        [SyncMethod]
+        static bool DoSyncBookcaseTryDrop(Building_Bookcase bookcase, Thing thing, IntVec3 dropLoc, Map map, ThingPlaceMode mode, int count, out Thing resultingThing)
+        {
+            ThingOwner owner = bookcase.GetDirectlyHeldThings();
+            return owner.TryDrop(thing, dropLoc, map, mode, count, out resultingThing,
+               null, null);
+        }
+    }
 }

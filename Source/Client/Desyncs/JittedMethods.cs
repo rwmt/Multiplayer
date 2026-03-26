@@ -13,7 +13,7 @@ namespace Multiplayer.Client.Desyncs;
 public class JittedMethod
 {
     [CanBeNull] public MethodBase method;
-    public MethodBase from;
+    [CanBeNull] public MethodBase from;
     [CanBeNull] public int[] mapTicks;
     public int worldTicks;
     public int timer;
@@ -26,7 +26,7 @@ public class JittedMethod
 
     public override string ToString()
     {
-        return $"{method?.DeclaringType}.{method?.Name} from {from.DeclaringType}.{from.Name} {TimeString()} i:{inInterface}";
+        return $"{method?.DeclaringType}.{method?.Name} from {from?.DeclaringType}.{from?.Name} {TimeString()} i:{inInterface}";
     }
 }
 
@@ -41,10 +41,13 @@ public static class JittedMethods
         profiler = Native.mono_profiler_create(IntPtr.Zero);
         Native.mono_profiler_set_jit_done_callback(profiler, (_, method, _) =>
         {
-            if (!adding && UnityData.IsInMainThread && Multiplayer.settings != null)
+            if (adding) return;
+
+            try
             {
                 adding = true;
-                try
+
+                if (UnityData.IsInMainThread && Multiplayer.settings != null && Native.mono_method_get_token(method) != 0)
                 {
                     var methodBase = Native.GetMethodBaseFromRuntimePointer(method);
                     methodQueue.Enqueue(new JittedMethod
@@ -60,10 +63,10 @@ public static class JittedMethods
                     if (methodQueue.Count > Multiplayer.settings.jittedMethodsInDesync)
                         methodQueue.Dequeue();
                 }
-                finally
-                {
-                    adding = false;
-                }
+            }
+            finally
+            {
+                adding = false;
             }
         });
     }
