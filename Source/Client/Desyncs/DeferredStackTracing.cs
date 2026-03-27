@@ -27,7 +27,7 @@ namespace Multiplayer.Client.Desyncs
 
         public static void Postfix()
         {
-            if (Native.LmfPtr == 0) return;
+            if (Native.LmfPtr == 0) return; // 0 = not initialized, -1 = ARM64 FP-only mode
             if (!ShouldAddStackTraceForDesyncLog()) return;
 
             var logItem = StackTraceLogItemRaw.GetFromPool();
