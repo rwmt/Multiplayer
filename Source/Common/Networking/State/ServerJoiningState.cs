@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Threading.Tasks;
 using Multiplayer.Common.Networking.Packet;
 
@@ -43,7 +44,16 @@ public class ServerJoiningState : AsyncConnectionState
         if (packet.protocolVersion != MpVersion.Protocol)
             Player.Disconnect(MpDisconnectReason.Protocol, ByteWriter.GetBytes(MpVersion.Version, MpVersion.Protocol));
         else
+        {
             Player.SendPacket(new ServerProtocolOkPacket(Server.settings.hasPassword));
+
+            if (Server.BootstrapMode)
+            {
+                var settingsMissing = !File.Exists(Path.Combine(AppContext.BaseDirectory, "settings.toml"));
+                var saveMissing = !File.Exists(Path.Combine(AppContext.BaseDirectory, "save.zip"));
+                connection.Send(new ServerBootstrapPacket(true, settingsMissing, saveMissing));
+            }
+        }
     }
 
     private void HandleUsername(ClientUsernamePacket packet)
@@ -143,6 +153,13 @@ public class ServerJoiningState : AsyncConnectionState
             defStatus = defStatus,
             rawServerInitData = serverInitData.RawData
         }.Serialize());
+
+        if (Server.BootstrapMode)
+        {
+            connection.ChangeState(ConnectionStateEnum.ServerBootstrap);
+            return defsMatch;
+        }
+
         return defsMatch;
     }
 }
