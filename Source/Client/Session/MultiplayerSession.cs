@@ -4,6 +4,7 @@ using LudeonTK;
 using Multiplayer.Client.Networking;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
 using RimWorld;
 using Steamworks;
 using UnityEngine;
@@ -54,8 +55,12 @@ namespace Multiplayer.Client
         public bool ArbiterPlaying => players.Any(p => p.type == PlayerType.Arbiter && p.status == PlayerStatus.Playing);
 
         public IConnector connector;
-        public bool serverIsInBootstrap;
-        public bool serverBootstrapSettingsMissing;
+        public BootstrapServerState bootstrapState = BootstrapServerState.None;
+
+        public void ApplyBootstrapState(ServerBootstrapPacket packet) =>
+            bootstrapState = BootstrapServerState.FromPacket(packet);
+
+        public void ClearBootstrapState() => bootstrapState = BootstrapServerState.None;
 
         public void Stop()
         {

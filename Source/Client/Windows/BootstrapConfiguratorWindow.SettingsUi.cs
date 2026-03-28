@@ -150,11 +150,12 @@ public partial class BootstrapConfiguratorWindow
                     isUploadingToml = false;
                     uploadProgress = 1f;
                     settingsUploaded = true;
-                    statusText = "Server settings uploaded. Map generation will be enabled in the next slice.";
+                    statusText = "Server settings uploaded. Waiting for the server to request save.zip generation.";
                     step = Step.GenerateMap;
+                    saveUploadRequestedByServer = false;
 
                     if (Multiplayer.session != null)
-                        Multiplayer.session.serverBootstrapSettingsMissing = false;
+                        Multiplayer.session.bootstrapState = Multiplayer.session.bootstrapState with { SettingsMissing = false, SaveMissing = false };
                 });
             }
             catch (System.Exception e)

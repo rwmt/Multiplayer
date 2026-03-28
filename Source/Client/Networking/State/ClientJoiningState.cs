@@ -23,8 +23,7 @@ namespace Multiplayer.Client
         [TypedPacketHandler]
         public void HandleBootstrap(ServerBootstrapPacket packet)
         {
-            Multiplayer.session.serverIsInBootstrap = packet.bootstrap;
-            Multiplayer.session.serverBootstrapSettingsMissing = packet.settingsMissing;
+            Multiplayer.session.ApplyBootstrapState(packet);
         }
 
         public override void StartState()
@@ -127,7 +126,7 @@ namespace Multiplayer.Client
 
                 void StartDownloading()
                 {
-                    if (Multiplayer.session.serverIsInBootstrap)
+                    if (Multiplayer.session.bootstrapState.Enabled)
                     {
                         connection.ChangeState(ConnectionStateEnum.ClientBootstrap);
                         Find.WindowStack.Add(new BootstrapConfiguratorWindow(connection));
