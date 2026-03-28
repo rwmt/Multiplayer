@@ -54,6 +54,8 @@ namespace Multiplayer.Client
         public bool ArbiterPlaying => players.Any(p => p.type == PlayerType.Arbiter && p.status == PlayerStatus.Playing);
 
         public IConnector connector;
+        public bool serverIsInBootstrap;
+        public bool serverBootstrapSettingsMissing;
 
         public void Stop()
         {

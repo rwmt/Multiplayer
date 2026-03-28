@@ -20,6 +20,13 @@ namespace Multiplayer.Client
         [TypedPacketHandler]
         public new void HandleDisconnected(ServerDisconnectPacket packet) => base.HandleDisconnected(packet);
 
+        [TypedPacketHandler]
+        public void HandleBootstrap(ServerBootstrapPacket packet)
+        {
+            Multiplayer.session.serverIsInBootstrap = packet.bootstrap;
+            Multiplayer.session.serverBootstrapSettingsMissing = packet.settingsMissing;
+        }
+
         public override void StartState()
         {
             connection.Send(ClientProtocolPacket.Current());
@@ -120,6 +127,13 @@ namespace Multiplayer.Client
 
                 void StartDownloading()
                 {
+                    if (Multiplayer.session.serverIsInBootstrap)
+                    {
+                        connection.ChangeState(ConnectionStateEnum.ClientBootstrap);
+                        Find.WindowStack.Add(new BootstrapConfiguratorWindow(connection));
+                        return;
+                    }
+
                     connection.Send(Packets.Client_WorldRequest);
                     connection.ChangeState(ConnectionStateEnum.ClientLoading);
                 }

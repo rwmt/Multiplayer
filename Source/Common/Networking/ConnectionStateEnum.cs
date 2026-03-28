@@ -6,11 +6,13 @@ public enum ConnectionStateEnum : byte
     ClientLoading,
     ClientPlaying,
     ClientSteam,
+    ClientBootstrap,
 
     ServerJoining,
     ServerLoading,
     ServerPlaying,
     ServerSteam, // unused
+    ServerBootstrap,
 
     Count,
     Disconnected
@@ -19,8 +21,8 @@ public enum ConnectionStateEnum : byte
 public static class ConnectionStateEnumExt
 {
     public static bool IsClient(this ConnectionStateEnum state) =>
-        state is >= ConnectionStateEnum.ClientJoining and <= ConnectionStateEnum.ClientSteam;
+        state is >= ConnectionStateEnum.ClientJoining and <= ConnectionStateEnum.ClientBootstrap;
 
     public static bool IsServer(this ConnectionStateEnum state) =>
-        state is >= ConnectionStateEnum.ServerJoining and <= ConnectionStateEnum.ServerSteam;
+        state is >= ConnectionStateEnum.ServerJoining and <= ConnectionStateEnum.ServerBootstrap;
 }

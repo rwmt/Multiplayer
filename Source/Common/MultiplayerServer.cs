@@ -16,6 +16,7 @@ namespace Multiplayer.Common
         {
             MpConnectionState.SetImplementation(ConnectionStateEnum.ServerSteam, typeof(ServerSteamState));
             MpConnectionState.SetImplementation(ConnectionStateEnum.ServerJoining, typeof(ServerJoiningState));
+            MpConnectionState.SetImplementation(ConnectionStateEnum.ServerBootstrap, typeof(ServerBootstrapState));
             MpConnectionState.SetImplementation(ConnectionStateEnum.ServerLoading, typeof(ServerLoadingState));
             MpConnectionState.SetImplementation(ConnectionStateEnum.ServerPlaying, typeof(ServerPlayingState));
         }
@@ -253,6 +254,8 @@ namespace Multiplayer.Common
         public void HandleChatCmd(IChatSource source, string cmd) => chatCmdManager.Handle(source, cmd);
 
         public Task<ServerInitData?> InitDataTask() => initDataSource.Task;
+
+        public bool BootstrapMode { get; set; }
 
         /// Can only start one init data at a time. A StartInitData is considered complete once
         /// TaskCompletionResult.SetResult is called. Until that time no new calls to StartInitData will succeed.

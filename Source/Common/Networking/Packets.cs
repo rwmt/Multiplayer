@@ -65,6 +65,9 @@ public enum Packets : byte
     // All states (Joining, Loading, Playing)
     Server_Disconnect,
 
+    // Bootstrap
+    Server_Bootstrap,
+
     Count,
     Max = 63 // max packet id
 }
