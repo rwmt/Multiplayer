@@ -50,7 +50,8 @@ public class ServerJoiningState : AsyncConnectionState
             if (Server.BootstrapMode)
             {
                 var settingsMissing = !File.Exists(Path.Combine(AppContext.BaseDirectory, "settings.toml"));
-                connection.Send(new ServerBootstrapPacket(true, settingsMissing));
+                var saveMissing = !File.Exists(Path.Combine(AppContext.BaseDirectory, "save.zip"));
+                connection.Send(new ServerBootstrapPacket(true, settingsMissing, saveMissing));
             }
         }
     }

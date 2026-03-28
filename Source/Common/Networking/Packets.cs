@@ -67,6 +67,9 @@ public enum Packets : byte
 
     // Bootstrap
     Client_BootstrapSettingsUploadStart,
+    Client_BootstrapUploadStart,
+    Client_BootstrapUploadData,
+    Client_BootstrapUploadFinish,
     Server_Bootstrap,
 
     Count,

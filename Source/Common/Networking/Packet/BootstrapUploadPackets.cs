@@ -11,6 +11,41 @@ public record struct ClientBootstrapSettingsPacket(ServerSettings settings) : IP
     }
 }
 
+[PacketDefinition(Packets.Client_BootstrapUploadStart)]
+public record struct ClientBootstrapSaveStartPacket(string fileName, int length) : IPacket
+{
+    public string fileName = fileName;
+    public int length = length;
+
+    public void Bind(PacketBuffer buf)
+    {
+        buf.Bind(ref fileName, maxLength: 256);
+        buf.Bind(ref length);
+    }
+}
+
+[PacketDefinition(Packets.Client_BootstrapUploadData, allowFragmented: true)]
+public record struct ClientBootstrapSaveDataPacket(byte[] data) : IPacket
+{
+    public byte[] data = data;
+
+    public void Bind(PacketBuffer buf)
+    {
+        buf.BindBytes(ref data, maxLength: -1);
+    }
+}
+
+[PacketDefinition(Packets.Client_BootstrapUploadFinish)]
+public record struct ClientBootstrapSaveEndPacket(byte[] sha256Hash) : IPacket
+{
+    public byte[] sha256Hash = sha256Hash;
+
+    public void Bind(PacketBuffer buf)
+    {
+        buf.BindBytes(ref sha256Hash, maxLength: 32);
+    }
+}
+
 internal static class ServerSettingsPacketBinder
 {
     public static void Bind(PacketBuffer buf, ref ServerSettings settings)
