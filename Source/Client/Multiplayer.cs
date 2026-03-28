@@ -75,6 +75,7 @@ namespace Multiplayer.Client
         public static string ReplaysDir => GenFilePaths.FolderUnderSaveData("MpReplays");
         public static string DesyncsDir => GenFilePaths.FolderUnderSaveData("MpDesyncs");
         public static string LogsDir => GenFilePaths.FolderUnderSaveData("MpLogs");
+        public static string CacheDir => GenFilePaths.FolderUnderSaveData("MpCache");
 
         public static Stopwatch clock = Stopwatch.StartNew();
 
