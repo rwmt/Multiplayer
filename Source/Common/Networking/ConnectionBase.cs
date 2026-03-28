@@ -254,25 +254,22 @@ namespace Multiplayer.Common
 
         public void Close(MpDisconnectReason reason, byte[]? data = null)
         {
+            // Ideally, we'd send the final packet here and let OnClose handle only the connection teardown.
+            // However, LiteNetLib closes connections immediately, discarding any queued packets.
+            // To ensure reliable delivery before closing, data must be sent via the Disconnect method itself.
+
             // State.IsServer check only used when disconnecting from a self-hosted local server
             if (State != ConnectionStateEnum.Disconnected && State.IsServer())
-                Send(new ServerDisconnectPacket { reason = reason, data = data ?? [] });
-            OnClose();
+                OnClose(new ServerDisconnectPacket { reason = reason, data = data ?? [] });
+            else
+                OnClose(null);
         }
 
-        protected abstract void OnClose();
+        protected abstract void OnClose(ServerDisconnectPacket? goodbye);
 
         /// Invoked after a keep alive timer arrives. Only used by the server
         public virtual void OnKeepAliveArrived(bool idMatched)
         {
-        }
-
-        public static byte[] GetDisconnectBytes(MpDisconnectReason reason, byte[]? data = null)
-        {
-            var writer = new ByteWriter();
-            writer.WriteEnum(reason);
-            writer.WriteRaw(data ?? []);
-            return writer.ToArray();
         }
     }
 }

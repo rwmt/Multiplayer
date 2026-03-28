@@ -1,6 +1,7 @@
 ﻿using System.Net;
 using System.Net.Sockets;
 using LiteNetLib;
+using Multiplayer.Common.Networking.Packet;
 
 namespace Multiplayer.Common
 {
@@ -8,10 +9,9 @@ namespace Multiplayer.Common
     {
         public void OnConnectionRequest(ConnectionRequest req)
         {
-            var result = server.playerManager.OnPreConnect(req.RemoteEndPoint.Address);
-            if (result != null)
+            if (server.playerManager.OnPreConnect(req.RemoteEndPoint.Address) is { } disconnectReason)
             {
-                req.Reject(ConnectionBase.GetDisconnectBytes(result.Value));
+                req.Reject(new ServerDisconnectPacket { reason = disconnectReason }.Serialize().data);
                 return;
             }
 

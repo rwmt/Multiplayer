@@ -1,5 +1,6 @@
 using System;
 using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
 using Verse;
 
 namespace Multiplayer.Client.Networking
@@ -46,7 +47,7 @@ namespace Multiplayer.Client.Networking
             });
         }
 
-        protected override void OnClose()
+        protected override void OnClose(ServerDisconnectPacket? goodbye)
         {
         }
 
