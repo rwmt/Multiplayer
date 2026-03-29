@@ -32,7 +32,7 @@ namespace Multiplayer.Client
         {
             public string? CachedDate { get; set; }
             public string? CachedETag { get; set; }
-            public List<ModCompatibility> Mods { get; set; }
+            public List<ModCompatibility>? Mods { get; set; }
         }
 
         private static async Task<CacheRoot?> TryLoadCachedDb()
@@ -63,9 +63,20 @@ namespace Multiplayer.Client
         }
 
         [DebugAction(category = "Multiplayer", allowedGameStates = AllowedGameStates.Entry)]
-        private static void ClearModCompatCache() => File.Delete(CacheFilePath);
+        private static void ClearCompatCacheFile() => File.Delete(CacheFilePath);
+        [DebugAction(category = "Multiplayer", allowedGameStates = AllowedGameStates.Entry)]
+        private static void ClearLoadedCompatData() {
+            workshopLookup.Clear();
+            nameLookup.Clear();
+            fetchSuccess = null;
+        }
+
         [DebugAction(category = "Multiplayer", allowedGameStates = AllowedGameStates.Entry)]
         private static void UpdateModCompatCache() => Task.Run(UpdateModCompatibilityDb);
+
+        // Requires clearing loaded compat data to work (because of the static constructor which runs before it's
+        // possible to switch this value).
+        [TweakValue(category: "Multiplayer")] private static bool simulateOffline = false;
 
         private static async Task UpdateModCompatibilityDb()
         {
@@ -74,6 +85,14 @@ namespace Multiplayer.Client
             try
             {
                 var cached = await TryLoadCachedDb();
+                if (cached?.Mods != null)
+                {
+                    ServerLog.Log("MP: displaying cached mod compat while updating...");
+                    SetupFrom(cached.Mods);
+                }
+
+                if (simulateOffline) throw new Exception("Simulating offline state");
+
                 var req = new RestRequest("mod-compatibility?version=1.1&format=metadata")
                 {
                     RequestFormat = DataFormat.Json
@@ -82,7 +101,6 @@ namespace Multiplayer.Client
                 {
                     req.AddHeader("If-Modified-Since", date);
                 }
-
                 if (cached?.CachedETag is { } etag)
                 {
                     req.AddHeader("If-None-Match", etag);
@@ -91,10 +109,10 @@ namespace Multiplayer.Client
                 var stopwatch = Stopwatch.StartNew();
                 var resp = client.Get(req);
                 if (resp.ErrorException != null) throw resp.ErrorException;
-                List<ModCompatibility> modCompatibilities;
+                List<ModCompatibility>? modCompatibilities;
                 if (resp.StatusCode == HttpStatusCode.NotModified)
                 {
-                    modCompatibilities = cached!.Mods;
+                    modCompatibilities = cached!.Mods!;
                 }
                 else
                 {
@@ -118,26 +136,29 @@ namespace Multiplayer.Client
                     _ = Task.Run(async () => await TrySaveCachedDb(cacheRoot));
                 }
 
-                var elapsed = stopwatch.Elapsed;
-                Log.Message(
-                    $"MP: successfully fetched {modCompatibilities.Count} mods compatibility info in {elapsed}");
+                Log.Message($"MP: successfully fetched {modCompatibilities.Count} mods compatibility info " +
+                            $"in {stopwatch.Elapsed}");
 
-                workshopLookup = modCompatibilities
-                    .Where(mod => mod.workshopId != 0)
-                    .GroupBy(mod => mod.workshopId)
-                    .ToDictionary(grouping => grouping.Key, grouping => grouping.First());
-
-                nameLookup = modCompatibilities
-                    .GroupBy(mod => mod.name.ToLower())
-                    .ToDictionary(grouping => grouping.Key, grouping => grouping.First());
-
+                SetupFrom(modCompatibilities);
                 fetchSuccess = true;
             }
             catch (Exception e)
             {
-                Log.Warning($"MP: updating mod compatibility list failed {e.Message} {e.StackTrace}");
+                Log.Warning($"MP: updating mod compatibility list failed:\n{e}");
                 fetchSuccess = false;
             }
+        }
+
+        private static void SetupFrom(List<ModCompatibility> mods)
+        {
+            workshopLookup = mods
+                .Where(mod => mod.workshopId != 0)
+                .GroupBy(mod => mod.workshopId)
+                .ToDictionary(grouping => grouping.Key, grouping => grouping.First());
+
+            nameLookup = mods
+                .GroupBy(mod => mod.name.ToLower())
+                .ToDictionary(grouping => grouping.Key, grouping => grouping.First());
         }
 
         public static ModCompatibility LookupByWorkshopId(PublishedFileId_t workshopId) {
