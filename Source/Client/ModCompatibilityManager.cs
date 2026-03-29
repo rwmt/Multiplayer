@@ -24,7 +24,7 @@ namespace Multiplayer.Client
         public static bool? fetchSuccess;
 
         private static Dictionary<long, ModCompatibility> workshopLookup = new();
-        public static Dictionary<string, ModCompatibility> nameLookup = new();
+        private static Dictionary<string, ModCompatibility> nameLookup = new();
 
         private const string CacheFileName = "compat.json";
         private static readonly string CacheFilePath = Path.Combine(Multiplayer.CacheDir, CacheFileName);
@@ -113,13 +113,15 @@ namespace Multiplayer.Client
                 if (resp.StatusCode == HttpStatusCode.NotModified)
                 {
                     modCompatibilities = cached!.Mods!;
+                    Log.Message($"MP: successfully validated {modCompatibilities.Count} mods compatibility info " +
+                                $"in {stopwatch.Elapsed}");
                 }
                 else
                 {
                     if (resp.StatusCode != HttpStatusCode.OK)
                     {
                         Log.Warning(
-                            $"MP: received unexpected status code {resp.StatusCode} when fetching mod compatibility. Headers: {resp.Headers}");
+                            $"MP: received unexpected status code {resp.StatusCode} when fetching mod compatibility. Headers: {resp.Headers.Join(", ")}");
                     }
 
                     modCompatibilities = SimpleJson.DeserializeObject<List<ModCompatibility>>(resp.Content);
@@ -134,10 +136,9 @@ namespace Multiplayer.Client
                         Mods = modCompatibilities
                     };
                     _ = Task.Run(async () => await TrySaveCachedDb(cacheRoot));
+                    Log.Message($"MP: successfully fetched {modCompatibilities.Count} mods compatibility info " +
+                                $"in {stopwatch.Elapsed}");
                 }
-
-                Log.Message($"MP: successfully fetched {modCompatibilities.Count} mods compatibility info " +
-                            $"in {stopwatch.Elapsed}");
 
                 SetupFrom(modCompatibilities);
                 fetchSuccess = true;
@@ -161,16 +162,19 @@ namespace Multiplayer.Client
                 .ToDictionary(grouping => grouping.Key, grouping => grouping.First());
         }
 
-        public static ModCompatibility LookupByWorkshopId(PublishedFileId_t workshopId) {
-            return LookupByWorkshopId(workshopId.m_PublishedFileId);
+        public static ModCompatibility? LookupByWorkshopId(PublishedFileId_t workshopId) =>
+            LookupByWorkshopId(workshopId.m_PublishedFileId);
+
+        public static ModCompatibility? LookupByWorkshopId(ulong workshopId)
+        {
+            workshopLookup.TryGetValue((long)workshopId, out var compat);
+            return compat;
         }
 
-        public static ModCompatibility LookupByWorkshopId(ulong workshopId) {
-            return workshopLookup.TryGetValue((long) workshopId);
-        }
-
-        public static ModCompatibility LookupByName(string name) {
-            return nameLookup.TryGetValue(name.ToLower());
+        public static ModCompatibility? LookupByName(string name)
+        {
+            nameLookup.TryGetValue(name.ToLower(), out var compat);
+            return compat;
         }
     }
 
