@@ -19,7 +19,8 @@
         Internal,
         ServerStarting,
         BadGamePassword,
-        StateException
+        StateException,
+        BootstrapCompleted
     }
 
 }

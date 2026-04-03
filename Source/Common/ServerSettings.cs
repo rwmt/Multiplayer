@@ -6,8 +6,8 @@ namespace Multiplayer.Common
 {
     public class ServerSettings
     {
-        public string gameName;
-        public string lanAddress;
+        public string gameName = "Multiplayer Server";
+        public string lanAddress = "127.0.0.1";
 
         public string directAddress = $"0.0.0.0:{MultiplayerServer.DefaultPort}";
         public int maxPlayers = 8;
@@ -50,6 +50,8 @@ namespace Multiplayer.Common
         {
             // Remember to mirror the default values
 
+            ScribeLike.Look(ref gameName!, "gameName", "Multiplayer Server");
+            ScribeLike.Look(ref lanAddress!, "lanAddress", "127.0.0.1");
             ScribeLike.Look(ref directAddress!, "directAddress", $"0.0.0.0:{MultiplayerServer.DefaultPort}");
             ScribeLike.Look(ref maxPlayers, "maxPlayers", 8);
             ScribeLike.Look(ref autosaveInterval, "autosaveInterval", 1f);

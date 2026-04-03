@@ -5,6 +5,7 @@ using Multiplayer.Common.Util;
 using Server;
 
 ServerLog.detailEnabled = true;
+Directory.SetCurrentDirectory(AppContext.BaseDirectory);
 
 const string settingsFile = "settings.toml";
 const string stopCmd = "stop";
@@ -16,10 +17,12 @@ var settings = new ServerSettings
     lan = false
 };
 
-if (File.Exists(settingsFile))
+var bootstrap = !File.Exists(settingsFile);
+
+if (!bootstrap)
     settings = TomlSettings.Load(settingsFile);
 else
-    TomlSettings.Save(settings, settingsFile); // Save default settings
+    ServerLog.Log($"Bootstrap mode: '{settingsFile}' not found. Waiting for a client to upload it.");
 
 if (settings.steam) ServerLog.Error("Steam is not supported in standalone server.");
 if (settings.arbiter) ServerLog.Error("Arbiter is not supported in standalone server.");
@@ -31,7 +34,18 @@ var server = MultiplayerServer.instance = new MultiplayerServer(settings)
 
 var consoleSource = new ConsoleSource();
 
-LoadSave(server, saveFile);
+if (!bootstrap && File.Exists(saveFile))
+{
+    LoadSave(server, saveFile);
+}
+else
+{
+    bootstrap = true;
+    ServerLog.Log($"Bootstrap mode: '{saveFile}' not found. Server will start without a loaded save.");
+    ServerLog.Log("Waiting for a client to upload world data.");
+}
+
+server.BootstrapMode = bootstrap;
 
 if (settings.direct) {
     var badEndpoint = settings.TryParseEndpoints(out var endpoints);
@@ -67,6 +81,12 @@ if (settings.lan)
 }
 
 new Thread(server.Run) { Name = "Server thread" }.Start();
+
+if (bootstrap)
+    BootstrapMode.WaitForClient(server, CancellationToken.None);
+
+if (bootstrap && !server.running)
+    return;
 
 while (true)
 {

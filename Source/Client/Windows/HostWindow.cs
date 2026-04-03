@@ -463,6 +463,23 @@ namespace Multiplayer.Client
             return invalidEndpoint == null;
         }
 
+        public static bool HostProgrammatically(ServerSettings sourceSettings)
+        {
+            var settings = MpUtil.ShallowCopy(sourceSettings, new ServerSettings());
+
+            if (settings.direct && !TryParseEndpoints(settings))
+                return false;
+
+            if (settings.gameName.NullOrEmpty())
+                return false;
+
+            if (!TryStartLocalServer(settings))
+                return false;
+
+            HostUtil.HostServer(settings, false);
+            return true;
+        }
+
         static bool TryStartLocalServer(ServerSettings settings)
         {
             var localServer = new MultiplayerServer(settings);
