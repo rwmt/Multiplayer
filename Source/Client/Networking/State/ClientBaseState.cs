@@ -28,11 +28,11 @@ public abstract class ClientBaseState(ConnectionBase connection) : MpConnectionS
         Multiplayer.session.ProcessTimeControl();
     }
 
+    // Currently handles disconnection only for Steam connections. See comment in ConnectionBase.Close for more info.
     [TypedPacketHandler]
     public virtual void HandleDisconnected(ServerDisconnectPacket packet)
     {
-        ConnectionStatusListeners.TryNotifyAll_Disconnected(SessionDisconnectInfo.From(packet.reason,
-            new ByteReader(packet.data)));
+        ConnectionStatusListeners.TryNotifyAll_Disconnected(SessionDisconnectInfo.From(packet));
         Multiplayer.StopMultiplayer();
     }
 }

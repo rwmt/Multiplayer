@@ -1,6 +1,7 @@
 using System;
 using LiteNetLib;
 using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
 using Verse;
 
 namespace Multiplayer.Client;
@@ -12,6 +13,9 @@ public struct SessionDisconnectInfo
     public string specialButtonTranslated;
     public Action specialButtonAction;
     public bool wideWindow;
+
+    public static SessionDisconnectInfo From(ServerDisconnectPacket goodbye) =>
+        From(goodbye.reason, new ByteReader(goodbye.data));
 
     public static SessionDisconnectInfo From(MpDisconnectReason reason, ByteReader reader)
     {

@@ -26,7 +26,7 @@ public class ReplayConnection : ConnectionBase
     {
     }
 
-    protected override void OnClose()
+    protected override void OnClose(ServerDisconnectPacket? goodbye)
     {
     }
 }

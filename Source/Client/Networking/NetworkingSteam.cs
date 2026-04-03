@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
 using Steamworks;
 using Verse;
 using Verse.Steam;
@@ -41,8 +42,12 @@ namespace Multiplayer.Client.Networking
 
         public abstract void OnError(EP2PSessionError error);
 
-        protected override void OnClose()
+        protected override void OnClose(ServerDisconnectPacket? goodbye)
         {
+            if (goodbye.HasValue) Send(goodbye.Value);
+            // TODO this should probably include SteamNetworking.CloseP2PSessionWithUser to free up any leftover
+            //   resources in the Steam API. The API docs are not clear whether the connection is closed instantly, or
+            //   are the queued packets sent.
         }
 
         public override string ToString() => $"SteamP2P ({remoteId}:{username})";
