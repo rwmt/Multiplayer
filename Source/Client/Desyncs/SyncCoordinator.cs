@@ -233,13 +233,20 @@ namespace Multiplayer.Client
                 item.thingId = thing.thingIDNumber;
             }
 
-            var hash = Gen.HashCombineInt(hashIn, depth, (int)(item.rngState >> 32), (int)item.rngState);
-            item.hash = hash;
+            // Full hash including trace info, for diagnostic display in desync reports
+            item.hash = Gen.HashCombineInt(hashIn, depth, (int)(item.rngState >> 32), (int)item.rngState);
+
+            // Architecture-independent comparison hash. Excludes trace-derived hashIn and depth
+            // which vary across architectures (ARM64 FP-chain vs x64 RBP+LMF) and OS JIT
+            // implementations, causing false desync detection in cross-platform play.
+            // thingId and tick recover some non-RNG divergence sensitivity; rngState covers
+            // the common case.
+            var comparisonHash = Gen.HashCombineInt(item.thingId, item.tick, (int)(item.rngState >> 32), (int)item.rngState);
 
             OpinionInBuilding.desyncStackTraces.Add(item);
 
             // Track & network trace hash, for comparison with other opinions.
-            OpinionInBuilding.desyncStackTraceHashes.Add(hash);
+            OpinionInBuilding.desyncStackTraceHashes.Add(comparisonHash);
         }
 
         public static string MethodNameWithIL(string rawName)
