@@ -32,6 +32,7 @@ namespace Multiplayer.Common
 
         // Track which map the player is currently on
         public int currentMapId = -1;
+        public bool hasReportedCurrentMap;
 
         public string Username => conn.username;
         public int Latency => conn.Latency;

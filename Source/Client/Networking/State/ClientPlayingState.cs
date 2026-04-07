@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Ionic.Zlib;
 using Multiplayer.Client.Desyncs;
+using Multiplayer.Client.Saving;
 using Multiplayer.Common;
 using Multiplayer.Common.Networking.Packet;
 using RimWorld;
@@ -148,8 +150,11 @@ namespace Multiplayer.Client
             byte[] mapData = GZipStream.UncompressBuffer(data.ReadPrefixedBytes());
             Session.dataSnapshot.MapData[mapId] = mapData;
 
-            //ClientJoiningState.ReloadGame(TickPatch.tickUntil, Find.Maps.Select(m => m.uniqueID).Concat(mapId).ToList());
-            // todo Multiplayer.client.Send(Packets.CLIENT_MAP_LOADED);
+            OnMainThread.Enqueue(() =>
+            {
+                var mapsToLoad = Find.Maps.Select(m => m.uniqueID).Append(mapId).Distinct().ToList();
+                Loader.ReloadGame(mapsToLoad, false, Multiplayer.game?.gameComp.asyncTime ?? false);
+            });
         }
 
         [TypedPacketHandler]
