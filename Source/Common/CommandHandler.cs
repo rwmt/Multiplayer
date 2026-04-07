@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using Multiplayer.Common.Networking.Packet;
 
 namespace Multiplayer.Common
@@ -30,7 +31,9 @@ namespace Multiplayer.Common
                     return;
 
                 if (cmdType is CommandType.MapTimeSpeed or CommandType.GlobalTimeSpeed &&
-                    server.settings.timeControl == TimeControl.HostOnly && !sourcePlayer.IsHost)
+                    server.settings.timeControl == TimeControl.HostOnly &&
+                    !sourcePlayer.IsHost &&
+                    server.PlayingPlayers.Any(p => p.IsHost))
                     return;
             }
 
