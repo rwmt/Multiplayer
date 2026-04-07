@@ -45,6 +45,31 @@ public class ServerTest
     }
 
     [Test]
+    public async Task JoinPointAbortUnblocksWaiters()
+    {
+        var server = new MultiplayerServer(new ServerSettings
+        {
+            gameName = "Test",
+            direct = false,
+            lan = false
+        });
+
+        Assert.That(server.worldData.TryStartJoinPointCreation(true), Is.True);
+        Assert.That(server.worldData.CreatingJoinPoint, Is.True);
+
+        var waitTask = server.worldData.WaitJoinPoint();
+        Assert.That(waitTask.IsCompleted, Is.False);
+
+        server.worldData.AbortJoinPointCreation();
+
+        var completed = await waitTask.WaitAsync(TimeSpan.FromSeconds(1));
+
+        Assert.That(completed, Is.SameAs(server.worldData));
+        Assert.That(server.worldData.CreatingJoinPoint, Is.False);
+        Assert.That(server.worldData.WaitJoinPoint().IsCompleted, Is.True);
+    }
+
+    [Test]
     public void LoadingStateHandlesKeepAliveWhileWaitingForJoinPoint()
     {
         var server = MakeServer(out var port);

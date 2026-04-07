@@ -52,6 +52,17 @@ public class WorldData
         tmpMapCmds = null;
         lastJoinPointAtWorkTicks = Server.workTicks;
         dataSource!.SetResult(this);
+        dataSource = null;
+    }
+
+    public void AbortJoinPointCreation()
+    {
+        if (!CreatingJoinPoint)
+            return;
+
+        tmpMapCmds = null;
+        dataSource?.SetResult(this);
+        dataSource = null;
     }
 
     public Task<WorldData> WaitJoinPoint()

@@ -71,6 +71,12 @@ namespace Multiplayer.Common
             ServerPlayer player = conn.serverPlayer;
             Players.Remove(player);
 
+            if (player.IsHost && server.worldData.CreatingJoinPoint)
+            {
+                server.worldData.AbortJoinPointCreation();
+                ServerLog.Log("Aborted join point creation because the host disconnected.");
+            }
+
             if (player.hasJoined)
             {
                 // Send PlayerCount command to remove the player from their last known map

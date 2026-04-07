@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using Multiplayer.Common.Networking.Packet;
 
 namespace Multiplayer.Common
@@ -30,7 +31,9 @@ namespace Multiplayer.Common
                     return;
 
                 if (cmdType is CommandType.MapTimeSpeed or CommandType.GlobalTimeSpeed &&
-                    server.settings.timeControl == TimeControl.HostOnly && !sourcePlayer.IsHost)
+                    server.settings.timeControl == TimeControl.HostOnly &&
+                    !sourcePlayer.IsHost &&
+                    server.PlayingPlayers.Any(p => p.IsHost))
                     return;
             }
 
@@ -46,7 +49,20 @@ namespace Multiplayer.Common
             // todo cull target players if not global
             server.worldData.mapCmds.GetOrAddNew(mapId).Add(toSave);
             server.worldData.tmpMapCmds?.GetOrAddNew(mapId).Add(toSave);
-            server.SendToPlaying(ServerCommandPacket.From(cmd));
+
+            if (server.CanUseStandaloneMapStreaming(mapId))
+            {
+                var serialized = ServerCommandPacket.From(cmd).Serialize();
+                foreach (var player in server.PlayingPlayers)
+                {
+                    if (!player.hasReportedCurrentMap || player.currentMapId < 0 || player.currentMapId == mapId)
+                        player.conn.Send(serialized, true);
+                }
+            }
+            else
+            {
+                server.SendToPlaying(ServerCommandPacket.From(cmd));
+            }
 
             SentCmds++;
         }
