@@ -49,7 +49,20 @@ namespace Multiplayer.Common
             // todo cull target players if not global
             server.worldData.mapCmds.GetOrAddNew(mapId).Add(toSave);
             server.worldData.tmpMapCmds?.GetOrAddNew(mapId).Add(toSave);
-            server.SendToPlaying(ServerCommandPacket.From(cmd));
+
+            if (server.CanUseStandaloneMapStreaming(mapId))
+            {
+                var serialized = ServerCommandPacket.From(cmd).Serialize();
+                foreach (var player in server.PlayingPlayers)
+                {
+                    if (!player.hasReportedCurrentMap || player.currentMapId < 0 || player.currentMapId == mapId)
+                        player.conn.Send(serialized, true);
+                }
+            }
+            else
+            {
+                server.SendToPlaying(ServerCommandPacket.From(cmd));
+            }
 
             SentCmds++;
         }

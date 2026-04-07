@@ -33,6 +33,8 @@ namespace Multiplayer.Common
         [TypedPacketHandler]
         public void HandleClientCommand(ClientCommandPacket packet)
         {
+            int? mapToResync = null;
+
             if (packet.type == CommandType.PlayerCount)
             {
                 ByteReader reader = new ByteReader(packet.data);
@@ -42,11 +44,18 @@ namespace Multiplayer.Common
                     ServerLog.Error($"Inconsistent player {Player.Username} map. Last known map: {Player.currentMapId}, " +
                                     $"however received command with transition: {prevMapId} -> {newMapId}");
                 Player.currentMapId = newMapId;
+                Player.hasReportedCurrentMap = true;
+
+                if (Server.CanUseStandaloneMapStreaming(newMapId))
+                    mapToResync = newMapId;
             }
 
             // todo check if map id is valid for the player
 
             Server.commands.Send(packet.type, Player.FactionId, packet.mapId, packet.data, Player);
+
+            if (mapToResync is int currentMapId)
+                Server.SendMapResponse(Player, currentMapId);
         }
 
         public const int MaxChatMsgLength = 128;

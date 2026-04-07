@@ -73,6 +73,8 @@ namespace Multiplayer.Common
 
         public int NetTimer { get; private set; }
 
+        public bool IsStandaloneServer { get; set; }
+
         public MultiplayerServer(ServerSettings settings)
         {
             this.settings = settings;
@@ -227,6 +229,26 @@ namespace Multiplayer.Common
             foreach (ServerPlayer player in PlayingIngamePlayers)
                 if (player != excluding)
                     player.conn.Send(serialized, reliable);
+        }
+
+        public bool CanUseStandaloneMapStreaming(int mapId) =>
+            IsStandaloneServer && mapId != ScheduledCommand.Global && worldData.mapData.ContainsKey(mapId);
+
+        public void SendMapResponse(ServerPlayer player, int mapId)
+        {
+            if (!CanUseStandaloneMapStreaming(mapId))
+                return;
+
+            ByteWriter writer = new ByteWriter();
+            writer.WriteInt32(mapId);
+
+            var mapCmds = worldData.mapCmds.GetValueSafe(mapId) ?? [];
+            writer.WriteInt32(mapCmds.Count);
+            foreach (var cmd in mapCmds)
+                writer.WritePrefixedBytes(cmd);
+
+            writer.WritePrefixedBytes(worldData.mapData[mapId]);
+            player.conn.SendFragmented(Packets.Server_MapResponse, writer.ToArray());
         }
 
         public ServerPlayer? GetPlayer(string username)

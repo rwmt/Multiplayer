@@ -30,6 +30,7 @@ if (settings.arbiter) ServerLog.Error("Arbiter is not supported in standalone se
 var server = MultiplayerServer.instance = new MultiplayerServer(settings)
 {
     running = true,
+    IsStandaloneServer = true,
 };
 
 var consoleSource = new ConsoleSource();
