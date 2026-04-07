@@ -64,6 +64,9 @@ namespace Multiplayer.Client.Patches
 
         public static void SendViewedMapUpdate(int previous, int current)
         {
+            if (Multiplayer.reloading)
+                return;
+
             string warn = string.Empty;
             if (previous != lastMovedToMapId)
                 warn = $" mismatch between expected previous map {previous} and last moved to map {lastMovedToMapId}";
@@ -77,6 +80,7 @@ namespace Multiplayer.Client.Patches
         public static void Reset()
         {
             lastMovedToMapId = InvalidMapId;
+            lastSentAtTick = -1;
         }
     }
 
