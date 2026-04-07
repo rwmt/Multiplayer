@@ -52,7 +52,7 @@ namespace Multiplayer.Common
                 var serialized = ServerCommandPacket.From(cmd).Serialize();
                 foreach (var player in server.PlayingPlayers)
                 {
-                    if (!player.hasReportedCurrentMap || player.currentMapId == mapId)
+                    if (!player.hasReportedCurrentMap || player.currentMapId < 0 || player.currentMapId == mapId)
                         player.conn.Send(serialized, true);
                 }
             }

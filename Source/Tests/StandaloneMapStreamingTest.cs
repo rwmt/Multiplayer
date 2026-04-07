@@ -71,6 +71,21 @@ public class StandaloneMapStreamingTest
     }
 
     [Test]
+    public void StandaloneFiltering_FallsBackToBroadcastForPlayersOutsideAnyMap()
+    {
+        server.worldData.mapData[1] = [1, 2, 3];
+        var (playerOnMap, connOnMap) = AddPlayer("map1", 1);
+        var (_, connWorldMap) = AddPlayer("world", -2);
+        var (_, connOtherMap) = AddPlayer("map2", 2);
+
+        server.commands.Send(CommandType.Designator, 0, 1, [], sourcePlayer: playerOnMap);
+
+        Assert.That(connOnMap.SentPackets, Does.Contain(Packets.Server_Command));
+        Assert.That(connWorldMap.SentPackets, Does.Contain(Packets.Server_Command));
+        Assert.That(connOtherMap.SentPackets, Does.Not.Contain(Packets.Server_Command));
+    }
+
+    [Test]
     public void PlayerCountMapSwitch_SendsMapResponseForStandaloneSnapshotMaps()
     {
         server.worldData.mapData[5] = [9, 9, 9];
