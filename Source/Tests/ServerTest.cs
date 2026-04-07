@@ -4,6 +4,7 @@ using Multiplayer.Common;
 
 namespace Tests;
 
+[NonParallelizable]
 public class ServerTest
 {
     private List<Action> teardownActions = new();
@@ -27,10 +28,8 @@ public class ServerTest
     [Test]
     public void Test()
     {
-        MpConnectionState.SetImplementation(ConnectionStateEnum.ClientJoining, typeof(TestJoiningState));
-
         var server = MakeServer(out var port);
-        ConnectClient(port);
+        ConnectClient(port, typeof(TestJoiningState));
 
         var timeoutWatch = Stopwatch.StartNew();
         while (true)
@@ -45,9 +44,36 @@ public class ServerTest
         }
     }
 
-    private void ConnectClient(int port)
+    [Test]
+    public void LoadingStateHandlesKeepAliveWhileWaitingForJoinPoint()
     {
-        var clientListener = new TestNetListener();
+        var server = MakeServer(out var port);
+        Assert.That(server.worldData.TryStartJoinPointCreation(true), Is.True);
+
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(200);
+            server.worldData.EndJoinPointCreation();
+        });
+
+        ConnectClient(port, typeof(TestLoadingKeepAliveState));
+
+        var timeoutWatch = Stopwatch.StartNew();
+        while (true)
+        {
+            if (server.playerManager.Players.Count == 0)
+                break;
+
+            if (timeoutWatch.ElapsedMilliseconds > 2000)
+                Assert.Fail("Timeout");
+
+            Thread.Sleep(50);
+        }
+    }
+
+    private void ConnectClient(int port, Type joiningStateType)
+    {
+        var clientListener = new TestNetListener(joiningStateType);
         var client = new NetManager(clientListener);
         client.Start();
         var peer = client.Connect("127.0.0.1", port, "");
@@ -89,9 +115,14 @@ public class ServerTest
 
         port = liteNet.netManagers[0].manager.LocalPort;
 
-        new Thread(server.Run) { IsBackground = true }.Start();
+        var serverThread = new Thread(server.Run) { IsBackground = true };
+        serverThread.Start();
 
-        teardownActions.Add(() => { server.running = false; });
+        teardownActions.Add(() =>
+        {
+            server.running = false;
+            serverThread.Join(timeout: TimeSpan.FromSeconds(2));
+        });
 
         return server;
     }

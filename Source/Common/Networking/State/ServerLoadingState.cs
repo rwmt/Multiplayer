@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
+using Multiplayer.Common.Networking.Packet;
 
 namespace Multiplayer.Common;
 
@@ -7,6 +8,23 @@ public class ServerLoadingState : AsyncConnectionState
 {
     public ServerLoadingState(ConnectionBase connection) : base(connection)
     {
+    }
+
+    [TypedPacketHandler]
+    public void HandleClientKeepAlive(ClientKeepAlivePacket packet)
+    {
+        Player.ticksBehind = packet.ticksBehind;
+        Player.ticksBehindReceivedAt = Server.gameTimer;
+        Player.simulating = packet.simulating;
+        Player.keepAliveAt = Server.NetTimer;
+
+        if (Player.IsHost)
+            Server.workTicks = packet.workTicks;
+
+        var idMatched = Player.keepAliveId == packet.id;
+        connection.OnKeepAliveArrived(idMatched);
+        if (idMatched)
+            Player.keepAliveId++;
     }
 
     protected override async Task RunState()
