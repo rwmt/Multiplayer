@@ -135,7 +135,7 @@ namespace Multiplayer.Client
         [TypedPacketHandler]
         public void HandlePing(ServerPingLocPacket packet) => Session.locationPings.ReceivePing(packet);
 
-        [PacketHandler(Packets.Server_MapResponse)]
+        [PacketHandler(Packets.Server_MapResponse, allowFragmented: true)]
         public void HandleMapResponse(ByteReader data)
         {
             int mapId = data.ReadInt32();
