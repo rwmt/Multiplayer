@@ -231,8 +231,7 @@ namespace Multiplayer.Common
                     player.conn.Send(serialized, reliable);
         }
 
-        public bool CanUseStandaloneMapStreaming(int mapId) =>
-            IsStandaloneServer && mapId != ScheduledCommand.Global && worldData.mapData.ContainsKey(mapId);
+        public bool CanUseStandaloneMapStreaming(int mapId) => false;
 
         public void SendMapResponse(ServerPlayer player, int mapId)
         {
