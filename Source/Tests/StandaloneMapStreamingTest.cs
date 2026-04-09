@@ -44,7 +44,7 @@ public class StandaloneMapStreamingTest
     }
 
     [Test]
-    public void StandaloneFiltering_SendsMapCommandsOnlyToPlayersOnThatMap()
+    public void StandaloneStreamingDisabled_KeepsBroadcastBehavior()
     {
         server.worldData.mapData[1] = [1, 2, 3];
         var (playerOnMap, connOnMap) = AddPlayer("map1", 1);
@@ -53,7 +53,7 @@ public class StandaloneMapStreamingTest
         server.commands.Send(CommandType.Designator, 0, 1, [], sourcePlayer: playerOnMap);
 
         Assert.That(connOnMap.SentPackets, Does.Contain(Packets.Server_Command));
-        Assert.That(connOtherMap.SentPackets, Does.Not.Contain(Packets.Server_Command));
+        Assert.That(connOtherMap.SentPackets, Does.Contain(Packets.Server_Command));
     }
 
     [Test]
@@ -71,7 +71,7 @@ public class StandaloneMapStreamingTest
     }
 
     [Test]
-    public void StandaloneFiltering_FallsBackToBroadcastForPlayersOutsideAnyMap()
+    public void StandaloneStreamingDisabled_BroadcastsEvenWithWorldViewer()
     {
         server.worldData.mapData[1] = [1, 2, 3];
         var (playerOnMap, connOnMap) = AddPlayer("map1", 1);
@@ -82,11 +82,11 @@ public class StandaloneMapStreamingTest
 
         Assert.That(connOnMap.SentPackets, Does.Contain(Packets.Server_Command));
         Assert.That(connWorldMap.SentPackets, Does.Contain(Packets.Server_Command));
-        Assert.That(connOtherMap.SentPackets, Does.Not.Contain(Packets.Server_Command));
+        Assert.That(connOtherMap.SentPackets, Does.Contain(Packets.Server_Command));
     }
 
     [Test]
-    public void PlayerCountMapSwitch_SendsMapResponseForStandaloneSnapshotMaps()
+    public void InitialPlayerCountMapReport_DoesNotSendMapResponse()
     {
         server.worldData.mapData[5] = [9, 9, 9];
         server.worldData.mapCmds[5] = [ScheduledCommand.Serialize(new ScheduledCommand(CommandType.Designator, 10, 0, 5, 1, []))];
@@ -101,6 +101,42 @@ public class StandaloneMapStreamingTest
 
         Assert.That(player.currentMapId, Is.EqualTo(5));
         Assert.That(player.hasReportedCurrentMap, Is.True);
-        Assert.That(conn.SentPackets, Does.Contain(Packets.Server_MapResponse));
+        Assert.That(conn.SentPackets, Does.Not.Contain(Packets.Server_MapResponse));
+    }
+
+    [Test]
+    public void WorldToMapTransition_DoesNotSendMapResponse()
+    {
+        server.worldData.mapData[5] = [9, 9, 9];
+        server.worldData.mapCmds[5] = [ScheduledCommand.Serialize(new ScheduledCommand(CommandType.Designator, 10, 0, 5, 1, []))];
+        var (player, conn) = AddPlayer("player", -2);
+
+        var state = player.conn.GetState<ServerPlayingState>()!;
+        state.HandleClientCommand(new Multiplayer.Common.Networking.Packet.ClientCommandPacket(
+            CommandType.PlayerCount,
+            ScheduledCommand.Global,
+            ByteWriter.GetBytes(-2, 5)
+        ));
+
+        Assert.That(player.currentMapId, Is.EqualTo(5));
+        Assert.That(conn.SentPackets, Does.Not.Contain(Packets.Server_MapResponse));
+    }
+
+    [Test]
+    public void MapToMapTransition_DoesNotSendMapResponseWhenStreamingDisabled()
+    {
+        server.worldData.mapData[5] = [9, 9, 9];
+        server.worldData.mapCmds[5] = [ScheduledCommand.Serialize(new ScheduledCommand(CommandType.Designator, 10, 0, 5, 1, []))];
+        var (player, conn) = AddPlayer("player", 3);
+
+        var state = player.conn.GetState<ServerPlayingState>()!;
+        state.HandleClientCommand(new Multiplayer.Common.Networking.Packet.ClientCommandPacket(
+            CommandType.PlayerCount,
+            ScheduledCommand.Global,
+            ByteWriter.GetBytes(3, 5)
+        ));
+
+        Assert.That(player.currentMapId, Is.EqualTo(5));
+        Assert.That(conn.SentPackets, Does.Not.Contain(Packets.Server_MapResponse));
     }
 }
