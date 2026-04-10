@@ -14,6 +14,8 @@ public record struct ServerInitDataRequestPacket(bool includeConfigs) : IPacket
 [PacketDefinition(Packets.Client_InitData, allowFragmented: true)]
 public record struct ClientInitDataPacket : IPacket
 {
+    private const int MaxRawDataLength = ConnectionBase.MaxFragmentPacketTotalSize;
+
     public string rwVersion;
     public int[] debugOnlySyncCmds;
     public int[] hostOnlySyncCmds;
@@ -30,6 +32,6 @@ public record struct ClientInitDataPacket : IPacket
         buf.BindEnum(ref modCtorRoundMode);
         buf.BindEnum(ref staticCtorRoundMode);
         buf.Bind(ref defInfos, BinderOf.Identity<KeyedDefInfo>());
-        buf.BindRemaining(ref rawData);
+        buf.BindRemaining(ref rawData, maxLength: MaxRawDataLength);
     }
 }
