@@ -775,3 +775,46 @@ static class CompShuttle_ContainedColonistCount_Patch
     }
 
 }
+
+[HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.RemoveGravshipFromMap))]
+static class RemoveGravshipFromMap_Patch
+{
+    static void Prefix(Building_GravEngine engine, out bool __state)
+    {
+        __state = false;
+        if (Multiplayer.Client == null) return;
+        if (!Multiplayer.GameComp.multifaction) return;
+        if (engine == null) return;
+
+        engine.Map.PushFaction(engine.Faction);
+
+        __state = true;
+    }
+
+    static void Finalizer(Building_GravEngine engine, bool __state)
+    {
+        if (!__state) return;
+        engine.Map.PopFaction();
+    }
+}
+
+[HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.PlaceGravship))]
+static class PlaceGravship_FactionContext_Patch
+{
+    static void Prefix(Gravship gravship, Map map, out bool __state)
+    {
+        __state = false;
+        if (Multiplayer.Client == null) return;
+        if (!Multiplayer.GameComp.multifaction) return;
+
+        map.PushFaction(gravship.Faction);
+
+        __state = true;
+    }
+
+    static void Finalizer(Gravship gravship, Map map,bool __state)
+    {
+        if (!__state) return;
+        map.PopFaction();
+    }
+}
