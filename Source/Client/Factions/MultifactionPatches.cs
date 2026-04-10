@@ -776,14 +776,11 @@ static class CompShuttle_ContainedColonistCount_Patch
 
 }
 
-
-[HarmonyPatch(typeof(WorldComponent_GravshipController),
-    "RemoveGravshipFromMap")]
+[HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.RemoveGravshipFromMap))]
 static class RemoveGravshipFromMap_Patch
 {
     static void Prefix(Building_GravEngine engine, out bool __state)
     {
-
         __state = false;
         if (Multiplayer.Client == null) return;
         if (!Multiplayer.GameComp.multifaction) return;
@@ -806,7 +803,6 @@ static class PlaceGravship_FactionContext_Patch
 {
     static void Prefix(Gravship gravship, Map map, out bool __state)
     {
-
         __state = false;
         if (Multiplayer.Client == null) return;
         if (!Multiplayer.GameComp.multifaction) return;
