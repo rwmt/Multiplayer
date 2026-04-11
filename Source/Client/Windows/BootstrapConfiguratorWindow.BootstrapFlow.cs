@@ -282,7 +282,16 @@ public partial class BootstrapConfiguratorWindow
     {
         try
         {
-            Autosaving.SaveGameToFile_Overwrite(BootstrapSaveName, currentReplay: false);
+            if (!Autosaving.SaveGameToFile_Overwrite(BootstrapSaveName, currentReplay: false))
+            {
+                OnMainThread.Enqueue(() =>
+                {
+                    saveUploadStatus = "Save failed, see log for details.";
+                    bootstrapSaveQueued = false;
+                });
+                return;
+            }
+
             var path = Path.Combine(Multiplayer.ReplaysDir, $"{BootstrapSaveName}.zip");
             OnMainThread.Enqueue(() => FinalizeBootstrapSave(path));
         }

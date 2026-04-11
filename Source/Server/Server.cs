@@ -23,6 +23,8 @@ else
     ServerLog.Log($"Bootstrap mode: '{settingsFile}' not found. Waiting for a client to upload it.");
 
 settings.EnforceStandaloneRequirements(isStandaloneServer: true);
+ServerLog.detailEnabled = settings.debugMode;
+ServerLog.verboseEnabled = settings.debugMode;
 
 if (settings.steam) ServerLog.Error("Steam is not supported in standalone server.");
 if (settings.arbiter) ServerLog.Error("Arbiter is not supported in standalone server.");
