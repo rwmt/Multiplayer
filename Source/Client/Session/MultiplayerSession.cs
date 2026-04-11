@@ -56,6 +56,10 @@ namespace Multiplayer.Client
 
         public IConnector connector;
         public BootstrapServerState bootstrapState = BootstrapServerState.None;
+        public bool isStandaloneServer;
+        public float autosaveInterval;
+        public AutosaveUnit autosaveUnit;
+        public bool ConnectedToStandaloneServer => client != null && isStandaloneServer;
 
         public void ApplyBootstrapState(ServerBootstrapPacket packet) =>
             bootstrapState = BootstrapServerState.FromPacket(packet);
@@ -64,6 +68,8 @@ namespace Multiplayer.Client
 
         public void Stop()
         {
+            isStandaloneServer = false;
+
             if (client != null)
             {
                 client.Close(MpDisconnectReason.Internal);

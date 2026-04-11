@@ -47,6 +47,23 @@ namespace Multiplayer.Client
 
         private static void TickAutosave()
         {
+            // Only standalone connections use the synthetic autosave timer.
+            if (Multiplayer.session?.ConnectedToStandaloneServer == true)
+            {
+                var session = Multiplayer.session;
+                if (session.autosaveUnit != AutosaveUnit.Minutes || session.autosaveInterval <= 0)
+                    return;
+
+                session.autosaveCounter++;
+
+                if (session.autosaveCounter > session.autosaveInterval * TicksPerMinute)
+                {
+                    session.autosaveCounter = 0;
+                    Autosaving.DoAutosave();
+                }
+                return;
+            }
+
             if (Multiplayer.LocalServer is not { } server) return;
 
             if (server.settings.autosaveUnit == AutosaveUnit.Minutes)

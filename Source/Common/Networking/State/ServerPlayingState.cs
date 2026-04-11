@@ -83,7 +83,8 @@ namespace Multiplayer.Common
         [PacketHandler(Packets.Client_WorldDataUpload, allowFragmented: true)]
         public void HandleWorldDataUpload(ByteReader data)
         {
-            if (Server.ArbiterPlaying ? !Player.IsArbiter : !Player.IsHost) // policy
+            // On standalone, accept from any playing client; otherwise only host/arbiter
+            if (!Server.IsStandaloneServer && (Server.ArbiterPlaying ? !Player.IsArbiter : !Player.IsHost))
                 return;
 
             ServerLog.Log($"Got world upload {data.Left}");
@@ -162,12 +163,16 @@ namespace Multiplayer.Common
                 Player.unfrozenAt = Server.NetTimer;
         }
 
-        [PacketHandler(Packets.Client_Autosaving)]
-        public void HandleAutosaving(ByteReader data)
+        [TypedPacketHandler]
+        public void HandleAutosaving(ClientAutosavingPacket packet)
         {
-            // Host policy
-            if (Player.IsHost && Server.settings.autoJoinPoint.HasFlag(AutoJoinPointFlags.Autosave))
-                Server.worldData.TryStartJoinPointCreation();
+            var forceJoinPoint = packet.reason == JoinPointRequestReason.Save;
+
+            // On standalone, any playing client can trigger a join point (always, regardless of settings)
+            // On hosted, only the host can trigger and only if the Autosave flag is set
+            if (Server.IsStandaloneServer ||
+                (Player.IsHost && Server.settings.autoJoinPoint.HasFlag(AutoJoinPointFlags.Autosave)))
+                Server.worldData.TryStartJoinPointCreation(forceJoinPoint);
         }
 
         [TypedPacketHandler]

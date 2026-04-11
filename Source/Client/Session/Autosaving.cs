@@ -2,6 +2,7 @@
 using System.IO;
 using System.Linq;
 using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -14,8 +15,10 @@ public static class Autosaving
     {
         LongEventHandler.QueueLongEvent(() =>
         {
-            SaveGameToFile_Overwrite(GetNextAutosaveFileName(), false);
-            Multiplayer.Client.Send(Packets.Client_Autosaving);
+            if (!SaveGameToFile_Overwrite(GetNextAutosaveFileName(), false))
+                return;
+
+            Multiplayer.Client.Send(new ClientAutosavingPacket(JoinPointRequestReason.Save));
         }, "MpSaving", false, null);
     }
 
@@ -33,30 +36,37 @@ public static class Autosaving
             .First();
     }
 
-    public static void SaveGameToFile_Overwrite(string fileNameNoExtension, bool currentReplay)
+    public static bool SaveGameToFile_Overwrite(string fileNameNoExtension, bool currentReplay)
     {
         Log.Message($"Multiplayer: saving to file {fileNameNoExtension}");
 
         try
         {
-            var tmp = new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{fileNameNoExtension}.tmp.zip"));
-            Replay.ForSaving(tmp).WriteData(
+            var tmpPath = Path.Combine(Multiplayer.ReplaysDir, $"{fileNameNoExtension}.tmp.zip");
+            if (File.Exists(tmpPath))
+                File.Delete(tmpPath);
+
+            Replay.ForSaving(new FileInfo(tmpPath)).WriteData(
                 currentReplay ?
                     Multiplayer.session.dataSnapshot :
                     SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveGameData(), false)
             );
 
-            var dst = new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{fileNameNoExtension}.zip"));
-            if (!dst.Exists) dst.Open(FileMode.Create).Close();
-            tmp.Replace(dst.FullName, null);
+            var dstPath = Path.Combine(Multiplayer.ReplaysDir, $"{fileNameNoExtension}.zip");
+            if (File.Exists(dstPath))
+                File.Delete(dstPath);
+
+            File.Move(tmpPath, dstPath);
 
             Messages.Message("MpGameSaved".Translate(fileNameNoExtension), MessageTypeDefOf.SilentInput, false);
             Multiplayer.session.lastSaveAt = Time.realtimeSinceStartup;
+            return true;
         }
         catch (Exception e)
         {
             Log.Error($"Exception saving multiplayer game as {fileNameNoExtension}: {e}");
             Messages.Message("MpGameSaveFailed".Translate(), MessageTypeDefOf.SilentInput, false);
+            return false;
         }
     }
 }

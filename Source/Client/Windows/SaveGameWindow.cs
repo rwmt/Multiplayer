@@ -1,7 +1,9 @@
 ﻿using Multiplayer.Client.Util;
+using Multiplayer.Common;
 using RimWorld;
 using System.Collections.Generic;
 using System.IO;
+using Multiplayer.Common.Networking.Packet;
 using UnityEngine;
 using Verse;
 
@@ -199,7 +201,21 @@ public class SaveGameWindow : Window
     {
         if (curText.Length != 0)
         {
-            LongEventHandler.QueueLongEvent(() => Autosaving.SaveGameToFile_Overwrite(curText, currentReplay), "MpSaving", false, null);
+            LongEventHandler.QueueLongEvent(() =>
+            {
+                if (!currentReplay && Multiplayer.session?.isStandaloneServer == true)
+                {
+                    Multiplayer.Client.Send(new ClientAutosavingPacket(JoinPointRequestReason.Save));
+                    Messages.Message("MpGameSaved".Translate(curText), MessageTypeDefOf.SilentInput, false);
+                    Multiplayer.session.lastSaveAt = Time.realtimeSinceStartup;
+                    return;
+                }
+
+                if (!Autosaving.SaveGameToFile_Overwrite(curText, currentReplay))
+                    return;
+
+                Multiplayer.Client.Send(new ClientAutosavingPacket(JoinPointRequestReason.Save));
+            }, "MpSaving", false, null);
             Close();
         }
     }

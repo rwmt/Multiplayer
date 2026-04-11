@@ -275,8 +275,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
     {
         Multiplayer.session.dataSnapshot = SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveAndReload(), Multiplayer.GameComp.multifaction);
 
-        if (!TickPatch.Simulating && !Multiplayer.IsReplay &&
-            (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
+        if (!TickPatch.Simulating && !Multiplayer.IsReplay)
             SaveLoad.SendGameData(Multiplayer.session.dataSnapshot, true);
     }
 
