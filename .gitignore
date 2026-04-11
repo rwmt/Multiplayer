@@ -81,6 +81,7 @@ ipch/
 *.opensdf
 *.sdf
 *.cachefile
+*.lscache
 *.VC.db
 *.VC.VC.opendb
 
