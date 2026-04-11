@@ -34,6 +34,19 @@ namespace Multiplayer.Client.Patches
     }
 
 
+    // Suppress auto-popup of Dialog_NamePlayerGravship in MP.
+    // Manual rename via inspect tab (IRenameable) is already synced by SyncMethods.
+    [HarmonyPatch(typeof(Building_GravEngine), nameof(Building_GravEngine.UpdateSubstructureIfNeeded))]
+    public static class SuppressGravshipNamingDialog
+    {
+        static void Prefix(ref bool ___haveShownNameDialog)
+        {
+            if (Multiplayer.Client == null) return;
+
+            ___haveShownNameDialog = true;
+        }
+    }
+
     [HarmonyPatch(typeof(CompStatue), nameof(CompStatue.InitFakePawn))]
     public static class PatchInitFakePawnToNotSyncPawnName
     {
