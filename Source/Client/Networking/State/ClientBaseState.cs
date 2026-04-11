@@ -20,6 +20,7 @@ public abstract class ClientBaseState(ConnectionBase connection) : MpConnectionS
     [TypedPacketHandler]
     public void HandleTimeControl(ServerTimeControlPacket packet)
     {
+        if (Multiplayer.session == null) return;
         if (Multiplayer.session.remoteTickUntil >= packet.tickUntil) return;
 
         TickPatch.serverTimePerTick = packet.serverTimePerTick;
