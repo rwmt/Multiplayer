@@ -19,6 +19,14 @@ public static class Autosaving
                 return;
 
             Multiplayer.Client.Send(new ClientAutosavingPacket(JoinPointRequestReason.Save));
+
+            // When connected to a standalone server, also upload fresh snapshots
+            if (Multiplayer.session?.ConnectedToStandaloneServer == true)
+            {
+                var snapshot = SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveGameData(), false);
+                SaveLoad.SendStandaloneMapSnapshots(snapshot);
+                SaveLoad.SendStandaloneWorldSnapshot(snapshot);
+            }
         }, "MpSaving", false, null);
     }
 

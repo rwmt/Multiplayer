@@ -277,6 +277,13 @@ public class AsyncWorldTimeComp : IExposable, ITickable
 
         if (!TickPatch.Simulating && !Multiplayer.IsReplay)
             SaveLoad.SendGameData(Multiplayer.session.dataSnapshot, true);
+
+        // When connected to a standalone server, upload fresh snapshots
+        if (!TickPatch.Simulating && !Multiplayer.IsReplay && Multiplayer.session?.ConnectedToStandaloneServer == true)
+        {
+            SaveLoad.SendStandaloneMapSnapshots(Multiplayer.session.dataSnapshot);
+            SaveLoad.SendStandaloneWorldSnapshot(Multiplayer.session.dataSnapshot);
+        }
     }
 
     public void SetTimeEverywhere(TimeSpeed speed)
