@@ -74,6 +74,7 @@ namespace Multiplayer.Common
         public int NetTimer { get; private set; }
 
         public bool IsStandaloneServer { get; set; }
+        public StandalonePersistence? persistence;
 
         public MultiplayerServer(ServerSettings settings)
         {

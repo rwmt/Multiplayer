@@ -1,10 +1,8 @@
-﻿using System.IO.Compression;
-using System.Net;
+﻿using System.Net;
 using Multiplayer.Common;
 using Multiplayer.Common.Util;
 using Server;
 
-ServerLog.detailEnabled = true;
 Directory.SetCurrentDirectory(AppContext.BaseDirectory);
 
 const string settingsFile = "settings.toml";
@@ -33,16 +31,49 @@ var server = MultiplayerServer.instance = new MultiplayerServer(settings)
     IsStandaloneServer = true,
 };
 
+var persistence = new StandalonePersistence(AppContext.BaseDirectory);
+server.persistence = persistence;
+
+// Cleanup leftover temp files from any previous interrupted writes
+persistence.CleanupTempFiles();
+
 var consoleSource = new ConsoleSource();
 
-if (!bootstrap && File.Exists(saveFile))
+if (!bootstrap && persistence.HasValidState())
 {
-    LoadSave(server, saveFile);
+    // Prefer loading from the Saved/ directory (structured persistence)
+    var info = persistence.LoadInto(server);
+    if (info != null)
+    {
+        server.settings.gameName = info.name;
+        server.worldData.hostFactionId = info.playerFaction;
+        var spectatorFaction = info.spectatorFaction;
+        if (server.settings.multifaction && spectatorFaction == 0)
+            ServerLog.Error("Multifaction is enabled but the save doesn't contain spectator faction id.");
+        server.worldData.spectatorFactionId = spectatorFaction;
+    }
+    ServerLog.Log("Loaded state from Saved/ directory.");
+}
+else if (!bootstrap && File.Exists(saveFile))
+{
+    // Seed the Saved/ directory from save.zip, then load from it
+    ServerLog.Log($"Seeding Saved/ directory from {saveFile}...");
+    persistence.SeedFromSaveZip(saveFile);
+    var info = persistence.LoadInto(server);
+    if (info != null)
+    {
+        server.settings.gameName = info.name;
+        server.worldData.hostFactionId = info.playerFaction;
+        var spectatorFaction = info.spectatorFaction;
+        if (server.settings.multifaction && spectatorFaction == 0)
+            ServerLog.Error("Multifaction is enabled but the save doesn't contain spectator faction id.");
+        server.worldData.spectatorFactionId = spectatorFaction;
+    }
 }
 else
 {
     bootstrap = true;
-    ServerLog.Log($"Bootstrap mode: '{saveFile}' not found. Server will start without a loaded save.");
+    ServerLog.Log($"Bootstrap mode: neither Saved/ directory nor '{saveFile}' found.");
     ServerLog.Log("Waiting for a client to upload world data.");
 }
 
@@ -97,69 +128,6 @@ while (true)
 
     if (cmd == stopCmd)
         break;
-}
-
-static void LoadSave(MultiplayerServer server, string path)
-{
-    using var zip = ZipFile.OpenRead(path);
-
-    var replayInfo = ReplayInfo.Read(zip.GetBytes("info"));
-    ServerLog.Detail($"Loading {path} saved in RW {replayInfo.rwVersion} with {replayInfo.modNames.Count} mods");
-
-    server.settings.gameName = replayInfo.name;
-    server.worldData.hostFactionId = replayInfo.playerFaction;
-    var spectatorFaction = replayInfo.spectatorFaction;
-    if (server.settings.multifaction && spectatorFaction == 0)
-        ServerLog.Error("Multifaction is enabled but the save doesn't contain spectator faction id.");
-    server.worldData.spectatorFactionId = spectatorFaction;
-
-    //This parses multiple saves as long as they are named correctly
-    server.gameTimer = replayInfo.sections[0].start;
-    server.startingTimer = replayInfo.sections[0].start;
-
-
-    server.worldData.savedGame = Compress(zip.GetBytes("world/000_save"));
-
-    // Parse cmds entry for each map
-    foreach (var entry in zip.GetEntries("maps/*_cmds"))
-    {
-        var parts = entry.FullName.Split('_');
-
-        if (parts.Length == 3)
-        {
-            int mapNumber = int.Parse(parts[1]);
-            server.worldData.mapCmds[mapNumber] = ScheduledCommand.DeserializeCmds(zip.GetBytes(entry.FullName)).Select(ScheduledCommand.Serialize).ToList();
-        }
-    }
-
-    // Parse save entry for each map
-    foreach (var entry in zip.GetEntries("maps/*_save"))
-    {
-        var parts = entry.FullName.Split('_');
-
-        if (parts.Length == 3)
-        {
-            int mapNumber = int.Parse(parts[1]);
-            server.worldData.mapData[mapNumber] = Compress(zip.GetBytes(entry.FullName));
-        }
-    }
-
-
-    server.worldData.mapCmds[-1] = ScheduledCommand.DeserializeCmds(zip.GetBytes("world/000_cmds")).Select(ScheduledCommand.Serialize).ToList();
-    server.worldData.sessionData = Array.Empty<byte>();
-}
-
-static byte[] Compress(byte[] input)
-{
-    using var result = new MemoryStream();
-
-    using (var compressionStream = new GZipStream(result, CompressionMode.Compress))
-    {
-        compressionStream.Write(input, 0, input.Length);
-        compressionStream.Flush();
-
-    }
-    return result.ToArray();
 }
 
 class ConsoleSource : IChatSource
