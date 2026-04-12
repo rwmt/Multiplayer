@@ -107,15 +107,75 @@ public static class DeferredStackTracingImpl
     const long UsesRbx = 1L << 51;
     const long RbpInfoClearMask = ~(UsesRbpAsGpr | UsesRbx);
 
+    const long Arm64FpBased = long.MaxValue - 2;
+
     public const int HashInfluence = 6;
 
     public static AddrTable hashTable = new();
+
+    private static bool IsArm64 => Native.CurrentArch == Native.NativeArch.ARM64;
 
     public static unsafe int TraceImpl(long[] traceIn, ref int hash, int skipFrames = 0)
     {
         if (Native.LmfPtr == 0)
             return 0;
 
+        if (IsArm64)
+            return TraceImplArm64(traceIn, ref hash, skipFrames);
+
+        return TraceImplX64(traceIn, ref hash, skipFrames);
+    }
+
+    // ARM64 ABI always uses frame pointers (X29), making this simpler than x64.
+    // Frame layout: [FP] = previous FP (saved X29), [FP+8] = return address (saved X30/LR)
+    private static unsafe int TraceImplArm64(long[] traceIn, ref int hash, int skipFrames)
+    {
+        if (Native.LmfPtr != -1)
+            return 0;
+
+        long fp = GetFp();
+
+        int depth = 0;
+        int index = 0;
+
+        while (fp != 0 && depth < traceIn.Length + skipFrames + 100)
+        {
+            long ret = *(long*)(fp + 8);
+            if (ret == 0 || ret < 0x1000)
+                break;
+
+            ref var info = ref hashTable.GetOrCreateAddrInfo(ret);
+            if (info.addr == 0) UpdateNewElementArm64(ref info, ret);
+
+            // Stop at unmanaged frames - no LMF chain walking on ARM64
+            if (info.stackUsage == NotJit)
+                break;
+
+            if (depth >= skipFrames)
+            {
+                traceIn[index] = ret;
+
+                if (index < HashInfluence && info.nameHash != 0)
+                    hash = HashCombineInt(hash, (int)info.nameHash);
+
+                index++;
+            }
+
+            if (info.nameHash != 0 && ++depth == traceIn.Length)
+                break;
+
+            long prevFp = *(long*)fp;
+            if (prevFp == fp)
+                break;
+
+            fp = prevFp;
+        }
+
+        return index;
+    }
+
+    private static unsafe int TraceImplX64(long[] traceIn, ref int hash, int skipFrames)
+    {
         long rbp = GetRbp();
 
         long stck = rbp;
@@ -204,6 +264,29 @@ public static class DeferredStackTracingImpl
             StableStringHash(normalizedMethodNameBetweenOS);
     }
 
+    private static void UpdateNewElementArm64(ref AddrInfo info, long ret)
+    {
+        info.addr = ret;
+
+        var ji = Native.mono_jit_info_table_find(Native.DomainPtr, (IntPtr)ret);
+        if (ji == IntPtr.Zero)
+        {
+            info.stackUsage = NotJit;
+            info.nameHash = 1;
+            return;
+        }
+
+        // No prologue parsing needed - ARM64 always uses FP-based frames
+        info.stackUsage = Arm64FpBased;
+
+        var normalizedMethodNameBetweenOS = Native.MethodNameNormalizedFromAddr(ret, true);
+
+        info.nameHash =
+            normalizedMethodNameBetweenOS == null ? 1 :
+            Native.GetMethodAggressiveInlining(ret) ? 0 :
+            StableStringHash(normalizedMethodNameBetweenOS);
+    }
+
     private static unsafe long GetStackUsage(long addr)
     {
         var ji = Native.mono_jit_info_table_find(Native.DomainPtr, (IntPtr)addr);
@@ -266,10 +349,22 @@ public static class DeferredStackTracingImpl
 
     static DeferredStackTracingImpl()
     {
-        // All of this code assumes that the rbp pointer offset stays the same throughout the method invocations.
-        // Mono is generally allowed to recompile code, which could cause issues for us, but GetRpb is annotated as
-        // NoInline and NoOptimization to heavily discourage any changes and avoid breaking.
+        // All of this code assumes that the frame pointer offset stays the same throughout the method invocations.
+        // Mono is generally allowed to recompile code, which could cause issues for us, but GetRbp/GetFp are annotated
+        // as NoInline and NoOptimization to heavily discourage any changes and avoid breaking.
 
+        if (Native.CurrentArch == Native.NativeArch.ARM64)
+        {
+            InitArm64Offset();
+        }
+        else
+        {
+            InitX64Offset();
+        }
+    }
+
+    private static unsafe void InitX64Offset()
+    {
         var method = AccessTools.DeclaredMethod(typeof(DeferredStackTracingImpl), nameof(GetRbp))!;
         var rbpCodeStart = Native.mono_compile_method(method.MethodHandle.Value);
         // Add 1 byte because Mono recognizes the jit_info to be just after the code start address returned by
@@ -283,36 +378,99 @@ public static class DeferredStackTracingImpl
         // mov [rbp-XX], rax
         // From which we can extract the offset from rbp.
         byte[] magicBytes = [0x48, 0xb8, ..BitConverter.GetBytes(MagicNumber)];
-        unsafe
-        {
-            // Make sure we don't access out-of-bounds memory.
-            // magicBytes.Length -- mov rax, <MagicNumber>
-            // sizeof(uint)      -- mov [rbp-XX], rax
-            var maxLen = instLen - magicBytes.Length - sizeof(uint);
-            for (int i = 0; i < maxLen; i++)
-            {
-                byte* at = (byte*)instStart + i;
-                var matches = ByteSpanEqual(at, magicBytes.Length, magicBytes);
-                if (!matches) continue;
 
-                uint* match = (uint*)(at + magicBytes.Length);
-                // mov [rbp-XX], rax    (488945XX)
-                if ((*match & 0xFFFFFF) == 0x458948)
+        // Make sure we don't access out-of-bounds memory.
+        // magicBytes.Length -- mov rax, <MagicNumber>
+        // sizeof(uint)      -- mov [rbp-XX], rax
+        var maxLen = instLen - magicBytes.Length - sizeof(uint);
+        for (int i = 0; i < maxLen; i++)
+        {
+            byte* at = (byte*)instStart + i;
+            var matches = ByteSpanEqual(at, magicBytes.Length, magicBytes);
+            if (!matches) continue;
+
+            uint* match = (uint*)(at + magicBytes.Length);
+            // mov [rbp-XX], rax    (488945XX)
+            if ((*match & 0xFFFFFF) == 0x458948)
+            {
+                offsetFromRbp = (sbyte)(*match >> 24);
+                return;
+            }
+        }
+
+        // To analyze the assembly dump, remove the offset prefixes at the start of each line and paste the hex to
+        // a site like https://defuse.ca/online-x86-assembler.htm#disassembly2. Choose x64. Search for the
+        // magic number and compare the code with the loop above.
+        var asm = HexDump((byte*)instStart, instLen);
+        ServerLog.Error(
+            $"Unexpected GetRbp asm structure. Couldn't find a magic bytes match. " +
+            $"Using fallback offset ({offsetFromRbp}). " +
+            $"Asm dump for the method: \n{asm}");
+    }
+
+    private static unsafe void InitArm64Offset()
+    {
+        var method = AccessTools.DeclaredMethod(typeof(DeferredStackTracingImpl), nameof(GetFp))!;
+        var fpCodeStart = Native.mono_compile_method(method.MethodHandle.Value);
+        var jitInfo = Native.mono_jit_info_table_find(Native.DomainPtr, fpCodeStart + 1);
+        var instStart = Native.mono_jit_info_get_code_start(jitInfo);
+        var instLen = Native.mono_jit_info_get_code_size(jitInfo);
+
+        // On ARM64, we search for the first STUR or STR instruction that stores to [X29 + offset].
+        // Under current Mono codegen for this small GetFp() body, the prologue (STP X29/X30,
+        // MOV X29, SP) uses X29 as a source, so the first store-to-[X29] is the MagicNumber
+        // assignment.
+        // ARM64 instructions are always 4 bytes, aligned.
+        //
+        // STUR Xt, [Xn, #simm9] - Store (unscaled) for small negative offsets
+        // Encoding: 1111 1000 000i iiii iiii 00nn nnnt tttt
+        // Where: simm9 is signed 9-bit immediate, Rn=base reg, Rt=source reg
+        // For X29 as base: Rn = 11101 (29)
+        //
+        // STR Xt, [Xn, #uimm12] - Store (unsigned scaled) for larger positive offsets
+        // Encoding: 1111 1001 00ii iiii iiii iinn nnnt tttt
+        // Where: uimm12 is unsigned 12-bit immediate (scaled by 8), Rn=base reg, Rt=source reg
+
+        uint* instructions = (uint*)instStart;
+        int numInstructions = instLen / 4;
+
+        for (int i = 0; i < numInstructions; i++)
+        {
+            uint inst = instructions[i];
+
+            // STUR Xt, [X29, #simm9] where Rn=29 (11101) at bits 9-5
+            if ((inst & 0xFFE00C00) == 0xF8000000) // STUR family
+            {
+                uint rn = (inst >> 5) & 0x1F;
+                if (rn == 29) // X29 is base register
                 {
-                    offsetFromRbp = (sbyte)(*match >> 24);
+                    int simm9 = (int)((inst >> 12) & 0x1FF);
+                    if ((simm9 & 0x100) != 0) // Sign-extend
+                        simm9 |= unchecked((int)0xFFFFFE00);
+
+                    offsetFromFp = simm9;
                     return;
                 }
             }
 
-            // To analyze the assembly dump, remove the offset prefixes at the start of each line and paste the hex to
-            // a site like https://defuse.ca/online-x86-assembler.htm#disassembly2. Choose x64. Search for the
-            // magic number and compare the code with the loop above.
-            var asm = HexDump((byte*)instStart, instLen);
-            ServerLog.Error(
-                $"Unexpected GetRpb asm structure. Couldn't find a magic bytes match. " +
-                $"Using fallback offset ({offsetFromRbp}). " +
-                $"Asm dump for the method: \n{asm}");
+            // STR Xt, [X29, #uimm12] (scaled by 8)
+            if ((inst & 0xFFC00000) == 0xF9000000) // STR (immediate, unsigned offset)
+            {
+                uint rn = (inst >> 5) & 0x1F;
+                if (rn == 29) // X29 is base register
+                {
+                    uint uimm12 = ((inst >> 10) & 0xFFF) * 8;
+                    offsetFromFp = (int)uimm12;
+                    return;
+                }
+            }
         }
+
+        var asm = HexDump((byte*)instStart, instLen);
+        ServerLog.Error(
+            $"ARM64: Couldn't find store instruction with X29 base in GetFp. " +
+            $"Using fallback offset ({offsetFromFp}). " +
+            $"This may cause incorrect stack traces. Assembly dump:\n{asm}");
     }
 
     private static unsafe bool ByteSpanEqual(byte* start, int len, byte[] arr)
@@ -341,7 +499,9 @@ public static class DeferredStackTracingImpl
 
     // Magic number is used to locate the relevant method code.
     private const long MagicNumber = 0x0123456789ABCDEF;
+
     private static sbyte offsetFromRbp = -8;
+    private static int offsetFromFp = -8;
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
     private static unsafe long GetRbp()
@@ -355,6 +515,15 @@ public static class DeferredStackTracingImpl
         long register = MagicNumber;
 
         return *(long*)((byte*)&register - offsetFromRbp);
+    }
+
+    // Same principle as GetRbp but for ARM64 X29 (frame pointer).
+    // The magic number store compiles to: STUR Xn, [X29, #-offset] or STR Xn, [X29, #offset]
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
+    private static unsafe long GetFp()
+    {
+        long register = MagicNumber;
+        return *(long*)((byte*)&register - offsetFromFp);
     }
 
     private static int HashCombineInt(int seed, int value) =>
