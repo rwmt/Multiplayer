@@ -20,6 +20,8 @@ public class StandalonePersistenceTest
     [TearDown]
     public void TearDown()
     {
+        MultiplayerServer.instance = null;
+
         if (Directory.Exists(tempDir))
             Directory.Delete(tempDir, true);
     }
