@@ -28,7 +28,7 @@ namespace Multiplayer.Client
             if (!Multiplayer.InInterface)
             {
                 Log.WarningOnce(
-                    "Multiplayer: blocked DesignateSingleCell because InInterface=false " +
+                    "Multiplayer: skipped sync interception for DesignateSingleCell because InInterface=false " +
                     $"designator={__instance.GetType().Name}, reloading={Multiplayer.reloading}, ticking={Multiplayer.Ticking}, " +
                     $"executingCmds={Multiplayer.ExecutingCmds}, simulating={TickPatch.Simulating}, frozen={TickPatch.Frozen}, " +
                     $"hasCurrentEvent={LongEventHandler.currentEvent != null}, programState={Current.ProgramState}",
@@ -56,7 +56,7 @@ namespace Multiplayer.Client
             if (!Multiplayer.InInterface)
             {
                 Log.WarningOnce(
-                    "Multiplayer: blocked DesignateMultiCell because InInterface=false " +
+                    "Multiplayer: skipped sync interception for DesignateMultiCell because InInterface=false " +
                     $"designator={__instance.GetType().Name}, reloading={Multiplayer.reloading}, ticking={Multiplayer.Ticking}, " +
                     $"executingCmds={Multiplayer.ExecutingCmds}, simulating={TickPatch.Simulating}, frozen={TickPatch.Frozen}, " +
                     $"hasCurrentEvent={LongEventHandler.currentEvent != null}, programState={Current.ProgramState}",
@@ -91,7 +91,7 @@ namespace Multiplayer.Client
             if (!Multiplayer.InInterface)
             {
                 Log.WarningOnce(
-                    "Multiplayer: blocked DesignateThing because InInterface=false " +
+                    "Multiplayer: skipped sync interception for DesignateThing because InInterface=false " +
                     $"designator={__instance.GetType().Name}, thing={__0}, reloading={Multiplayer.reloading}, ticking={Multiplayer.Ticking}, " +
                     $"executingCmds={Multiplayer.ExecutingCmds}, simulating={TickPatch.Simulating}, frozen={TickPatch.Frozen}, " +
                     $"hasCurrentEvent={LongEventHandler.currentEvent != null}, programState={Current.ProgramState}",
