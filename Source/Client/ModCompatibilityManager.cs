@@ -82,6 +82,7 @@ namespace Multiplayer.Client
         {
             var client = new RestClient("https://bot.rimworldmultiplayer.com/");
             client.AddDefaultHeader("X-Multiplayer-Version", MpVersion.Version);
+            string? requestId = null;
             try
             {
                 var cached = await TryLoadCachedDb();
@@ -108,6 +109,8 @@ namespace Multiplayer.Client
 
                 var stopwatch = Stopwatch.StartNew();
                 var resp = client.Get(req);
+                requestId = GetHeaderValue(resp, "X-Request-Id");
+
                 if (resp.ErrorException != null) throw resp.ErrorException;
                 List<ModCompatibility>? modCompatibilities;
                 if (resp.StatusCode == HttpStatusCode.NotModified)
@@ -125,14 +128,11 @@ namespace Multiplayer.Client
                     }
 
                     modCompatibilities = SimpleJson.DeserializeObject<List<ModCompatibility>>(resp.Content);
+
                     var cacheRoot = new CacheRoot
                     {
-                        CachedDate = resp.Headers
-                            .FirstOrDefault(header => header.Name.EqualsIgnoreCase("Last-Modified"))
-                            ?.Value?.ToString(),
-                        CachedETag = resp.Headers
-                            .FirstOrDefault(header => header.Name.EqualsIgnoreCase("ETag"))
-                            ?.Value?.ToString(),
+                        CachedDate = GetHeaderValue(resp, "Last-Modified"),
+                        CachedETag = GetHeaderValue(resp, "ETag"),
                         Mods = modCompatibilities
                     };
                     _ = Task.Run(async () => await TrySaveCachedDb(cacheRoot));
@@ -145,10 +145,13 @@ namespace Multiplayer.Client
             }
             catch (Exception e)
             {
-                Log.Warning($"MP: updating mod compatibility list failed:\n{e}");
+                Log.Warning($"MP: updating mod compatibility list failed (requestId: {requestId ?? "<none>"}):\n{e}");
                 fetchSuccess = false;
             }
         }
+
+        private static string? GetHeaderValue(IRestResponse resp, string headerName) => resp.Headers
+            .FirstOrDefault(header => header.Name.EqualsIgnoreCase(headerName))?.Value?.ToString();
 
         private static void SetupFrom(List<ModCompatibility> mods)
         {
