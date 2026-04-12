@@ -15,7 +15,9 @@ public static class Autosaving
     {
         LongEventHandler.QueueLongEvent(() =>
         {
-            if (!SaveGameToFile_Overwrite(GetNextAutosaveFileName(), false))
+            var snapshot = SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveGameData(), false);
+
+            if (!SaveGameToFile_Overwrite(GetNextAutosaveFileName(), snapshot))
                 return;
 
             Multiplayer.Client.Send(new ClientAutosavingPacket(JoinPointRequestReason.Save));
@@ -23,7 +25,6 @@ public static class Autosaving
             // When connected to a standalone server, also upload fresh snapshots
             if (Multiplayer.session?.ConnectedToStandaloneServer == true)
             {
-                var snapshot = SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveGameData(), false);
                 SaveLoad.SendStandaloneMapSnapshots(snapshot);
                 SaveLoad.SendStandaloneWorldSnapshot(snapshot);
             }
@@ -45,6 +46,10 @@ public static class Autosaving
     }
 
     public static bool SaveGameToFile_Overwrite(string fileNameNoExtension, bool currentReplay)
+        => SaveGameToFile_Overwrite(fileNameNoExtension,
+            currentReplay ? Multiplayer.session.dataSnapshot : null);
+
+    public static bool SaveGameToFile_Overwrite(string fileNameNoExtension, GameDataSnapshot snapshot)
     {
         Log.Message($"Multiplayer: saving to file {fileNameNoExtension}");
 
@@ -55,16 +60,14 @@ public static class Autosaving
                 File.Delete(tmpPath);
 
             Replay.ForSaving(new FileInfo(tmpPath)).WriteData(
-                currentReplay ?
-                    Multiplayer.session.dataSnapshot :
-                    SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveGameData(), false)
+                snapshot ?? SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveGameData(), false)
             );
 
             var dstPath = Path.Combine(Multiplayer.ReplaysDir, $"{fileNameNoExtension}.zip");
             if (File.Exists(dstPath))
-                File.Delete(dstPath);
-
-            File.Move(tmpPath, dstPath);
+                File.Replace(tmpPath, dstPath, destinationBackupFileName: null);
+            else
+                File.Move(tmpPath, dstPath);
 
             Messages.Message("MpGameSaved".Translate(fileNameNoExtension), MessageTypeDefOf.SilentInput, false);
             Multiplayer.session.lastSaveAt = Time.realtimeSinceStartup;
