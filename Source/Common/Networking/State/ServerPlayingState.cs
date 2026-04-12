@@ -222,7 +222,7 @@ namespace Multiplayer.Common
             // On hosted, only the host can trigger and only if the Autosave flag is set
             if (Server.IsStandaloneServer ||
                 (Player.IsHost && Server.settings.autoJoinPoint.HasFlag(AutoJoinPointFlags.Autosave)))
-                Server.worldData.TryStartJoinPointCreation(forceJoinPoint);
+                Server.worldData.TryStartJoinPointCreation(forceJoinPoint, sourcePlayer: Player);
         }
 
         [TypedPacketHandler]

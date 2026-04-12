@@ -33,7 +33,7 @@ public class ServerJoiningState : AsyncConnectionState
         // For the normal first join, serve the persisted state immediately instead of blocking on WaitJoinPoint.
         if ((Server.IsStandaloneServer && Server.PlayingPlayers.Any()) ||
             (!Server.IsStandaloneServer && Server.settings.autoJoinPoint.HasFlag(AutoJoinPointFlags.Join)))
-            Server.worldData.TryStartJoinPointCreation();
+            Server.worldData.TryStartJoinPointCreation(sourcePlayer: Player);
 
         Server.playerManager.OnJoin(Player);
         Server.playerManager.SendInitDataCommand(Player);

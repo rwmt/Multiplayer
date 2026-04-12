@@ -35,7 +35,7 @@ public class WorldData
 
     private int CurrentJoinPointTick => Server.IsStandaloneServer ? Server.gameTimer : Server.workTicks;
 
-    public bool TryStartJoinPointCreation(bool force = false)
+    public bool TryStartJoinPointCreation(bool force = false, ServerPlayer? sourcePlayer = null)
     {
         int currentTick = CurrentJoinPointTick;
 
@@ -54,7 +54,8 @@ public class WorldData
         ServerLog.Detail($"Join point started at tick={currentTick}, force={force}, standalone={Server.IsStandaloneServer}");
         Server.SendChat("Creating a join point...");
 
-        Server.commands.Send(CommandType.CreateJoinPoint, ScheduledCommand.NoFaction, ScheduledCommand.Global, Array.Empty<byte>());
+        Server.commands.Send(CommandType.CreateJoinPoint, ScheduledCommand.NoFaction, ScheduledCommand.Global, Array.Empty<byte>(),
+            sourcePlayer: Server.IsStandaloneServer ? sourcePlayer : null);
         tmpMapCmds = new Dictionary<int, List<byte[]>>();
         dataSource = new TaskCompletionSource<WorldData>();
 
