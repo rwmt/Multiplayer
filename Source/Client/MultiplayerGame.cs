@@ -128,9 +128,6 @@ namespace Multiplayer.Client
         public void ChangeRealPlayerFaction(Faction newFaction, bool regenMapDrawers = true)
         {
             myFaction = newFaction;
-            if (Find.FactionManager != null)
-                Find.FactionManager.ofPlayer = newFaction;
-
             FactionContext.Set(newFaction);
             worldComp.SetFaction(newFaction);
 

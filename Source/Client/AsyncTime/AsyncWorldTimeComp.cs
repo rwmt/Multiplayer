@@ -279,13 +279,19 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         Multiplayer.session.dataSnapshot = SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveAndReload(), Multiplayer.GameComp.multifaction);
 
         if (!TickPatch.Simulating && !Multiplayer.IsReplay)
-            SaveLoad.SendGameData(Multiplayer.session.dataSnapshot, true);
-
-        // When connected to a standalone server, upload fresh snapshots
-        if (!TickPatch.Simulating && !Multiplayer.IsReplay && Multiplayer.session?.ConnectedToStandaloneServer == true)
         {
-            SaveLoad.SendStandaloneMapSnapshots(Multiplayer.session.dataSnapshot);
-            SaveLoad.SendStandaloneWorldSnapshot(Multiplayer.session.dataSnapshot);
+            if (Multiplayer.session?.ConnectedToStandaloneServer == true)
+            {
+                // Standalone: every client uploads world data + individual snapshots
+                SaveLoad.SendGameData(Multiplayer.session.dataSnapshot, true);
+                SaveLoad.SendStandaloneMapSnapshots(Multiplayer.session.dataSnapshot);
+                SaveLoad.SendStandaloneWorldSnapshot(Multiplayer.session.dataSnapshot);
+            }
+            else if (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance)
+            {
+                // Hosted: only host/arbiter uploads world data
+                SaveLoad.SendGameData(Multiplayer.session.dataSnapshot, true);
+            }
         }
     }
 
