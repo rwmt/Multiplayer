@@ -67,7 +67,7 @@ public class StandalonePersistence
             var parts = entry.FullName.Replace("maps/", "").Split('_');
             if (parts.Length < 3) continue;
 
-            int mapId = int.Parse(parts[1]);
+            if (!int.TryParse(parts[1], out int mapId)) continue;
 
             if (entry.FullName.EndsWith("_save"))
                 AtomicWrite(Path.Combine(MapsDir, $"{mapId}.dat"), Compress(ReadEntry(entry)));
@@ -238,17 +238,17 @@ public class StandalonePersistence
     }
 
     /// <summary>
-    /// Atomic write: write to .tmp, then rename over the target.
+    /// Atomic write: write to .tmp, then replace/rename over the target.
     /// </summary>
     private static void AtomicWrite(string targetPath, byte[] data)
     {
         var tmpPath = targetPath + ".tmp";
         File.WriteAllBytes(tmpPath, data);
 
-        // File.Move with overwrite is .NET 5+; Common targets .NET Framework 4.8
         if (File.Exists(targetPath))
-            File.Delete(targetPath);
-        File.Move(tmpPath, targetPath);
+            File.Replace(tmpPath, targetPath, destinationBackupFileName: null);
+        else
+            File.Move(tmpPath, targetPath);
     }
 
     private static byte[] ReadEntry(ZipArchiveEntry entry)
