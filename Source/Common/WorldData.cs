@@ -170,18 +170,20 @@ public class WorldData
 
 public struct StandaloneWorldSnapshotState
 {
+    public StandaloneWorldSnapshotState() { }
     public int tick;
     public int leaseVersion;
     public int producerPlayerId;
-    public string producerUsername;
-    public byte[] sha256Hash;
+    public string producerUsername = "";
+    public byte[] sha256Hash = Array.Empty<byte>();
 }
 
 public struct StandaloneMapSnapshotState
 {
+    public StandaloneMapSnapshotState() { }
     public int tick;
     public int leaseVersion;
     public int producerPlayerId;
-    public string producerUsername;
-    public byte[] sha256Hash;
+    public string producerUsername = "";
+    public byte[] sha256Hash = Array.Empty<byte>();
 }
