@@ -53,7 +53,7 @@ public class ChatCmdJoinPoint : ChatCmdHandler
 
     public override void Handle(IChatSource source, string[] args)
     {
-        if (!Server.worldData.TryStartJoinPointCreation(true))
+        if (!Server.worldData.TryStartJoinPointCreation(true, sourcePlayer: source as ServerPlayer))
             source.SendMsg("Join point creation already in progress.");
     }
 }

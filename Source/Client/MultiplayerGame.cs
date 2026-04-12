@@ -127,8 +127,6 @@ namespace Multiplayer.Client
 
         public void ChangeRealPlayerFaction(Faction newFaction, bool regenMapDrawers = true)
         {
-            Log.Message($"Changing real player faction to {newFaction} from {myFaction}");
-
             myFaction = newFaction;
             FactionContext.Set(newFaction);
             worldComp.SetFaction(newFaction);

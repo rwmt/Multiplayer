@@ -48,6 +48,8 @@ public partial class BootstrapConfiguratorWindow
         else if (tab == Tab.Preview)
             DrawPreviewTab(contentRect, inRect.height);
 
+        settings.EnforceStandaloneRequirements(isStandaloneServer: true);
+
         settingsUiBuffers.MaxPlayersBuffer = buffers.MaxPlayersBuffer;
         settingsUiBuffers.AutosaveBuffer = buffers.AutosaveBuffer;
 
@@ -143,6 +145,7 @@ public partial class BootstrapConfiguratorWindow
         {
             try
             {
+                settings.EnforceStandaloneRequirements(isStandaloneServer: true);
                 connection.Send(new ClientBootstrapSettingsPacket(settings));
 
                 OnMainThread.Enqueue(() =>

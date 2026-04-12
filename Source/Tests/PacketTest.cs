@@ -170,8 +170,8 @@ public class PacketTest
 
         yield return new ClientProtocolPacket(50);
 
-        yield return new ServerProtocolOkPacket(true);
-        yield return new ServerProtocolOkPacket(false);
+        yield return new ServerProtocolOkPacket(true, true) { autosaveInterval = 5f, autosaveUnit = AutosaveUnit.Minutes };
+        yield return new ServerProtocolOkPacket(false, false);
 
         yield return new ClientUsernamePacket("username");
         yield return new ClientUsernamePacket("username", "password");
