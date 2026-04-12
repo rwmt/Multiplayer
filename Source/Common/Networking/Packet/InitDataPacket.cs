@@ -14,7 +14,10 @@ public record struct ServerInitDataRequestPacket(bool includeConfigs) : IPacket
 [PacketDefinition(Packets.Client_InitData, allowFragmented: true)]
 public record struct ClientInitDataPacket : IPacket
 {
-    private const int MaxRawDataLength = ConnectionBase.MaxFragmentPacketTotalSize;
+    // 1 MB limit — large mod lists can exceed the default 32 KB BindRemaining limit,
+    // but 32 MiB (MaxFragmentPacketTotalSize) is excessive.
+    // Subtract 6 bytes for SendFragmented's first-fragment overhead.
+    private const int MaxRawDataLength = (1 << 20) - 6;
 
     public string rwVersion;
     public int[] debugOnlySyncCmds;
