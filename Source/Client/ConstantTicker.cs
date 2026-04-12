@@ -47,19 +47,36 @@ namespace Multiplayer.Client
 
         private static void TickAutosave()
         {
-            // Only standalone connections use the synthetic autosave timer.
+            // When connected to a remote standalone server, the client drives
+            // the autosave timer using the interval received at connection time
+            // (from the server's TOML settings via ServerProtocolOkPacket).
             if (Multiplayer.session?.ConnectedToStandaloneServer == true)
             {
                 var session = Multiplayer.session;
-                if (session.autosaveUnit != AutosaveUnit.Minutes || session.autosaveInterval <= 0)
+                if (session.autosaveInterval <= 0)
                     return;
 
-                session.autosaveCounter++;
-
-                if (session.autosaveCounter > session.autosaveInterval * TicksPerMinute)
+                if (session.autosaveUnit == AutosaveUnit.Minutes)
                 {
-                    session.autosaveCounter = 0;
-                    Autosaving.DoAutosave();
+                    session.autosaveCounter++;
+
+                    if (session.autosaveCounter > session.autosaveInterval * TicksPerMinute)
+                    {
+                        session.autosaveCounter = 0;
+                        Autosaving.DoAutosave();
+                    }
+                }
+                else if (session.autosaveUnit == AutosaveUnit.Days)
+                {
+                    var anyMapCounterUp =
+                        Multiplayer.game.mapComps
+                        .Any(m => m.autosaveCounter > session.autosaveInterval * TicksPerIngameDay);
+
+                    if (anyMapCounterUp)
+                    {
+                        Multiplayer.game.mapComps.Do(m => m.autosaveCounter = 0);
+                        Autosaving.DoAutosave();
+                    }
                 }
                 return;
             }
