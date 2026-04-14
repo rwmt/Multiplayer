@@ -144,8 +144,9 @@ namespace Multiplayer.Client.Patches
                         VTRSync.SendViewedMapUpdate(VTRSync.lastMovedToMapId, VTRSync.WorldMapId);
                     }
 
-                    // On standalone, trigger a join point when leaving a map
-                    if (Multiplayer.session?.ConnectedToStandaloneServer == true)
+                    // On standalone with streaming, trigger a join point when leaving a map
+                    // so each player can save independently without disturbing others
+                    if (Multiplayer.session?.ConnectedToStandaloneServer == true && Multiplayer.GameComp.multifaction && Multiplayer.GameComp.asyncTime)
                         Multiplayer.Client.Send(new ClientAutosavingPacket(JoinPointRequestReason.WorldTravel));
                 }
                 // Detect transition back to tile map
