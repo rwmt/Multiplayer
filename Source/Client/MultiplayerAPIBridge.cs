@@ -5,6 +5,7 @@ using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Client;
 using Verse;
+using Multiplayer.Client.Factions;
 using Multiplayer.Client.Patches;
 using RimWorld;
 
@@ -198,6 +199,44 @@ namespace Multiplayer.Common
         public void SetThingFilterContext(ThingFilterContext context)
         {
             ThingFilterMarkers.DrawnThingFilter = context;
+        }
+
+        public bool IsMultifaction => Client.Multiplayer.GameComp.multifaction;
+
+        public Faction SpectatorFaction => Client.Multiplayer.WorldComp.spectatorFaction;
+
+        public void PushFaction(Map map, Faction faction) => FactionExtensions.PushFaction(map, faction);
+
+        public void PopFaction(Map map = null) => FactionExtensions.PopFaction(map);
+
+        public void RepeatForWorldFactions(Action action)
+        {
+            if (Client.Multiplayer.game == null) return;
+            var worldComp = Client.Multiplayer.game.worldComp;
+            var spectatorId = worldComp.spectatorFaction.loadID;
+            foreach (var id in worldComp.factionData.Keys)
+            {
+                if (id == spectatorId) continue;
+                FactionExtensions.PushFaction(null, id);
+                try { action(); }
+                catch (Exception e) { Log.Error($"[MultiplayerAPIBridge] Exception in RepeatForWorldFactions for faction {id}: {e}"); }
+                finally { FactionExtensions.PopFaction(null); }
+            }
+        }
+
+        public void RepeatForMapFactions(Map map, Action action)
+        {
+            if (map == null) throw new ArgumentNullException(nameof(map));
+            if (Client.Multiplayer.game == null) return;
+            var spectatorId = Client.Multiplayer.game.worldComp.spectatorFaction.loadID;
+            foreach (var id in map.MpComp().factionData.Keys)
+            {
+                if (id == spectatorId) continue;
+                FactionExtensions.PushFaction(map, id);
+                try { action(); }
+                catch (Exception e) { Log.Error($"[MultiplayerAPIBridge] Exception in RepeatForMapFactions for faction {id}: {e}"); }
+                finally { FactionExtensions.PopFaction(map); }
+            }
         }
     }
 }
