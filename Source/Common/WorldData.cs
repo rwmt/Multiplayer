@@ -164,8 +164,8 @@ public class WorldData
             hasher.TransformBlock(payload, 0, payload.Length, null, 0);
         }
 
-        hasher.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
-        return hasher.Hash ?? Array.Empty<byte>();
+        hasher.TransformFinalBlock([], 0, 0);
+        return hasher.Hash;
     }
 }
 
