@@ -263,7 +263,6 @@ namespace Multiplayer.Client
                 {
                     mapId = mapId,
                     tick = tick,
-                    leaseVersion = 0, // First iteration: no lease negotiation
                     mapData = compressed,
                     sha256Hash = hash,
                 };
@@ -290,7 +289,6 @@ namespace Multiplayer.Client
             var packet = new ClientStandaloneWorldSnapshotPacket
             {
                 tick = tick,
-                leaseVersion = 0,
                 worldData = worldCompressed,
                 sessionData = sessionCompressed,
                 sha256Hash = hash,

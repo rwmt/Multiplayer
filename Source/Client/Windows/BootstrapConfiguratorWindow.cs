@@ -72,7 +72,7 @@ public partial class BootstrapConfiguratorWindow : Window
             settings.directAddress = $"0.0.0.0:{MultiplayerServer.DefaultPort}";
         settings.steam = false;
         settings.arbiter = false;
-        settings.EnforceStandaloneRequirements(isStandaloneServer: true);
+            settings.EnforceStandaloneRequirements();
 
         settingsUiBuffers.MaxPlayersBuffer = settings.maxPlayers.ToString();
         settingsUiBuffers.AutosaveBuffer = settings.autosaveInterval.ToString();

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
 
@@ -51,11 +52,24 @@ public class WorldData
             return false;
         }
 
+        var issuingPlayer = sourcePlayer;
+        if (Server.IsStandaloneServer && issuingPlayer == null)
+        {
+            issuingPlayer = Server.PlayingPlayers.FirstOrDefault(player => player.IsHost)
+                ?? Server.PlayingPlayers.FirstOrDefault();
+
+            if (issuingPlayer == null)
+            {
+                ServerLog.Detail("Join point skipped: no playing player available for standalone creation");
+                return false;
+            }
+        }
+
         ServerLog.Detail($"Join point started at tick={currentTick}, force={force}, standalone={Server.IsStandaloneServer}");
         Server.SendChat("Creating a join point...");
 
         Server.commands.Send(CommandType.CreateJoinPoint, ScheduledCommand.NoFaction, ScheduledCommand.Global, Array.Empty<byte>(),
-            sourcePlayer: Server.IsStandaloneServer ? sourcePlayer : null);
+            sourcePlayer: Server.IsStandaloneServer ? issuingPlayer : null);
         tmpMapCmds = new Dictionary<int, List<byte[]>>();
         dataSource = new TaskCompletionSource<WorldData>();
 
@@ -101,7 +115,7 @@ public class WorldData
         return dataSource?.Task ?? Task.FromResult(this);
     }
 
-    public bool TryAcceptStandaloneWorldSnapshot(ServerPlayer player, int tick, int leaseVersion, byte[] worldSnapshot,
+    public bool TryAcceptStandaloneWorldSnapshot(ServerPlayer player, int tick, byte[] worldSnapshot,
         byte[] sessionSnapshot, byte[] expectedHash)
     {
         if (tick < standaloneWorldSnapshot.tick)
@@ -116,7 +130,6 @@ public class WorldData
         standaloneWorldSnapshot = new StandaloneWorldSnapshotState
         {
             tick = tick,
-            leaseVersion = leaseVersion,
             producerPlayerId = player.id,
             producerUsername = player.Username,
             sha256Hash = actualHash
@@ -128,7 +141,7 @@ public class WorldData
         return true;
     }
 
-    public bool TryAcceptStandaloneMapSnapshot(ServerPlayer player, int mapId, int tick, int leaseVersion,
+    public bool TryAcceptStandaloneMapSnapshot(ServerPlayer player, int mapId, int tick,
         byte[] mapSnapshot, byte[] expectedHash)
     {
         if (mapId < 0)
@@ -144,7 +157,6 @@ public class WorldData
 
         mapData[mapId] = mapSnapshot;
         snapshotState.tick = tick;
-        snapshotState.leaseVersion = leaseVersion;
         snapshotState.producerPlayerId = player.id;
         snapshotState.producerUsername = player.Username;
         snapshotState.sha256Hash = actualHash;
@@ -173,7 +185,6 @@ public struct StandaloneWorldSnapshotState
 {
     public StandaloneWorldSnapshotState() { }
     public int tick;
-    public int leaseVersion;
     public int producerPlayerId;
     public string producerUsername = "";
     public byte[] sha256Hash = Array.Empty<byte>();
@@ -183,7 +194,6 @@ public struct StandaloneMapSnapshotState
 {
     public StandaloneMapSnapshotState() { }
     public int tick;
-    public int leaseVersion;
     public int producerPlayerId;
     public string producerUsername = "";
     public byte[] sha256Hash = Array.Empty<byte>();
