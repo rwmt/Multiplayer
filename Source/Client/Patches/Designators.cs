@@ -25,16 +25,7 @@ namespace Multiplayer.Client
     {
         public static bool DesignateSingleCell(Designator __instance, IntVec3 __0)
         {
-            if (!Multiplayer.InInterface)
-            {
-                Log.WarningOnce(
-                    "Multiplayer: skipped sync interception for DesignateSingleCell because InInterface=false " +
-                    $"designator={__instance.GetType().Name}, reloading={Multiplayer.reloading}, ticking={Multiplayer.Ticking}, " +
-                    $"executingCmds={Multiplayer.ExecutingCmds}, simulating={TickPatch.Simulating}, frozen={TickPatch.Frozen}, " +
-                    $"hasCurrentEvent={LongEventHandler.currentEvent != null}, programState={Current.ProgramState}",
-                    18000101);
-                return true;
-            }
+            if (!Multiplayer.InInterface) return true;
 
             Designator designator = __instance;
 
@@ -53,16 +44,7 @@ namespace Multiplayer.Client
 
         public static bool DesignateMultiCell(Designator __instance, IEnumerable<IntVec3> __0)
         {
-            if (!Multiplayer.InInterface)
-            {
-                Log.WarningOnce(
-                    "Multiplayer: skipped sync interception for DesignateMultiCell because InInterface=false " +
-                    $"designator={__instance.GetType().Name}, reloading={Multiplayer.reloading}, ticking={Multiplayer.Ticking}, " +
-                    $"executingCmds={Multiplayer.ExecutingCmds}, simulating={TickPatch.Simulating}, frozen={TickPatch.Frozen}, " +
-                    $"hasCurrentEvent={LongEventHandler.currentEvent != null}, programState={Current.ProgramState}",
-                    18000102);
-                return true;
-            }
+            if (!Multiplayer.InInterface) return true;
 
             // No cells implies Finalize(false), which currently doesn't cause side effects
             if (!__0.Any()) return true;
@@ -88,16 +70,7 @@ namespace Multiplayer.Client
 
         public static bool DesignateThing(Designator __instance, Thing __0)
         {
-            if (!Multiplayer.InInterface)
-            {
-                Log.WarningOnce(
-                    "Multiplayer: skipped sync interception for DesignateThing because InInterface=false " +
-                    $"designator={__instance.GetType().Name}, thing={__0}, reloading={Multiplayer.reloading}, ticking={Multiplayer.Ticking}, " +
-                    $"executingCmds={Multiplayer.ExecutingCmds}, simulating={TickPatch.Simulating}, frozen={TickPatch.Frozen}, " +
-                    $"hasCurrentEvent={LongEventHandler.currentEvent != null}, programState={Current.ProgramState}",
-                    18000103);
-                return true;
-            }
+            if (!Multiplayer.InInterface) return true;
 
             Designator designator = __instance;
 

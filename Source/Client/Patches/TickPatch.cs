@@ -171,17 +171,9 @@ namespace Multiplayer.Client
 
             foreach (ITickable tickable in AllTickables)
             {
-                while (tickable.Cmds.Count > 0 && tickable.Cmds.Peek().ticks <= curTimer)
+                while (tickable.Cmds.Count > 0 && tickable.Cmds.Peek().ticks == curTimer)
                 {
                     ScheduledCommand cmd = tickable.Cmds.Dequeue();
-
-                    if (cmd.ticks < curTimer && Prefs.DevMode)
-                    {
-                        Log.Warning(
-                            "Multiplayer: executing stale queued command after reconnect/latency " +
-                            $"type={cmd.type}, mapId={cmd.mapId}, cmdTicks={cmd.ticks}, timer={curTimer}, " +
-                            $"factionId={cmd.factionId}, playerId={cmd.playerId}");
-                    }
 
                     // Minimal code impact fix for #733. Having all the commands be added to a single queue gets rid of
                     // the out-of-order execution problem. With a proper fix, this can be reverted to tickable.ExecuteCmd

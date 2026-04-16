@@ -248,7 +248,7 @@ namespace Multiplayer.Client.Patches
             }
 
             // Not in a landing session, use vanilla logic for player control
-            __result = true;
+            __result = Current.Game.PlayerHasControl;
             return false;
         }
 
