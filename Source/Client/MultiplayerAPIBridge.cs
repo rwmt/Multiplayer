@@ -211,32 +211,15 @@ namespace Multiplayer.Common
 
         public void RepeatForWorldFactions(Action action)
         {
-            if (Client.Multiplayer.game == null) return;
-            var worldComp = Client.Multiplayer.game.worldComp;
-            var spectatorId = worldComp.spectatorFaction.loadID;
-            foreach (var id in worldComp.factionData.Keys)
-            {
-                if (id == spectatorId) continue;
-                FactionExtensions.PushFaction(null, id);
-                try { action(); }
-                catch (Exception e) { Log.Error($"[MultiplayerAPIBridge] Exception in RepeatForWorldFactions for faction {id}: {e}"); }
-                finally { FactionExtensions.PopFaction(null); }
-            }
+            bool ignore = false;
+            FactionRepeater.Template(Client.Multiplayer.game?.worldComp.factionData, _ => action(), null, ref ignore);
         }
 
         public void RepeatForMapFactions(Map map, Action action)
         {
             if (map == null) throw new ArgumentNullException(nameof(map));
-            if (Client.Multiplayer.game == null) return;
-            var spectatorId = Client.Multiplayer.game.worldComp.spectatorFaction.loadID;
-            foreach (var id in map.MpComp().factionData.Keys)
-            {
-                if (id == spectatorId) continue;
-                FactionExtensions.PushFaction(map, id);
-                try { action(); }
-                catch (Exception e) { Log.Error($"[MultiplayerAPIBridge] Exception in RepeatForMapFactions for faction {id}: {e}"); }
-                finally { FactionExtensions.PopFaction(map); }
-            }
+            bool ignore = false;
+            FactionRepeater.Template(map.MpComp()?.factionData, _ => action(), map, ref ignore);
         }
     }
 }
