@@ -1,7 +1,5 @@
 #!/bin/bash
 
-
-
 VERSION=$(grep -Po '(?<=SimpleVersion = ")[0-9\.]+' Source/Common/Version.cs)
 
 git submodule update --init --recursive || { echo 'git submodule update FAILED' ; exit 1; }
@@ -30,10 +28,16 @@ cat <<EOF > LoadFolders.xml
 </loadFolders>
 EOF
 
-
+GIT_COMMIT=$(git rev-parse --short HEAD 2>&1)
+GIT_COMMIT_STATUS=$?
+if [ $GIT_COMMIT_STATUS -eq 0 ]; then
+  FULL_VERSION="${VERSION} (${GIT_COMMIT})"
+else
+  FULL_VERSION="${VERSION}"
+  echo "WARN: Failed to check git commit: ${GIT_COMMIT}"
+fi
 sed -i "/<supportedVersions>/ a \ \ \ \ <li>1.5</li>" About/About.xml
-sed -i "/Multiplayer mod for RimWorld./aThis is version ${VERSION}." About/About.xml
-sed -i "s/<version>.*<\/version>\$/<version>${VERSION}<\/version>/" About/Manifest.xml
+sed -i "s/<modVersion>.*<\/modVersion>.*\$/<modVersion>${FULL_VERSION}<\/modVersion>/" About/About.xml
 
 # The current version
 mkdir -p 1.6
