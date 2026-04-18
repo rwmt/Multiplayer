@@ -7,6 +7,7 @@
   </supportedVersions>
   <author>RimWorld Multiplayer Team</author>
   <url>https://github.com/rwmt/Multiplayer</url>
+  <modVersion></modVersion> <!-- filled out by workshop_bundler.sh -->
   <description>&lt;b&gt;Important: This mod should be placed right below Core and expansions in the mod list to work properly!
 Requires RimWorld >= 1.6.4491&lt;/b&gt;\n
 Multiplayer mod for RimWorld.
