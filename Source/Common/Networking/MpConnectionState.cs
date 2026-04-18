@@ -3,7 +3,6 @@ using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
 using Multiplayer.Common.Networking.Packet;
-using Verse;
 
 namespace Multiplayer.Common
 {

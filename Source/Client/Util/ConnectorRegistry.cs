@@ -12,7 +12,7 @@ public interface IConnector
 {
     /// Does include the connector's prefix.
     public string GetConnectionString();
-    public (ConnectionBase, BaseConnectingWindow) Connect();
+    public (ConnectionBase, BaseConnectingWindow) Connect(string username);
 }
 
 /// Utility class for creating connectors and parsing them from a string based on their unique prefix.
@@ -61,8 +61,8 @@ public class SteamConnector(CSteamID remoteId) : IConnector
 
     public string GetConnectionString() => $"{Prefix}:{remoteId}";
 
-    public (ConnectionBase, BaseConnectingWindow) Connect() =>
-        (new SteamClientConn(remoteId), new SteamConnectingWindow(remoteId));
+    public (ConnectionBase, BaseConnectingWindow) Connect(string username) =>
+        (new SteamClientConn(remoteId, username), new SteamConnectingWindow(remoteId));
 }
 
 public class LiteNetConnector(string address, int port) : IConnector
@@ -97,6 +97,6 @@ public class LiteNetConnector(string address, int port) : IConnector
 
     public string GetConnectionString() => $"{Prefix}:{address}:{port}";
 
-    public (ConnectionBase, BaseConnectingWindow) Connect() =>
-        (ClientLiteNetConnection.Connect(address, port), new ConnectingWindow(address, port));
+    public (ConnectionBase, BaseConnectingWindow) Connect(string username) =>
+        (ClientLiteNetConnection.Connect(address, port, username), new ConnectingWindow(address, port));
 }

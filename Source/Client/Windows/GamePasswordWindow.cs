@@ -6,9 +6,11 @@ namespace Multiplayer.Client;
 public class GamePasswordWindow : AbstractTextInputWindow
 {
     public bool returnToServerBrowser;
+    private readonly string username;
 
-    public GamePasswordWindow()
+    public GamePasswordWindow(string username)
     {
+        this.username = username;
         title = "MpGamePassword".Translate();
         doCloseX = false;
         closeOnCancel = false;
@@ -20,7 +22,7 @@ public class GamePasswordWindow : AbstractTextInputWindow
 
     public override bool Accept()
     {
-        Multiplayer.Client.Send(new ClientUsernamePacket(Multiplayer.username, curText));
+        Multiplayer.Client.Send(new ClientUsernamePacket(username, curText));
         Close(false);
         return true;
     }

@@ -6,6 +6,7 @@ namespace Multiplayer.Common
 {
     public abstract class ConnectionBase
     {
+        /// Available ONLY server-side. Always null client-side.
         public string? username;
         public ServerPlayer? serverPlayer;
 

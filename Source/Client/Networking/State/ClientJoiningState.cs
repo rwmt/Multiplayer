@@ -9,14 +9,9 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-
     [PacketHandlerClass(inheritHandlers: false)]
-    public class ClientJoiningState : ClientBaseState
+    public class ClientJoiningState(ConnectionBase connection, string username) : ClientBaseState(connection)
     {
-        public ClientJoiningState(ConnectionBase connection) : base(connection)
-        {
-        }
-
         [TypedPacketHandler]
         public new void HandleDisconnected(ServerDisconnectPacket packet) => base.HandleDisconnected(packet);
 
@@ -38,14 +33,14 @@ namespace Multiplayer.Client
             if (packet.hasPassword)
             {
                 // Delay showing the window for better UX
-                OnMainThread.Schedule(() => Find.WindowStack.Add(new GamePasswordWindow
+                OnMainThread.Schedule(() => Find.WindowStack.Add(new GamePasswordWindow(username)
                 {
                     returnToServerBrowser = Find.WindowStack.WindowOfType<BaseConnectingWindow>().returnToServerBrowser
                 }), 0.3f);
             }
             else
             {
-                connection.Send(new ClientUsernamePacket(Multiplayer.username));
+                connection.Send(new ClientUsernamePacket(username));
             }
         }
 
@@ -68,8 +63,9 @@ namespace Multiplayer.Client
             {
                 modCtorRoundMode = MultiplayerData.modCtorRoundMode,
                 staticCtorRoundMode = MultiplayerData.staticCtorRoundMode,
-                defInfos = MultiplayerData.localDefInfos.Select(kv => new KeyedDefInfo
-                    { name = kv.Key, count = kv.Value.count, hash = kv.Value.hash }).ToArray()
+                defInfos = MultiplayerData.localDefInfos
+                    .Select(kv => new KeyedDefInfo { name = kv.Key, count = kv.Value.count, hash = kv.Value.hash })
+                    .ToArray()
             }.Serialize());
 
         [TypedPacketHandler]
