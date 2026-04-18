@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Xml;
 using HarmonyLib;
@@ -10,11 +11,17 @@ namespace Multiplayer.Client.Saving;
 
 public static class Loader
 {
-    public static void ReloadGame(List<int> mapsToLoad, bool changeScene, bool forceAsyncTime)
+    public static void ReloadGame(List<int> mapsToLoad, bool changeScene, bool forceAsyncTime) => ReloadGame(mapsToLoad,
+        changeScene, () =>
+        {
+            if (forceAsyncTime) Multiplayer.game.gameComp.asyncTime = true;
+        });
+
+    public static void ReloadGame(List<int> mapsToLoad, bool changeScene, Action customPostLoadAction)
     {
         var gameDoc = DataSnapshotToXml(Multiplayer.session.dataSnapshot, mapsToLoad);
 
-        LoadPatch.gameToLoad = new(gameDoc, Multiplayer.session.dataSnapshot.SessionData);
+        LoadPatch.gameToLoad = new TempGameData(gameDoc, Multiplayer.session.dataSnapshot.SessionData);
         TickPatch.replayTimeSpeed = TimeSpeed.Paused;
 
         if (changeScene)
@@ -32,7 +39,11 @@ public static class Loader
 
                 LongEventHandler.ExecuteWhenFinished(() =>
                 {
-                    LongEventHandler.QueueLongEvent(() => PostLoad(forceAsyncTime), "MpSimulating", false, null);
+                    LongEventHandler.QueueLongEvent(() =>
+                    {
+                        PostLoad();
+                        customPostLoadAction();
+                    }, "MpSimulating", false, null);
                 });
             }, "Play", "MpLoading", true, null);
         }
@@ -41,12 +52,13 @@ public static class Loader
             LongEventHandler.QueueLongEvent(() =>
             {
                 SaveLoad.LoadInMainThread(LoadPatch.gameToLoad);
-                PostLoad(forceAsyncTime);
+                PostLoad();
+                customPostLoadAction();
             }, "MpLoading", false, null);
         }
     }
 
-    private static void PostLoad(bool forceAsyncTime)
+    private static void PostLoad()
     {
         // If the client gets disconnected during loading
         if (Multiplayer.Client == null) return;
@@ -63,12 +75,8 @@ public static class Loader
         );
         Multiplayer.game.myFactionLoading = null;
 
-        if (forceAsyncTime)
-            Multiplayer.game.gameComp.asyncTime = true;
-
         Multiplayer.AsyncWorldTime.cmds = new Queue<ScheduledCommand>(
-            Multiplayer.session.dataSnapshot.MapCmds.GetValueSafe(ScheduledCommand.Global) ??
-            new List<ScheduledCommand>());
+            Multiplayer.session.dataSnapshot.MapCmds.GetValueSafe(ScheduledCommand.Global) ?? []);
         // Map cmds are added in MapAsyncTimeComp.FinalizeInit
     }
 
