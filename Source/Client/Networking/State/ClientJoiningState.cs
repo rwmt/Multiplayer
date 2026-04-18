@@ -12,14 +12,14 @@ namespace Multiplayer.Client
     [PacketHandlerClass(inheritHandlers: false)]
     public class ClientJoiningState(ConnectionBase connection, string username) : ClientBaseState(connection)
     {
+        private BootstrapServerState? bootstrapState;
+
         [TypedPacketHandler]
         public new void HandleDisconnected(ServerDisconnectPacket packet) => base.HandleDisconnected(packet);
 
         [TypedPacketHandler]
-        public void HandleBootstrap(ServerBootstrapPacket packet)
-        {
-            Multiplayer.session.ApplyBootstrapState(packet);
-        }
+        public void HandleBootstrap(ServerBootstrapPacket packet) =>
+            bootstrapState = BootstrapServerState.FromPacket(packet);
 
         public override void StartState()
         {
@@ -122,10 +122,10 @@ namespace Multiplayer.Client
 
                 void StartDownloading()
                 {
-                    if (Multiplayer.session.bootstrapState.Enabled)
+                    if (bootstrapState is { Enabled: true } state)
                     {
                         connection.ChangeState(ConnectionStateEnum.ClientBootstrap);
-                        Find.WindowStack.Add(new BootstrapConfiguratorWindow(connection));
+                        Find.WindowStack.Add(new BootstrapConfiguratorWindow(connection, state));
                         return;
                     }
 

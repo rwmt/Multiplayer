@@ -11,8 +11,6 @@ public class ClientBootstrapState(ConnectionBase connection) : ClientBaseState(c
 	[TypedPacketHandler]
 	public void HandleBootstrap(ServerBootstrapPacket packet)
 	{
-		Multiplayer.session?.ApplyBootstrapState(packet);
-
 		OnMainThread.Enqueue(() => BootstrapConfiguratorWindow.Instance?.ApplyBootstrapState(BootstrapServerState.FromPacket(packet)));
 	}
 
@@ -29,7 +27,6 @@ public class ClientBootstrapState(ConnectionBase connection) : ClientBaseState(c
 		OnMainThread.Enqueue(() =>
 		{
 			var window = Find.WindowStack.WindowOfType<BootstrapConfiguratorWindow>();
-			Multiplayer.session?.ClearBootstrapState();
 			if (window != null)
 			{
 				window.ResetTransientUiState(resetServerDrivenState: true);

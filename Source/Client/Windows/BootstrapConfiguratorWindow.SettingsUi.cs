@@ -1,3 +1,5 @@
+using System;
+using System.Threading;
 using Multiplayer.Client.Util;
 using Multiplayer.Common.Networking.Packet;
 using Multiplayer.Common.Util;
@@ -139,7 +141,7 @@ public partial class BootstrapConfiguratorWindow
         uploadProgress = 0f;
         statusText = "Uploading server settings...";
 
-        new System.Threading.Thread(() =>
+        new Thread(() =>
         {
             try
             {
@@ -154,11 +156,10 @@ public partial class BootstrapConfiguratorWindow
                     step = Step.GenerateMap;
                     saveUploadRequestedByServer = false;
 
-                    if (Multiplayer.session != null)
-                        Multiplayer.session.bootstrapState = Multiplayer.session.bootstrapState with { SettingsMissing = false, SaveMissing = false };
+                    bootstrapState = bootstrapState with { SettingsMissing = false, SaveMissing = false };
                 });
             }
-            catch (System.Exception e)
+            catch (Exception e)
             {
                 Log.Error($"Bootstrap settings upload failed: {e}");
                 OnMainThread.Enqueue(() =>

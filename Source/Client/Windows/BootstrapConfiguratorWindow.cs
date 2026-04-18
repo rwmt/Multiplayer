@@ -2,7 +2,6 @@ using System.IO;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using Multiplayer.Common.Util;
-using RimWorld;
 using UnityEngine;
 using Verse;
 
@@ -15,6 +14,7 @@ public partial class BootstrapConfiguratorWindow : Window
 
     private readonly ConnectionBase connection;
     private readonly IConnector reconnectConnector;
+    private BootstrapServerState bootstrapState = BootstrapServerState.None;
     private float height = 620f;
 
     private ServerSettings settings;
@@ -51,7 +51,7 @@ public partial class BootstrapConfiguratorWindow : Window
 
     public override Vector2 InitialSize => new(550f, height);
 
-    public BootstrapConfiguratorWindow(ConnectionBase connection)
+    public BootstrapConfiguratorWindow(ConnectionBase connection, BootstrapServerState bootstrapState)
     {
         this.connection = connection;
         reconnectConnector = Multiplayer.session?.connector;
@@ -62,14 +62,16 @@ public partial class BootstrapConfiguratorWindow : Window
         Instance = this;
 
         settings = MpUtil.ShallowCopy(Multiplayer.settings.PreferredLocalServerSettings, new ServerSettings());
-        settings.gameName ??= $"{Multiplayer.username}'s Server";
         if (settings.gameName.NullOrEmpty())
             settings.gameName = $"{Multiplayer.username}'s Server";
-        settings.lanAddress = Endpoints.GetLocalIpAddress() ?? settings.lanAddress ?? "127.0.0.1";
-        settings.direct = true;
+
         settings.lan = false;
+        settings.lanAddress = Endpoints.GetLocalIpAddress() ?? settings.lanAddress ?? "127.0.0.1";
+
+        settings.direct = true;
         if (settings.directAddress.NullOrEmpty())
             settings.directAddress = $"0.0.0.0:{MultiplayerServer.DefaultPort}";
+
         settings.steam = false;
         settings.arbiter = false;
 
@@ -81,7 +83,7 @@ public partial class BootstrapConfiguratorWindow : Window
         if (pendingUploadState == null && Current.ProgramState != ProgramState.Playing)
             ResetTransientUiState();
 
-        ApplyBootstrapState(Multiplayer.session?.bootstrapState ?? BootstrapServerState.None, preserveTransientState: false);
+        ApplyBootstrapState(bootstrapState, preserveTransientState: false);
 
         if (pendingUploadState != null && File.Exists(pendingUploadState.SavePath))
         {
@@ -124,12 +126,12 @@ public partial class BootstrapConfiguratorWindow : Window
         {
             saveUploadRequestedByServer = false;
             saveGenerationStarted = false;
-            Multiplayer.session?.ClearBootstrapState();
         }
     }
 
     internal void ApplyBootstrapState(BootstrapServerState state, bool preserveTransientState = true)
     {
+        bootstrapState = state;
         saveUploadRequestedByServer = state.RequiresSaveUpload;
 
         if (state.RequiresSettingsUpload)
