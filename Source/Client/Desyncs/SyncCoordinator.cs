@@ -127,7 +127,6 @@ namespace Multiplayer.Client
 
             var diffAt = FindTraceHashesDiffTick(local, remote, out var found);
             Multiplayer.Client.Send(new ClientDesyncedPacket(local.startTick, diffAt));
-            Multiplayer.session.desyncTracesFromHost = null;
 
             MpUI.ClearWindowStack();
             Find.WindowStack.Add(new DesyncedWindow(

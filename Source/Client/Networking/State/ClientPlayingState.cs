@@ -194,8 +194,10 @@ namespace Multiplayer.Client
             }
             else if (packet.mode == ServerTracesPacket.Mode.Transfer)
             {
-                Multiplayer.session.desyncTracesFromHost = GZipStream.UncompressString(packet.rawTraces);
-                Multiplayer.session.jittedMethodsFromHost = GZipStream.UncompressString(packet.rawJittedMethods);
+                var traces = GZipStream.UncompressString(packet.rawTraces);
+                var jittedMethods = GZipStream.UncompressString(packet.rawJittedMethods);
+                var hostInfo = new SaveableDesyncInfo.HostInfo(traces, jittedMethods);
+                Find.WindowStack.WindowOfType<DesyncedWindow>()?.HandleHostDesyncInfo(hostInfo);
             }
         }
 
