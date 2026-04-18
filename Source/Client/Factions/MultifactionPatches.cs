@@ -616,12 +616,14 @@ static class IsActiveThreatToAnyPlayer
     }
 }
 
-[HarmonyPatch(typeof(JobDriver_TakeToBed), "CheckMakeTakeeGuest")]
+[HarmonyPatch(typeof(JobDriver_TakeToBed), nameof(JobDriver_TakeToBed.CheckMakeTakeeGuest))]
+[HarmonyPatch(typeof(JobDriver_CarryDownedPawn), nameof(JobDriver_CarryDownedPawn.CheckMakeTakeeGuest))]
 static class TakeToBedGuestFactionPatch
 {
-    static bool Prefix(JobDriver_TakeToBed __instance)
+    static bool Prefix(JobDriver __instance)
     {
-        return __instance.Takee.Faction?.IsPlayer != true && __instance.Takee.HostFaction?.IsPlayer != true;
+        var takee = __instance.job.GetTarget(TargetIndex.A).Pawn;
+        return takee?.Faction?.IsPlayer != true && takee?.HostFaction?.IsPlayer != true;
     }
 }
 
