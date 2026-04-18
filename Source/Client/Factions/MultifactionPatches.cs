@@ -616,6 +616,15 @@ static class IsActiveThreatToAnyPlayer
     }
 }
 
+[HarmonyPatch(typeof(JobDriver_TakeToBed), "CheckMakeTakeeGuest")]
+static class TakeToBedGuestFactionPatch
+{
+    static bool Prefix(JobDriver_TakeToBed __instance)
+    {
+        return __instance.Takee.Faction?.IsPlayer != true && __instance.Takee.HostFaction?.IsPlayer != true;
+    }
+}
+
 [HarmonyPatch(typeof(LetterStack), nameof(LetterStack.ReceiveLetter), typeof(Letter), typeof(string), typeof(int), typeof(bool))]
 static class LetterStackReceiveOnlyMyFaction
 {
