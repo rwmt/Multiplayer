@@ -11,9 +11,9 @@ namespace Multiplayer.Common;
 public class ServerBootstrapState(ConnectionBase connection) : MpConnectionState(connection)
 {
     private static string? configuratorUsername;
-    private static string? pendingFileName;
-    private static int pendingLength;
-    private static byte[]? pendingZipBytes;
+
+    private static readonly string SavePath = Path.Combine(AppContext.BaseDirectory, "save.zip");
+    private static readonly string SettingsPath = Path.Combine(AppContext.BaseDirectory, "settings.toml");
 
     public override void StartState()
     {
@@ -23,19 +23,16 @@ public class ServerBootstrapState(ConnectionBase connection) : MpConnectionState
             return;
         }
 
+        connection.Send(new ServerBootstrapPacket(true, SettingsMissing(), SaveMissing()));
         if (configuratorUsername != null && configuratorUsername != connection.username)
         {
-            connection.Send(new ServerBootstrapPacket(true, SettingsMissing(), SaveMissing()));
             return;
         }
 
         configuratorUsername = connection.username;
-        connection.Send(new ServerBootstrapPacket(true, SettingsMissing(), SaveMissing()));
-
-        var savePath = Path.Combine(AppContext.BaseDirectory, "save.zip");
         if (SettingsMissing())
             ServerLog.Log($"Bootstrap: configurator '{connection.username}' connected. Waiting for settings.toml upload.");
-        else if (!File.Exists(savePath))
+        else if (SaveMissing())
             ServerLog.Log($"Bootstrap: configurator '{connection.username}' connected. Waiting for save.zip upload.");
         else
             ServerLog.Log($"Bootstrap: configurator '{connection.username}' connected. All files already exist.");
@@ -53,36 +50,14 @@ public class ServerBootstrapState(ConnectionBase connection) : MpConnectionState
         if (!IsConfigurator())
             return;
 
-        var settingsPath = Path.Combine(AppContext.BaseDirectory, "settings.toml");
-        var tempPath = settingsPath + ".tmp";
+        var tempPath = SettingsPath + ".tmp";
 
         TomlSettingsCommon.Save(packet.settings, tempPath);
 
-        if (File.Exists(settingsPath))
-            File.Delete(settingsPath);
-
-        File.Move(tempPath, settingsPath);
+        File.Delete(SettingsPath);
+        File.Move(tempPath, SettingsPath);
         ServerLog.Log("Bootstrap: wrote settings.toml. Waiting for save upload.");
         connection.Send(new ServerBootstrapPacket(true, false, true));
-    }
-
-    [TypedPacketHandler]
-    public void HandleSaveStart(ClientBootstrapSaveStartPacket packet)
-    {
-        if (!IsConfigurator())
-            return;
-
-        if (SettingsMissing())
-            throw new PacketReadException("Bootstrap requires settings.toml before save.zip upload");
-
-        if (packet.length <= 0)
-            throw new PacketReadException("Bootstrap upload has invalid length");
-
-        pendingFileName = packet.fileName;
-        pendingLength = packet.length;
-        pendingZipBytes = null;
-
-        ServerLog.Log($"Bootstrap: upload start '{pendingFileName}' ({pendingLength} bytes)");
     }
 
     [TypedPacketHandler]
@@ -91,46 +66,24 @@ public class ServerBootstrapState(ConnectionBase connection) : MpConnectionState
         if (!IsConfigurator())
             return;
 
-        if (pendingZipBytes == null)
-        {
-            pendingZipBytes = packet.data;
-        }
-        else
-        {
-            var oldLength = pendingZipBytes.Length;
-            var combined = new byte[oldLength + packet.data.Length];
-            Buffer.BlockCopy(pendingZipBytes, 0, combined, 0, oldLength);
-            Buffer.BlockCopy(packet.data, 0, combined, oldLength, packet.data.Length);
-            pendingZipBytes = combined;
-        }
-    }
-
-    [TypedPacketHandler]
-    public void HandleSaveEnd(ClientBootstrapSaveEndPacket packet)
-    {
-        if (!IsConfigurator())
-            return;
-
         if (SettingsMissing())
             throw new PacketReadException("Bootstrap requires settings.toml before save.zip upload");
 
-        if (pendingZipBytes == null)
-            throw new PacketReadException("Bootstrap upload finish without data");
+        byte[] hash;
+        using (var hasher = SHA256.Create())
+        {
+            hash = hasher.ComputeHash(packet.saveData);
+        }
 
-        if (pendingLength > 0 && pendingZipBytes.Length != pendingLength)
-            ServerLog.Log($"Bootstrap: warning - expected {pendingLength} bytes but got {pendingZipBytes.Length}");
+        if (packet.sha256Hash is { Length: > 0 } && !hash.SequenceEqual(packet.sha256Hash))
+            throw new PacketReadException($"Bootstrap upload hash mismatch. " +
+                                          $"expected={packet.sha256Hash.ToHexString()} actual={hash.ToHexString()}");
 
-        using var hasher = SHA256.Create();
-        var actualHash = hasher.ComputeHash(pendingZipBytes);
-        if (packet.sha256Hash != null && packet.sha256Hash.Length > 0 && !actualHash.SequenceEqual(packet.sha256Hash))
-            throw new PacketReadException($"Bootstrap upload hash mismatch. expected={packet.sha256Hash.ToHexString()} actual={actualHash.ToHexString()}");
+        var tempPath = SavePath + ".tmp";
+        File.WriteAllBytes(tempPath, packet.saveData);
 
-        var targetPath = Path.Combine(AppContext.BaseDirectory, "save.zip");
-        var tempPath = targetPath + ".tmp";
-        File.WriteAllBytes(tempPath, pendingZipBytes);
-        if (File.Exists(targetPath))
-            File.Delete(targetPath);
-        File.Move(tempPath, targetPath);
+        File.Delete(SavePath);
+        File.Move(tempPath, SavePath);
 
         ServerLog.Log("Bootstrap: wrote save.zip. Configuration complete; stopping server.");
 
@@ -142,6 +95,15 @@ public class ServerBootstrapState(ConnectionBase connection) : MpConnectionState
         Server.TryStop();
     }
 
+    [FragmentedPacketHandler(Packets.Client_BootstrapSave)]
+    public void HandleWorldDataFragment(FragmentedPacket packet)
+    {
+        if (packet.ReceivedPartsCount == 1)
+        {
+            ServerLog.Log($"Bootstrap: upload start ({packet.ExpectedSize} bytes)");
+        }
+    }
+
     [PacketHandler(Packets.Client_Cursor)]
     public void HandleCursor(ByteReader data)
     {
@@ -149,17 +111,10 @@ public class ServerBootstrapState(ConnectionBase connection) : MpConnectionState
         data.ReadByte();
     }
 
-    private static bool SettingsMissing() => !File.Exists(Path.Combine(AppContext.BaseDirectory, "settings.toml"));
-
-    private static bool SaveMissing() => !File.Exists(Path.Combine(AppContext.BaseDirectory, "save.zip"));
+    private static bool SettingsMissing() => !File.Exists(SettingsPath);
+    private static bool SaveMissing() => !File.Exists(SavePath);
 
     private bool IsConfigurator() => configuratorUsername == connection.username;
 
-    private static void ResetUploadState()
-    {
-        configuratorUsername = null;
-        pendingFileName = null;
-        pendingLength = 0;
-        pendingZipBytes = null;
-    }
+    private static void ResetUploadState() => configuratorUsername = null;
 }
