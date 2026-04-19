@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using HarmonyLib;
+using JetBrains.Annotations;
 using Multiplayer.Common;
 using Multiplayer.Common.Util;
 using RimWorld;
@@ -31,7 +32,7 @@ public class SaveableDesyncInfo(
 
     public bool ReadyToSave => metadata.IsCompleted && replay.IsCompleted;
 
-    public void Save()
+    public void Save([CanBeNull] HostInfo hostInfo)
     {
         var watch = Stopwatch.StartNew();
 
@@ -43,10 +44,10 @@ public class SaveableDesyncInfo(
             zip.AddEntry("desync_info", GetDesyncDetails());
 
             zip.AddEntry("local_traces.txt", GetLocalTraces());
-            zip.AddEntry("host_traces.txt", Multiplayer.session.desyncTracesFromHost ?? "No host traces");
+            zip.AddEntry("host_traces.txt", hostInfo?.Traces ?? "No host traces");
 
             zip.AddEntry("local_jitted_methods.txt", JittedMethods.GetJittedMethodsString());
-            zip.AddEntry("host_jitted_methods.txt", Multiplayer.session.jittedMethodsFromHost ?? "No host jitted methods");
+            zip.AddEntry("host_jitted_methods.txt", hostInfo?.JittedMethods ?? "No host jitted methods");
 
             var extraLogs = LogGenerator.PrepareLogData();
             if (extraLogs != null) zip.AddEntry("local_logs.txt", extraLogs);
@@ -193,4 +194,6 @@ public class SaveableDesyncInfo(
         {
         }
     }
+
+    public record HostInfo([CanBeNull] string Traces, [CanBeNull] string JittedMethods);
 }
