@@ -29,16 +29,12 @@ public partial class BootstrapConfiguratorWindow : Window
     private enum Tab
     {
         Connecting,
-        Gameplay,
-        Preview
+        Gameplay
     }
 
     private Step step;
     private Tab tab;
     private readonly ServerSettingsUI.BufferSet settingsUiBuffers = new();
-
-    private string tomlPreview;
-    private Vector2 tomlScroll;
 
     private bool isUploadingToml;
     private float uploadProgress;
@@ -96,8 +92,6 @@ public partial class BootstrapConfiguratorWindow : Window
             saveUploadStatus = "Save created. Reconnected to upload save.zip...";
             pendingUploadState = null;
         }
-
-        RebuildTomlPreview();
     }
 
     public override void PostClose()
