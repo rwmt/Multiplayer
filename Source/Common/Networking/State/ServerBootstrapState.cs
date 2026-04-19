@@ -52,7 +52,7 @@ public class ServerBootstrapState(ConnectionBase connection) : MpConnectionState
 
         var tempPath = SettingsPath + ".tmp";
 
-        TomlSettingsCommon.Save(packet.settings, tempPath);
+        TomlSettings.Save(packet.settings, tempPath);
 
         File.Delete(SettingsPath);
         File.Move(tempPath, SettingsPath);

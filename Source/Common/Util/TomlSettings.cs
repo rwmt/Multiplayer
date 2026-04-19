@@ -1,9 +1,9 @@
-﻿using Multiplayer.Common;
-using Multiplayer.Common.Util;
+using System;
+using System.IO;
 using Tomlyn;
 using Tomlyn.Model;
 
-namespace Server;
+namespace Multiplayer.Common.Util;
 
 public static class TomlSettings
 {
@@ -24,14 +24,17 @@ public static class TomlSettings
         return settings;
     }
 
-    public static void Save(ServerSettings settings, string filename)
+    public static void Save(ServerSettings settings, string filename) =>
+        File.WriteAllText(filename, Serialize(settings));
+
+    public static string Serialize(ServerSettings settings)
     {
         var toml = new TomlScribe { mode = TomlScribeMode.Saving };
         ScribeLike.provider = toml;
 
         settings.ExposeData();
 
-        File.WriteAllText(filename, Toml.FromModel(toml.root));
+        return Toml.FromModel(toml.root);
     }
 }
 
@@ -70,5 +73,6 @@ class TomlScribe : ScribeLike.Provider
 
 enum TomlScribeMode
 {
-    Saving, Loading
+    Saving,
+    Loading
 }
