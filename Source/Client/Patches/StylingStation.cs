@@ -53,9 +53,10 @@ namespace Multiplayer.Client.Patches
 
             pawn.apparel = MpUtil.ShallowCopy(dialogPawn.apparel, new Pawn_ApparelTracker(pawn));
             pawn.apparel.pawn = pawn;
-            pawn.apparel.lockedApparel = pawn.apparel.lockedApparel.ToList();
+            pawn.apparel.lockedApparel = pawn.apparel.lockedApparel?.ToList() ?? new List<Apparel>();
             pawn.apparel.wornApparel = MpUtil.ShallowCopy(dialogPawn.apparel.wornApparel, new ThingOwner<Apparel>());
-            pawn.apparel.wornApparel.innerList = pawn.apparel.wornApparel.innerList.ToList();
+            if (pawn.apparel.wornApparel.innerList != null)
+                pawn.apparel.wornApparel.innerList = pawn.apparel.wornApparel.innerList.ToList();
 
             pawn.health = new Pawn_HealthTracker(pawn);
             pawn.stances = new Pawn_StanceTracker(pawn);
