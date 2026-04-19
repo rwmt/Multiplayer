@@ -25,9 +25,9 @@ namespace Multiplayer.Client.Networking
             }
         }
 
-        public static ClientLiteNetConnection Connect(string address, int port)
+        public static ClientLiteNetConnection Connect(string address, int port, string username)
         {
-            var netClient = new NetManager(new NetListener())
+            var netClient = new NetManager(new NetListener(username))
             {
                 EnableStatistics = true,
                 IPv6Enabled = MpUtil.SupportsIPv6(),
@@ -56,14 +56,15 @@ namespace Multiplayer.Client.Networking
             netManager.Stop();
         }
 
-        private class NetListener : INetEventListener
+        private class NetListener(string username) : INetEventListener
         {
             private ClientLiteNetConnection GetConnection(NetPeer peer) =>
                 peer.GetConnection() as ClientLiteNetConnection ?? throw new Exception("Can't get connection");
 
             public void OnPeerConnected(NetPeer peer)
             {
-                GetConnection(peer).ChangeState(ConnectionStateEnum.ClientJoining);
+                var conn = GetConnection(peer);
+                conn.ChangeState(new ClientJoiningState(conn, username));
                 MpLog.Log("Net client connected");
             }
 

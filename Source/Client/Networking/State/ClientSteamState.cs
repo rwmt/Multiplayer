@@ -5,18 +5,19 @@ namespace Multiplayer.Client
 {
     public class ClientSteamState : MpConnectionState
     {
-        public ClientSteamState(ConnectionBase connection) : base(connection)
-        {
-            var steamConn = connection as SteamBaseConn;
+        private readonly string username;
 
+        public ClientSteamState(SteamBaseConn conn, string username) : base(conn)
+        {
+            this.username = username;
             // The flag byte is: joinPacket | reliable | hasChannel
-            steamConn.SendRawSteam(ByteWriter.GetBytes((byte)0b111, steamConn.recvChannel), true);
+            conn.SendRawSteam(ByteWriter.GetBytes((byte)0b111, conn.recvChannel), true);
         }
 
         [PacketHandler(Packets.Server_SteamAccept)]
         public void HandleSteamAccept(ByteReader data)
         {
-            connection.ChangeState(ConnectionStateEnum.ClientJoining);
+            connection.ChangeState(new ClientJoiningState(connection, username));
         }
     }
 

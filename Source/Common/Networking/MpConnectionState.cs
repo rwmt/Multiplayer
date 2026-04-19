@@ -25,16 +25,29 @@ namespace Multiplayer.Common
         public virtual PacketHandlerInfo? GetPacketHandler(Packets id) =>
             packetHandlers[(int)connection.State, (int)id];
 
-        public static Type[] stateImpls = new Type[(int)ConnectionStateEnum.Count];
+        private static readonly Type[] StateImpls = new Type[(int)ConnectionStateEnum.Count];
 
         private static PacketHandlerInfo?[,] packetHandlers =
             new PacketHandlerInfo?[(int)ConnectionStateEnum.Count, (int)Packets.Count];
+
+        public static ConnectionStateEnum GetStateEnumOf(MpConnectionState state)
+        {
+            var stateType = state.GetType();
+            var index = Array.IndexOf(StateImpls, stateType);
+            if (index == -1) throw new Exception($"Tried to get state enum of unrecognized connection state: {state} ({stateType})");
+            return (ConnectionStateEnum)index;
+        }
+
+        public static MpConnectionState? CreateState(ConnectionStateEnum state, ConnectionBase conn) =>
+            state == ConnectionStateEnum.Disconnected
+                ? null
+                : (MpConnectionState)Activator.CreateInstance(StateImpls[(int)state], conn);
 
         public static void SetImplementation(ConnectionStateEnum state, Type type)
         {
             if (!type.IsSubclassOf(typeof(MpConnectionState))) return;
 
-            stateImpls[(int)state] = type;
+            StateImpls[(int)state] = type;
 
             // The point of this attribute is to explicitly mark how to handle packet listeners from the base type.
             // If the base type is the lowest possible (MpConnectionState, which doesn't have any listeners), there is

@@ -12,7 +12,6 @@ public static class Rejoiner
         Multiplayer.Client.Send(Packets.Client_RequestRejoin);
 
         Multiplayer.Client.ChangeState(ConnectionStateEnum.ClientLoading);
-        Multiplayer.Client.GetState<ClientLoadingState>()!.subState = LoadingState.Waiting;
         Multiplayer.Client.Lenient = true;
 
         Multiplayer.session.desynced = false;

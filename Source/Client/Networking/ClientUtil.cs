@@ -12,8 +12,7 @@ namespace Multiplayer.Client
     {
         public static void TryConnectWithWindow(IConnector connector, bool returnToServerBrowser = true)
         {
-            var (conn, window) = connector.Connect();
-            conn.username = Multiplayer.username;
+            var (conn, window) = connector.Connect(Multiplayer.username);
 
             Multiplayer.session = new MultiplayerSession
             {

@@ -1,4 +1,5 @@
 using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
 
 namespace Tests;
 
@@ -93,7 +94,7 @@ public class StandaloneMapStreamingTest
         var (player, conn) = AddPlayer("player", -1, hasReportedCurrentMap: false);
 
         var state = player.conn.GetState<ServerPlayingState>()!;
-        state.HandleClientCommand(new Multiplayer.Common.Networking.Packet.ClientCommandPacket(
+        state.HandleClientCommand(new ClientCommandPacket(
             CommandType.PlayerCount,
             ScheduledCommand.Global,
             ByteWriter.GetBytes(-1, 5)
@@ -112,7 +113,7 @@ public class StandaloneMapStreamingTest
         var (player, conn) = AddPlayer("player", -2);
 
         var state = player.conn.GetState<ServerPlayingState>()!;
-        state.HandleClientCommand(new Multiplayer.Common.Networking.Packet.ClientCommandPacket(
+        state.HandleClientCommand(new ClientCommandPacket(
             CommandType.PlayerCount,
             ScheduledCommand.Global,
             ByteWriter.GetBytes(-2, 5)
@@ -130,7 +131,7 @@ public class StandaloneMapStreamingTest
         var (player, conn) = AddPlayer("player", 3);
 
         var state = player.conn.GetState<ServerPlayingState>()!;
-        state.HandleClientCommand(new Multiplayer.Common.Networking.Packet.ClientCommandPacket(
+        state.HandleClientCommand(new ClientCommandPacket(
             CommandType.PlayerCount,
             ScheduledCommand.Global,
             ByteWriter.GetBytes(3, 5)

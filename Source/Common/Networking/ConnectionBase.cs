@@ -6,6 +6,7 @@ namespace Multiplayer.Common
 {
     public abstract class ConnectionBase
     {
+        /// Available ONLY server-side. Always null client-side.
         public string? username;
         public ServerPlayer? serverPlayer;
 
@@ -17,7 +18,15 @@ namespace Multiplayer.Common
         // This is set during rejoining and is usually caused by connection state mismatch.
         public bool Lenient { get; set; }
 
-        public T? GetState<T>() where T : MpConnectionState => (T?)StateObj;
+        public void ChangeState(MpConnectionState state)
+        {
+            if (StateObj != null)
+                StateObj.alive = false;
+
+            State = MpConnectionState.GetStateEnumOf(state);
+            StateObj = state;
+            StateObj?.StartState();
+        }
 
         public void ChangeState(ConnectionStateEnum state)
         {
@@ -25,12 +34,7 @@ namespace Multiplayer.Common
                 StateObj.alive = false;
 
             State = state;
-
-            if (State == ConnectionStateEnum.Disconnected)
-                StateObj = null;
-            else
-                StateObj = (MpConnectionState)Activator.CreateInstance(MpConnectionState.stateImpls[(int)state], this);
-
+            StateObj = MpConnectionState.CreateState(state, this);
             StateObj?.StartState();
         }
 

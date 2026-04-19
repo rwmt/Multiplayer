@@ -55,9 +55,9 @@ namespace Multiplayer.Client.Networking
 
     public class SteamClientConn : SteamBaseConn, ITickableConnection
     {
-        public SteamClientConn(CSteamID remoteId) : base(remoteId, RandomChannelId(), 0)
+        public SteamClientConn(CSteamID remoteId, string username) : base(remoteId, RandomChannelId(), 0)
         {
-            ChangeState(ConnectionStateEnum.ClientSteam);
+            ChangeState(new ClientSteamState(this, username));
         }
 
         static ushort RandomChannelId() => (ushort)new Random().Next();
