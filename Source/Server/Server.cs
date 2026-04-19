@@ -2,7 +2,6 @@
 using System.Net;
 using Multiplayer.Common;
 using Multiplayer.Common.Util;
-using Server;
 
 ServerLog.detailEnabled = true;
 Directory.SetCurrentDirectory(AppContext.BaseDirectory);
@@ -17,9 +16,8 @@ var settings = new ServerSettings
     lan = false
 };
 
-var bootstrap = !File.Exists(settingsFile);
-
-if (!bootstrap)
+var settingsPresent = File.Exists(settingsFile);
+if (settingsPresent)
     settings = TomlSettings.Load(settingsFile);
 else
     ServerLog.Log($"Bootstrap mode: '{settingsFile}' not found. Waiting for a client to upload it.");
@@ -27,26 +25,24 @@ else
 if (settings.steam) ServerLog.Error("Steam is not supported in standalone server.");
 if (settings.arbiter) ServerLog.Error("Arbiter is not supported in standalone server.");
 
-var server = MultiplayerServer.instance = new MultiplayerServer(settings)
+var savePresent = File.Exists(saveFile);
+if (!savePresent)
 {
-    running = true,
-    IsStandaloneServer = true,
-};
-
-var consoleSource = new ConsoleSource();
-
-if (!bootstrap && File.Exists(saveFile))
-{
-    LoadSave(server, saveFile);
-}
-else
-{
-    bootstrap = true;
     ServerLog.Log($"Bootstrap mode: '{saveFile}' not found. Server will start without a loaded save.");
     ServerLog.Log("Waiting for a client to upload world data.");
 }
 
-server.BootstrapMode = bootstrap;
+var server = MultiplayerServer.instance = new MultiplayerServer(settings)
+{
+    running = true,
+    IsStandaloneServer = true,
+    BootstrapMode = settingsPresent && savePresent,
+};
+
+if (!server.BootstrapMode)
+{
+    LoadSave(server, saveFile);
+}
 
 if (settings.direct) {
     var badEndpoint = settings.TryParseEndpoints(out var endpoints);
@@ -83,13 +79,8 @@ if (settings.lan)
 
 new Thread(server.Run) { Name = "Server thread" }.Start();
 
-if (bootstrap)
-    BootstrapMode.WaitForClient(server, CancellationToken.None);
-
-if (bootstrap && !server.running)
-    return;
-
-while (true)
+var consoleSource = new ConsoleSource();
+while (server.running)
 {
     var cmd = Console.ReadLine();
     if (cmd != null)
@@ -128,7 +119,8 @@ static void LoadSave(MultiplayerServer server, string path)
         if (parts.Length == 3)
         {
             int mapNumber = int.Parse(parts[1]);
-            server.worldData.mapCmds[mapNumber] = ScheduledCommand.DeserializeCmds(zip.GetBytes(entry.FullName)).Select(ScheduledCommand.Serialize).ToList();
+            server.worldData.mapCmds[mapNumber] = ScheduledCommand.DeserializeCmds(zip.GetBytes(entry.FullName))
+                .Select(ScheduledCommand.Serialize).ToList();
         }
     }
 
@@ -145,8 +137,9 @@ static void LoadSave(MultiplayerServer server, string path)
     }
 
 
-    server.worldData.mapCmds[-1] = ScheduledCommand.DeserializeCmds(zip.GetBytes("world/000_cmds")).Select(ScheduledCommand.Serialize).ToList();
-    server.worldData.sessionData = Array.Empty<byte>();
+    server.worldData.mapCmds[-1] = ScheduledCommand.DeserializeCmds(zip.GetBytes("world/000_cmds"))
+        .Select(ScheduledCommand.Serialize).ToList();
+    server.worldData.sessionData = [];
 }
 
 static byte[] Compress(byte[] input)
