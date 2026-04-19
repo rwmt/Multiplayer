@@ -17,12 +17,6 @@ public class ClientBootstrapState(ConnectionBase connection) : ClientBaseState(c
 	[TypedPacketHandler]
 	public override void HandleDisconnected(ServerDisconnectPacket packet)
 	{
-		if (packet.reason == MpDisconnectReason.BootstrapCompleted)
-		{
-			OnMainThread.Enqueue(() => Messages.Message(
-				"Bootstrap configuration completed. The server will now shut down; please restart it manually to start normally.",
-				MessageTypeDefOf.PositiveEvent, false));
-		}
 
 		OnMainThread.Enqueue(() =>
 		{

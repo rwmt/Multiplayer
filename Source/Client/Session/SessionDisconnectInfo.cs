@@ -76,6 +76,18 @@ public struct SessionDisconnectInfo
             disconnectInfo.specialButtonAction = () => session.Reconnect(newName);
         }
 
+        if (reason == MpDisconnectReason.BootstrapCompleted)
+        {
+            titleKey = "Bootstrap configuration completed";
+            descKey = "The server will now shut down; please restart it manually to start normally.";
+            disconnectInfo.specialButtonTranslated = "Reconnect";
+
+            // Once disconnected, Multiplayer.session is set to null, so we need to keep our own copy to be able to
+            // reconnect.
+            var session = Multiplayer.session;
+            disconnectInfo.specialButtonAction = () => session.Reconnect(Multiplayer.username);
+        }
+
         if (reason == MpDisconnectReason.UsernameLength)
         {
             titleKey = "MpInvalidUsernameLength";
