@@ -1,4 +1,5 @@
 using System.IO;
+using Multiplayer.Client.Networking;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using Multiplayer.Common.Util;
@@ -7,7 +8,7 @@ using Verse;
 
 namespace Multiplayer.Client;
 
-public partial class BootstrapConfiguratorWindow : Window
+public partial class BootstrapConfiguratorWindow : Window, IConnectionStatusListener
 {
     public static BootstrapConfiguratorWindow Instance { get; private set; }
     public static bool AwaitingBootstrapMapInit { get; set; }
@@ -229,4 +230,13 @@ public partial class BootstrapConfiguratorWindow : Window
         public string StatusText;
     }
 
+    public void Connected()
+    {
+    }
+
+    public void Disconnected(SessionDisconnectInfo info)
+    {
+        ResetTransientUiState(resetServerDrivenState: true);
+        Find.WindowStack.TryRemove(this);
+    }
 }
