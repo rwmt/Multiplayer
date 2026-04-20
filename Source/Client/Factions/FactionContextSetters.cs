@@ -39,12 +39,20 @@ static class MapGenFactionPatch
         var worldObjectsHolder = Find.WorldObjects;
 
         var mapParent = worldObjectsHolder.MapParentAt(tile);
-        if (mapParent != null)
+        if (mapParent != null && mapParent.Faction is { IsPlayer: true })
             return mapParent.Faction;
 
         var caravan = worldObjectsHolder.PlayerControlledCaravanAt(tile);
         if (caravan != null)
             return caravan.Faction;
+
+        var transporters = worldObjectsHolder.TravellingTransporters.Find(t => t.destinationTile == tile && t.Faction is { IsPlayer: true });
+        if (transporters != null)
+            return transporters.Faction;
+
+        var gravship = worldObjectsHolder.AllWorldObjects.Find(t => t is Gravship g && g.destinationTile == tile && t.Faction is { IsPlayer: true });
+        if (gravship != null)
+            return gravship.Faction;
 
         return TileFactionContext.GetFactionForTile(tile);
     }
