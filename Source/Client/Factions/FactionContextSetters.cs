@@ -141,6 +141,20 @@ static class BillProductionValidateSettingsPatch
     }
 }
 
+[HarmonyPatch(typeof(GravshipUtility), nameof(GravshipUtility.ArriveNewMap))]
+static class GravshipArriveNewMapFactionPatch
+{
+    static void Prefix(Gravship gravship)
+    {
+        FactionContext.Push(gravship.Faction);
+    }
+
+    static void Finalizer()
+    {
+        FactionContext.Pop();
+    }
+}
+
 // Clean up after map generation is complete
 [HarmonyPatch(typeof(MapGenerator), nameof(MapGenerator.GenerateMap))]
 static class CleanupTileFactionContext
