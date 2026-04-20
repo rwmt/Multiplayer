@@ -725,4 +725,30 @@ namespace Multiplayer.Client.Patches
         }
     }
 
+    // FastTileFinder.ComputeQueryJob uses Interlocked.Increment to race-fill a 50-slot result array
+    // across parallel Unity Job batches. Thread scheduling differs between machines, so clients get
+    // different candidate tile sets. Force single-batch execution in MP so tiles are processed in
+    // tileId order, making the first 50 valid tiles consistent across all clients.
+    [HarmonyPatch(typeof(FastTileFinder), nameof(FastTileFinder.Query))]
+    static class FastTileFinderQueryDeterminismPatch
+    {
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        {
+            var getIdealBatchCount = AccessTools.Method(typeof(UnityData), nameof(UnityData.GetIdealBatchCount));
+            var getBatchCount = AccessTools.Method(typeof(FastTileFinderQueryDeterminismPatch), nameof(GetBatchCount));
+
+            foreach (var instr in instructions)
+            {
+                if (instr.Calls(getIdealBatchCount))
+                    yield return new CodeInstruction(OpCodes.Call, getBatchCount);
+                else
+                    yield return instr;
+            }
+        }
+
+        static int GetBatchCount(int length) =>
+            Multiplayer.Client != null ? length : UnityData.GetIdealBatchCount(length);
+    }
+
+
 }
