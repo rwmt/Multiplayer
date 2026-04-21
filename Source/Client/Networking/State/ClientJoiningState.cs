@@ -78,7 +78,7 @@ namespace Multiplayer.Client
             {
                 remoteRwVersion = packet.rwVersion,
                 remoteMpVersion = packet.mpVersion,
-                connectionString = Multiplayer.session.connector.GetConnectionString()
+                connector = Multiplayer.session.connector
             };
 
             var defDiff = false;

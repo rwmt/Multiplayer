@@ -83,8 +83,6 @@ namespace Multiplayer.Client
         public static bool loadingErrors;
         public static Stopwatch harmonyWatch = new();
 
-        public static string restartConnect;
-
         public static ModContentPack modContentPack;
 
         public static void InitMultiplayer(ModContentPack content)

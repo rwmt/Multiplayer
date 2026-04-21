@@ -1,3 +1,4 @@
+using System;
 using Multiplayer.Client.Util;
 using Verse;
 
@@ -24,5 +25,9 @@ namespace Multiplayer.Client
             window.returnToServerBrowser = returnToServerBrowser;
             Find.WindowStack.Add(window);
         }
+
+        public static void DoubleLongEvent(Action action, string textKey) =>
+            LongEventHandler.QueueLongEvent(() =>
+                LongEventHandler.QueueLongEvent(action, textKey, false, null), textKey, false, null);
     }
 }

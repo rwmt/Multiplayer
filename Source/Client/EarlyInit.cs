@@ -10,16 +10,8 @@ namespace Multiplayer.Client;
 
 public static class EarlyInit
 {
-    public const string RestartConnectVariable = "MultiplayerRestartConnect";
-
     internal static void ProcessEnvironment()
     {
-        if (!Environment.GetEnvironmentVariable(RestartConnectVariable).NullOrEmpty())
-        {
-            Multiplayer.restartConnect = Environment.GetEnvironmentVariable(RestartConnectVariable);
-            Environment.SetEnvironmentVariable(RestartConnectVariable, ""); // Effectively unsets it
-        }
-
         SyncConfigs.Init();
     }
 

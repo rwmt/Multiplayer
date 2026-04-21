@@ -100,13 +100,13 @@ namespace Multiplayer.Client
 
             Log.messageQueue.maxMessages = 1000;
 
-            DoubleLongEvent(() =>
+            ClientUtil.DoubleLongEvent(() =>
             {
                 MultiplayerData.CollectDefInfos();
                 Sync.PostInitHandlers();
             }, "Loading"); // Right before the events from HandleCommandLine
 
-            HandleRestartConnect();
+            AutoJoinHandler.JoinIfApplicable();
             HandleCommandLine();
 
             if (Multiplayer.arbiterInstance)
@@ -124,11 +124,6 @@ namespace Multiplayer.Client
                 SimpleProfiler.Print("mp_prof_out.txt");
 
             MultiplayerData.staticCtorRoundMode = RoundMode.GetCurrentRoundMode();
-        }
-
-        private static void DoubleLongEvent(Action action, string textKey)
-        {
-            LongEventHandler.QueueLongEvent(() => LongEventHandler.QueueLongEvent(action, textKey, false, null), textKey, false, null);
         }
 
         private static void SetUsername()
@@ -152,34 +147,8 @@ namespace Multiplayer.Client
                 Multiplayer.username = "Player" + Rand.Range(0, 9999);
         }
 
-        private static void HandleRestartConnect()
-        {
-            var connString = Multiplayer.restartConnect;
-            if (connString == null) return;
-
-            if (!ConnectorRegistry.TryParse(connString, out var connector))
-            {
-                Log.Error($"Failed to parse connection string from restartConnect: {connString}");
-                return;
-            }
-
-            DoubleLongEvent(() => ClientUtil.TryConnectWithWindow(connector, false), "MpConnecting");
-        }
-
         private static void HandleCommandLine()
         {
-            if (GenCommandLine.TryGetCommandLineArg("connect", out string addressPort) && Multiplayer.restartConnect == null)
-            {
-                if (LiteNetConnector.TryParse(addressPort, out var connector))
-                {
-                    DoubleLongEvent(() => ClientUtil.TryConnectWithWindow(connector, false), "Connecting");
-                }
-                else
-                {
-                    Log.Error($"Failed to parse connection string from command line: {addressPort}");
-                }
-            }
-
             if (GenCommandLine.CommandLineArgPassed("arbiter"))
             {
                 Multiplayer.username = "The Arbiter";
@@ -191,7 +160,7 @@ namespace Multiplayer.Client
                 GenCommandLine.TryGetCommandLineArg("replaydata", out string replayData);
                 var replays = replay.Split(';').ToList().GetEnumerator();
 
-                DoubleLongEvent(() =>
+                ClientUtil.DoubleLongEvent(() =>
                 {
                     void LoadNextReplay()
                     {
@@ -262,7 +231,7 @@ namespace Multiplayer.Client
             if (GenCommandLine.TryGetCommandLineArg(MpHostReplayCmdLineArgName, out var path))
             {
                 MpHostReplayCmdLineArgValue = path;
-                DoubleLongEvent(() => HostWindow.VerifyAndOpen(path), "Loading");
+                ClientUtil.DoubleLongEvent(() => HostWindow.VerifyAndOpen(path), "Loading");
             }
         }
 
