@@ -9,6 +9,9 @@ public class TestLoadingKeepAliveState : AsyncConnectionState
     {
     }
 
+    [TypedPacketHandler]
+    public void HandleKeepAlive(ServerKeepAlivePacket packet) { }
+
     private const string RwVersion = "1.0.0";
 
     protected override async Task RunState()

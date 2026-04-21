@@ -136,7 +136,10 @@ namespace Multiplayer.Common
         public void OnJoin(ServerPlayer player)
         {
             player.hasJoined = true;
-            player.FactionId = player.id == 0 || !server.settings.multifaction ?
+            var standalonePrimaryPlayer = server.IsStandaloneServer &&
+                !server.JoinedPlayers.Any(p => p != player && !p.IsArbiter);
+
+            player.FactionId = standalonePrimaryPlayer || player.id == 0 || !server.settings.multifaction ?
                 server.worldData.hostFactionId :
                 server.worldData.spectatorFactionId;
 

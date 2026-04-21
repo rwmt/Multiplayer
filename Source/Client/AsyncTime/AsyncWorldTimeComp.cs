@@ -216,6 +216,9 @@ public class AsyncWorldTimeComp : IExposable, ITickable
 
             if (cmdType == CommandType.CreateJoinPoint)
             {
+                if (Multiplayer.session?.ConnectedToStandaloneServer == true && !TickPatch.currentExecutingCmdIssuedBySelf)
+                    return;
+
                 LongEventHandler.QueueLongEvent(CreateJoinPointAndSendIfHost, "MpCreatingJoinPoint", false, null);
             }
 
@@ -275,9 +278,21 @@ public class AsyncWorldTimeComp : IExposable, ITickable
     {
         Multiplayer.session.dataSnapshot = SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveAndReload(), Multiplayer.GameComp.multifaction);
 
-        if (!TickPatch.Simulating && !Multiplayer.IsReplay &&
-            (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
-            SaveLoad.SendGameData(Multiplayer.session.dataSnapshot, true);
+        if (!TickPatch.Simulating && !Multiplayer.IsReplay)
+        {
+            if (Multiplayer.session?.ConnectedToStandaloneServer == true)
+            {
+                // Standalone: every client uploads world data + individual snapshots
+                SaveLoad.SendGameData(Multiplayer.session.dataSnapshot, true);
+                SaveLoad.SendStandaloneMapSnapshots(Multiplayer.session.dataSnapshot);
+                SaveLoad.SendStandaloneWorldSnapshot(Multiplayer.session.dataSnapshot);
+            }
+            else if (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance)
+            {
+                // Hosted: only host/arbiter uploads world data
+                SaveLoad.SendGameData(Multiplayer.session.dataSnapshot, true);
+            }
+        }
     }
 
     public void SetTimeEverywhere(TimeSpeed speed)

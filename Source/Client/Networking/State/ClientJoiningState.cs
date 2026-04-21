@@ -30,6 +30,10 @@ namespace Multiplayer.Client
         [TypedPacketHandler]
         public void HandleProtocolOk(ServerProtocolOkPacket packet)
         {
+            Multiplayer.session.isStandaloneServer = packet.isStandaloneServer;
+            Multiplayer.session.autosaveInterval = packet.autosaveInterval;
+            Multiplayer.session.autosaveUnit = packet.autosaveUnit;
+
             if (packet.hasPassword)
             {
                 // Delay showing the window for better UX
