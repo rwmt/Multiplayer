@@ -31,7 +31,6 @@ namespace Multiplayer.Client
         public PlayerCursors playerCursors = new();
         public int autosaveCounter;
         public float? lastSaveAt;
-        public List<ClientSyncOpinion> initialOpinions = new();
 
         public bool replay;
         public int replayTimerStart = -1;

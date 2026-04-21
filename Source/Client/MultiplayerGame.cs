@@ -1,6 +1,3 @@
-using Multiplayer.Client.Desyncs;
-using RimWorld;
-using RimWorld.BaseGen;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -8,7 +5,10 @@ using LudeonTK;
 using Multiplayer.API;
 using Multiplayer.Client.AsyncTime;
 using Multiplayer.Client.Comp;
+using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.Factions;
+using RimWorld;
+using RimWorld.BaseGen;
 using UnityEngine;
 using Verse;
 
@@ -75,10 +75,6 @@ namespace Multiplayer.Client
                     edgeThing.randomRotations = new List<int>() { 0, 1, 2, 3 };
 
             typeof(SymbolResolver_SingleThing).TypeInitializer.Invoke(null, null);
-
-            foreach (var initialOpinion in Multiplayer.session.initialOpinions)
-                sync.AddClientOpinionAndCheckDesync(initialOpinion);
-            Multiplayer.session.initialOpinions.Clear();
 
             FactionCreator.ClearData();
         }

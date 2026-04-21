@@ -119,11 +119,12 @@ public class ClientLoadingState(ConnectionBase connection) : ClientBaseState(con
         TickPatch.serverFrozen = serverFrozen;
 
         int syncInfos = data.ReadInt32();
+        var initialOpinions = new List<ClientSyncOpinion>(syncInfos);
         for (int i = 0; i < syncInfos; i++)
-            Session.initialOpinions.Add(ClientSyncOpinion.Deserialize(new ByteReader(data.ReadPrefixedBytes())));
+            initialOpinions.Add(ClientSyncOpinion.Deserialize(new ByteReader(data.ReadPrefixedBytes())));
 
         Log.Message(syncInfos > 0
-            ? $"Initial sync opinions: {Session.initialOpinions.First().startTick}...{Session.initialOpinions.Last().startTick}"
+            ? $"Initial sync opinions: {initialOpinions.First().startTick}...{initialOpinions.Last().startTick}"
             : "No initial sync opinions");
 
         TickPatch.SetSimulation(
@@ -134,7 +135,13 @@ public class ClientLoadingState(ConnectionBase connection) : ClientBaseState(con
         );
 
         Stopwatch watch = Stopwatch.StartNew();
-        Loader.ReloadGame(mapsToLoad, true, false);
+        Loader.ReloadGame(mapsToLoad, true, () =>
+        {
+            foreach (var opinion in initialOpinions)
+            {
+                Multiplayer.game.sync.AddClientOpinionAndCheckDesync(opinion);
+            }
+        });
         var loadingMs = watch.ElapsedMilliseconds;
         Log.Message($"Loaded game in {loadingMs}ms");
         connection.ChangeState(ConnectionStateEnum.ClientPlaying);
