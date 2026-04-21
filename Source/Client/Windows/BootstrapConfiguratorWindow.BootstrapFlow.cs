@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Threading;
 using Multiplayer.Client.Comp;
 using Multiplayer.Common;
 using Multiplayer.Common.Networking.Packet;
@@ -351,10 +352,13 @@ public partial class BootstrapConfiguratorWindow
         saveUploadProgress = 0f;
         saveUploadStatus = "Uploading save.zip...";
 
-        byte[] bytes;
+        byte[] saveData;
+        byte[] hash;
         try
         {
-            bytes = File.ReadAllBytes(savedReplayPath);
+            saveData = File.ReadAllBytes(savedReplayPath);
+            using var hasher = SHA256.Create();
+            hash = hasher.ComputeHash(saveData);
         }
         catch (Exception exception)
         {
@@ -363,32 +367,15 @@ public partial class BootstrapConfiguratorWindow
             return;
         }
 
-        new System.Threading.Thread(() =>
+        new Thread(() =>
         {
             try
             {
-                connection.Send(new ClientBootstrapSaveStartPacket("save.zip", bytes.Length));
+                connection.SendFragmented(new ClientBootstrapSaveDataPacket(saveData, hash).Serialize());
 
-                const int chunkSize = 256 * 1024;
-                var sent = 0;
-                while (sent < bytes.Length)
-                {
-                    var len = Math.Min(chunkSize, bytes.Length - sent);
-                    var part = new byte[len];
-                    Buffer.BlockCopy(bytes, sent, part, 0, len);
-                    connection.SendFragmented(new ClientBootstrapSaveDataPacket(part).Serialize());
-                    sent += len;
-                    var progress = bytes.Length == 0 ? 1f : (float)sent / bytes.Length;
-                    OnMainThread.Enqueue(() => saveUploadProgress = Mathf.Clamp01(progress));
-                }
-
-                byte[] hash;
-                using (var hasher = SHA256.Create())
-                    hash = hasher.ComputeHash(bytes);
-
-                connection.Send(new ClientBootstrapSaveEndPacket(hash));
                 OnMainThread.Enqueue(() =>
                 {
+                    saveUploadProgress = 1f;
                     saveUploadStatus = "Upload finished. Waiting for server to confirm and shut down...";
                 });
             }

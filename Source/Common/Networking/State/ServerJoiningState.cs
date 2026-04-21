@@ -157,7 +157,6 @@ public class ServerJoiningState : AsyncConnectionState
         if (Server.BootstrapMode)
         {
             connection.ChangeState(ConnectionStateEnum.ServerBootstrap);
-            return defsMatch;
         }
 
         return defsMatch;

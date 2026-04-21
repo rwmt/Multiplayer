@@ -1,3 +1,4 @@
+using System;
 using Multiplayer.Client.Util;
 using Multiplayer.Common.Networking.Packet;
 using Multiplayer.Common.Util;
@@ -30,8 +31,6 @@ public partial class BootstrapConfiguratorWindow
         {
             DoTabButton(entry.Width(140f).Height(40f), Tab.Connecting);
             DoTabButton(entry.Down(50f).Width(140f).Height(40f), Tab.Gameplay);
-            if (Prefs.DevMode)
-                DoTabButton(entry.Down(100f).Width(140f).Height(40f), Tab.Preview);
         }
 
         var contentRect = entry.MinX(entry.xMin + 150f);
@@ -45,20 +44,11 @@ public partial class BootstrapConfiguratorWindow
             ServerSettingsUI.DrawNetworkingSettings(contentRect, settings, buffers);
         else if (tab == Tab.Gameplay)
             ServerSettingsUI.DrawGameplaySettingsOnly(contentRect, settings, buffers);
-        else if (tab == Tab.Preview)
-            DrawPreviewTab(contentRect, inRect.height);
 
         settingsUiBuffers.MaxPlayersBuffer = buffers.MaxPlayersBuffer;
         settingsUiBuffers.AutosaveBuffer = buffers.AutosaveBuffer;
 
         DrawSettingsButtons(new Rect(0f, inRect.height - 40f, inRect.width, 35f));
-    }
-
-    private void DrawPreviewTab(Rect contentRect, float windowHeight)
-    {
-        RebuildTomlPreview();
-        var previewRect = new Rect(contentRect.x, contentRect.y, contentRect.width, windowHeight - contentRect.y - 50f);
-        DrawTomlPreview(previewRect);
     }
 
     private void DoTabButton(Rect rect, Tab tabToDraw)
@@ -72,7 +62,7 @@ public partial class BootstrapConfiguratorWindow
 
         float x = rect.x + 10f;
         Texture2D icon = null;
-        string label;
+        string label = "ERROR";
 
         if (tabToDraw == Tab.Connecting)
         {
@@ -83,10 +73,6 @@ public partial class BootstrapConfiguratorWindow
         {
             icon = MultiplayerStatic.OptionsGameplay;
             label = "MpHostTabGameplay".Translate();
-        }
-        else
-        {
-            label = "Preview";
         }
 
         if (icon != null)
@@ -104,12 +90,10 @@ public partial class BootstrapConfiguratorWindow
         Rect nextRect;
         if (Prefs.DevMode)
         {
-            var copyRect = new Rect(inRect.x, inRect.y, 150f, inRect.height);
-            if (Widgets.ButtonText(copyRect, "Copy TOML"))
+            var previewRect = new Rect(inRect.x, inRect.y, 150f, inRect.height);
+            if (Widgets.ButtonText(previewRect, "Preview TOML"))
             {
-                RebuildTomlPreview();
-                GUIUtility.systemCopyBuffer = tomlPreview;
-                Messages.Message("Copied settings.toml to clipboard", MessageTypeDefOf.SilentInput, false);
+                Find.WindowStack.Add(new DebugTextWindow(GenerateToml()));
             }
 
             nextRect = new Rect(inRect.xMax - 150f, inRect.y, 150f, inRect.height);
@@ -126,7 +110,6 @@ public partial class BootstrapConfiguratorWindow
 
         if (Widgets.ButtonText(nextRect, settingsUploaded ? "Uploaded" : "Next") && nextEnabled)
         {
-            RebuildTomlPreview();
             StartUploadSettingsToml();
         }
 
@@ -139,57 +122,28 @@ public partial class BootstrapConfiguratorWindow
         uploadProgress = 0f;
         statusText = "Uploading server settings...";
 
-        new System.Threading.Thread(() =>
+        try
         {
-            try
-            {
-                connection.Send(new ClientBootstrapSettingsPacket(settings));
+            connection.Send(new ClientBootstrapSettingsPacket(settings));
+        }
+        catch (Exception e)
+        {
+            Log.Error($"Bootstrap settings upload failed: {e}");
+            isUploadingToml = false;
+            statusText = $"Failed to upload settings: {e.GetType().Name}: {e.Message}";
+            return;
+        }
 
-                OnMainThread.Enqueue(() =>
-                {
-                    isUploadingToml = false;
-                    uploadProgress = 1f;
-                    settingsUploaded = true;
-                    statusText = "Server settings uploaded. Waiting for the server to request save.zip generation.";
-                    step = Step.GenerateMap;
-                    saveUploadRequestedByServer = false;
+        isUploadingToml = false;
+        uploadProgress = 1f;
+        settingsUploaded = true;
+        statusText = "Server settings uploaded. Waiting for the server to request save.zip generation.";
+        step = Step.GenerateMap;
+        saveUploadRequestedByServer = false;
 
-                    if (Multiplayer.session != null)
-                        Multiplayer.session.bootstrapState = Multiplayer.session.bootstrapState with { SettingsMissing = false, SaveMissing = false };
-                });
-            }
-            catch (System.Exception e)
-            {
-                Log.Error($"Bootstrap settings upload failed: {e}");
-                OnMainThread.Enqueue(() =>
-                {
-                    isUploadingToml = false;
-                    statusText = $"Failed to upload settings: {e.GetType().Name}: {e.Message}";
-                });
-            }
-        }) { IsBackground = true, Name = "MP Bootstrap settings upload" }.Start();
+        bootstrapState = bootstrapState with { SettingsMissing = false, SaveMissing = false };
     }
 
-    private void DrawTomlPreview(Rect inRect)
-    {
-        Widgets.DrawMenuSection(inRect);
-        var inner = inRect.ContractedBy(10f);
-
-        Text.Font = GameFont.Small;
-        Widgets.Label(inner.TopPartPixels(22f), "settings.toml preview");
-
-        var previewRect = new Rect(inner.x, inner.y + 26f, inner.width, inner.height - 26f);
-        var content = tomlPreview ?? string.Empty;
-        var contentHeight = Text.CalcHeight(content, previewRect.width - 16f) + 20f;
-        var viewRect = new Rect(0f, 0f, previewRect.width - 16f, Mathf.Max(previewRect.height, contentHeight));
-
-        Widgets.BeginScrollView(previewRect, ref tomlScroll, viewRect);
-        Widgets.Label(new Rect(0f, 0f, viewRect.width, viewRect.height), content);
-        Widgets.EndScrollView();
-    }
-
-    private void RebuildTomlPreview()
-    {
-        tomlPreview = "# Generated by Multiplayer bootstrap configurator\n\n" + TomlSettingsCommon.Serialize(settings);
-    }
+    private string GenerateToml() =>
+        "# Generated by Multiplayer bootstrap configurator\n\n" + TomlSettings.Serialize(settings);
 }

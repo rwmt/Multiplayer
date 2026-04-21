@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Net;
+using Multiplayer.Common.Networking.Packet;
 using Multiplayer.Common.Util;
 
 namespace Multiplayer.Common
@@ -73,6 +74,34 @@ namespace Multiplayer.Common
             ScribeLike.Look(ref pauseOnDesync, "pauseOnDesync", true);
             ScribeLike.Look(ref timeControl, "timeControl");
         }
+
+        public static readonly Binder<ServerSettings> Binder = (PacketBuffer buf, ref ServerSettings settings) =>
+        {
+            settings ??= new ServerSettings();
+
+            buf.Bind(ref settings.gameName, maxLength: 256);
+            buf.Bind(ref settings.directAddress, maxLength: 256);
+            buf.Bind(ref settings.maxPlayers);
+            buf.Bind(ref settings.autosaveInterval);
+            buf.BindEnum(ref settings.autosaveUnit);
+            buf.Bind(ref settings.steam);
+            buf.Bind(ref settings.direct);
+            buf.Bind(ref settings.lan);
+            buf.Bind(ref settings.arbiter);
+            buf.Bind(ref settings.asyncTime);
+            buf.Bind(ref settings.multifaction);
+            buf.Bind(ref settings.debugMode);
+            buf.Bind(ref settings.desyncTraces);
+            buf.Bind(ref settings.syncConfigs);
+            buf.BindEnum(ref settings.autoJoinPoint);
+            buf.BindEnum(ref settings.devModeScope);
+            buf.Bind(ref settings.hasPassword);
+            buf.Bind(ref settings.password, maxLength: 256);
+            buf.BindEnum(ref settings.pauseOnLetter);
+            buf.Bind(ref settings.pauseOnJoin);
+            buf.Bind(ref settings.pauseOnDesync);
+            buf.BindEnum(ref settings.timeControl);
+        };
     }
 
     public enum AutosaveUnit

@@ -16,7 +16,7 @@ public class BootstrapSettingsTest
             lan = true,
         };
 
-        var toml = TomlSettingsCommon.Serialize(settings);
+        var toml = TomlSettings.Serialize(settings);
 
         Assert.That(toml, Does.Contain("gameName = \"Bootstrap Test\""));
         Assert.That(toml, Does.Contain("lanAddress = \"192.168.1.15\""));

@@ -66,10 +66,8 @@ public enum Packets : byte
     Server_Disconnect,
 
     // Bootstrap
-    Client_BootstrapSettingsUploadStart,
-    Client_BootstrapUploadStart,
-    Client_BootstrapUploadData,
-    Client_BootstrapUploadFinish,
+    Client_BootstrapSettings,
+    Client_BootstrapSave,
     Server_Bootstrap,
 
     Count,
