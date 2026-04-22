@@ -10,6 +10,7 @@ using LudeonTK;
 using Multiplayer.Common;
 using RestSharp;
 using Steamworks;
+using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client
@@ -165,6 +166,9 @@ namespace Multiplayer.Client
                 .ToDictionary(grouping => grouping.Key, grouping => grouping.First());
         }
 
+        public static ModCompatibility? LookupByMod(ModMetaData meta) =>
+            LookupByWorkshopId(meta.GetPublishedFileId()) ?? LookupByName(meta.Name);
+
         public static ModCompatibility? LookupByWorkshopId(PublishedFileId_t workshopId) =>
             LookupByWorkshopId(workshopId.m_PublishedFileId);
 
@@ -188,5 +192,23 @@ namespace Multiplayer.Client
         public string name { get; set; }
         public long workshopId { get; set; }
         public string notes { get; set; } = "";
+
+        public static Color ScoreColor(int score) => score switch
+        {
+            1 => ColorLibrary.Red,
+            2 => ColorLibrary.Orange,
+            3 => ColorLibrary.Yellow,
+            4 => ColorLibrary.Green,
+            _ => ColorLibrary.Grey
+        };
+
+        public static string ScoreDescription(int score) => score switch
+        {
+            1 => "MpModCompatScore1",
+            2 => "MpModCompatScore2",
+            3 => "MpModCompatScore3",
+            4 => "MpModCompatScore4",
+            _ => "MpModCompatScoreUnk"
+        };
     }
 }

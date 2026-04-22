@@ -40,7 +40,7 @@ namespace Multiplayer.Client
                 resizeable = true;
                 draggable = true;
                 layer = WindowLayer.SubSuper;
-                resizer = new WindowResizer() { minWindowSize = InitialSize };
+                resizer = new WindowResizer { minWindowSize = InitialSize };
             }
             else
             {
@@ -62,6 +62,7 @@ namespace Multiplayer.Client
         private int? modsHash;
         private (SortType t, SortDirection d) sort;
         private bool nameFieldChanged;
+        private bool scrollToModName;
 
         private Dictionary<string, string> modNameCache = new();
         private Dictionary<string, string> notesCache = new();
@@ -74,6 +75,12 @@ namespace Multiplayer.Client
         const float Spacing = 10f;
         const float ScrollbarWidth = 20f;
         const float ListInset = 15f;
+
+        public void ScrollToModName(string modName)
+        {
+            nameFieldStr = modName;
+            scrollToModName = true;
+        }
 
         public override void DoWindowContents(Rect inRect)
         {
@@ -128,6 +135,11 @@ namespace Multiplayer.Client
             GUI.SetNextControlName("mod_search");
             nameFieldStr = Widgets.TextField(nameField, nameFieldStr);
             nameFieldChanged = nameFieldStr != prevNameField;
+            if (scrollToModName)
+            {
+                nameFieldChanged = true;
+                scrollToModName = false;
+            }
             inRect.yMin += CheckboxesHeight + 10f;
 
             GUI.BeginGroup(inRect);
@@ -249,7 +261,7 @@ namespace Multiplayer.Client
 
             // Notes header
             var notesHeader = headerRow.MaxX(headerRow.width - ScrollbarWidth);
-            Widgets.Label(notesHeader, $"MpModCompatHeaderNotes".Translate());
+            Widgets.Label(notesHeader, "MpModCompatHeaderNotes".Translate());
             Widgets.DrawHighlightIfMouseover(notesHeader);
         }
 
@@ -275,23 +287,10 @@ namespace Multiplayer.Client
             {
                 bool xml = MultiplayerData.IsXmlMod(mod);
 
-                var scoreColor = xml ? ColorLibrary.Green : info?.status switch
-                {
-                    1 => ColorLibrary.Red,
-                    2 => ColorLibrary.Orange,
-                    3 => ColorLibrary.Yellow,
-                    4 => ColorLibrary.Green,
-                    _ => ColorLibrary.Grey
-                };
+                var scoreColor = xml ? ColorLibrary.Green : ModCompatibility.ScoreColor(info?.status ?? 0);
 
-                var scoreDescKey = xml ? "MpModCompatXmlOnlyDesc" : info?.status switch
-                {
-                    1 => "MpModCompatScore1",
-                    2 => "MpModCompatScore2",
-                    3 => "MpModCompatScore3",
-                    4 => "MpModCompatScore4",
-                    _ => "MpModCompatScoreUnk"
-                };
+                var scoreDescKey =
+                    xml ? "MpModCompatXmlOnlyDesc" : ModCompatibility.ScoreDescription(info?.status ?? 0);
 
                 var scoreText = xml
                     ? "XML"
@@ -368,8 +367,7 @@ namespace Multiplayer.Client
             if (!Multiplayer.settings.showModCompatibility)
                 return null;
 
-            return ModCompatibilityManager.LookupByWorkshopId(mod.publishedFileIdInt) ??
-                   ModCompatibilityManager.LookupByName(mod.Name);
+            return ModCompatibilityManager.LookupByMod(mod);
         }
 
         private static string SortChar(SortDirection dir) => dir switch
@@ -399,6 +397,68 @@ namespace Multiplayer.Client
             list.First(i => i.operand is 508f).operand = 708F;
 
             return list;
+        }
+    }
+
+    [HarmonyPatch(typeof(Page_ModsConfig), nameof(Page_ModsConfig.DoModRow))]
+    static class PageModsConfigShowModCompat
+    {
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            var labelMethod =
+                AccessTools.Method(typeof(Widgets), nameof(Widgets.Label), [typeof(Rect), typeof(string)]);
+            foreach (var inst in insts)
+            {
+                if (inst.Calls(labelMethod))
+                {
+                    yield return CodeInstruction.LoadArgument(2); // ModMetaData
+                    yield return CodeInstruction.LoadArgument(0); // Page_ModsConfig
+                    inst.operand = AccessTools.Method(typeof(PageModsConfigShowModCompat), nameof(DrawModLabel));
+                }
+
+                yield return inst;
+            }
+        }
+
+        public static void DrawModLabel(Rect r, string label, ModMetaData mod, Page_ModsConfig parent)
+        {
+            if (!Multiplayer.settings.showModCompatibility)
+            {
+                Widgets.Label(r, label);
+                return;
+            }
+
+            var compat = ModCompatibilityManager.LookupByMod(mod);
+            var rect = new Rect(r.x, (float) (r.y + r.height / 2.0 - 12.0), 20f, 24f);
+            Text.Anchor = TextAnchor.MiddleCenter;
+
+            bool xml = MultiplayerData.IsXmlMod(mod);
+            var score = xml ? 4 : compat?.status ?? 0;
+            var scoreColor = ModCompatibility.ScoreColor(score);
+            Widgets.Label(rect, "[" + score.ToString().Colorize(scoreColor) + "]");
+
+            if (Mouse.IsOver(rect))
+            {
+                var scoreText = (xml ? "MpModCompatXmlOnlyDesc" : ModCompatibility.ScoreDescription(score)).Translate();
+                if (compat?.notes is { Length: > 0 })
+                {
+                    scoreText += $"\n{compat.notes}";
+                }
+
+                TooltipHandler.TipRegion(rect, () => scoreText,
+                    (int)(r.x + r.y * 56167.0));
+                Widgets.DrawHighlight(rect);
+            }
+
+            if (Widgets.ButtonInvisible(rect))
+            {
+                var modCompatWindow = new ModCompatWindow(parent, true, false, null);
+                modCompatWindow.ScrollToModName(mod.Name);
+                Find.WindowStack.Add(modCompatWindow);
+            }
+
+            Text.Anchor = TextAnchor.MiddleLeft;
+            Widgets.Label(r.Right(rect.width + 4f), label);
         }
     }
 
