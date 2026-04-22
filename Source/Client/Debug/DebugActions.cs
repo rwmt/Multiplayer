@@ -373,6 +373,13 @@ namespace Multiplayer.Client
             }
         }
 
+        [DebugAction(MultiplayerLocalCategory, "Show mod compat", allowedGameStates = AllowedGameStates.Playing)]
+        public static void ShowModCompatDialog()
+        {
+            var window = new ModCompatWindow(null, true, false, null);
+            Find.WindowStack.Add(window);
+        }
+
 #if DEBUG
 
         [DebugOutput]
