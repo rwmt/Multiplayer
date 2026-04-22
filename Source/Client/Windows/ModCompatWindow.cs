@@ -266,8 +266,13 @@ namespace Multiplayer.Client
 
             // Name
             {
+                var labelRect = row.Width(NameWidth - Spacing - ListInset);
                 using (MpStyle.Set(nameContainsSearch ? Color.white : Color.grey))
-                    MpUI.LabelTruncatedWithTip(row.Width(NameWidth - Spacing - ListInset), modName, modNameCache);
+                    MpUI.LabelTruncatedWithTip(labelRect, modName, modNameCache);
+
+                if (Widgets.ButtonInvisible(labelRect) && mod.Source == ContentSource.SteamWorkshop)
+                    SteamUtility.OpenWorkshopPage(mod.GetPublishedFileId());
+
                 row.xMin += NameWidth - ListInset;
             }
 
