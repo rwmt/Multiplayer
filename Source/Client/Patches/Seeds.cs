@@ -209,6 +209,25 @@ namespace Multiplayer.Client
         }
     }
 
+    [HarmonyPatch(typeof(RoomTempTracker), nameof(RoomTempTracker.RegenerateEqualizeCells))]
+    static class SeedRegenerateEqualizeCells
+    {
+        static void Prefix(RoomTempTracker __instance, ref bool __state)
+        {
+            if (Multiplayer.Client == null) return;
+
+            int seed = Gen.HashCombineInt(__instance.room.ID, Find.World.ConstantRandSeed);
+            Rand.PushState(seed);
+            __state = true;
+        }
+
+        static void Postfix(bool __state)
+        {
+            if (__state)
+                Rand.PopState();
+        }
+    }
+
     [HarmonyPatch(typeof(PreceptComp_UnwillingToDo_Chance), nameof(PreceptComp_UnwillingToDo_Chance.MemberWillingToDo))]
     static class SeedPreceptComp_UnwillingToDo_Chance
     {
