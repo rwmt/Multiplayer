@@ -6,7 +6,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using Verse;
 
-#if true
+#if false
 namespace Multiplayer.Client.Patches
 {
     //This is a full patch to replace all the Multithreading race calls in work threads

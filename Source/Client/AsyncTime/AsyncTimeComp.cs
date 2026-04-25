@@ -121,6 +121,12 @@ namespace Multiplayer.Client
                 mapTicks++;
                 Find.TickManager.ticksGameInt = mapTicks;
 
+                //Either This line or PathFinderPatch can be commented out
+                //ForeCompeleScheduledJobs here can prevent all Multithread Races,
+                //but also force pathfinder to be done before tick runing
+                //PathFinderPatch is the other way try to snapshot everything worker threads are using
+                map.pathFinder.ForceCompleteScheduledJobs();
+
                 tickListNormal.Tick();
                 tickListRare.Tick();
                 tickListLong.Tick();
