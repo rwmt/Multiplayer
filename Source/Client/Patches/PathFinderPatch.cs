@@ -1,19 +1,15 @@
 using HarmonyLib;
-using System;
+using RimWorld;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Runtime.Serialization.Formatters;
-using System.Text;
-using System.Threading.Tasks;
 using Verse;
-using Verse.AI;
-using static UnityEngine.UI.Image;
 
+#if true
 namespace Multiplayer.Client.Patches
 {
+    //This is a full patch to replace all the Multithreading race calls in work threads
     internal class PathFinderPatch
     {
         // PathGridDoorsBlockedJob is a cross-tick Unity Job: scheduled at end of MapPreTick(N),
@@ -37,13 +33,14 @@ namespace Multiplayer.Client.Patches
         {
             public IntVec3 Position = pawn.Position;
             public bool CollideWithNonHostile = GetCollideWithNoneHostile(pawn);
+            public bool ShouldCollideWithPawns = PawnUtility.ShouldCollideWithPawns(pawn);
             public static bool GetCollideWithNoneHostile(Pawn pawn)
             {
                 return pawn.CurJob != null && (pawn.CurJob.collideWithPawns
                         || pawn.CurJob.def.collideWithPawns || pawn.jobs.curDriver.collideWithPawns);
             }
         }
-        
+
 
         static class PawnPositionSnapshot
         {
@@ -111,6 +108,10 @@ namespace Multiplayer.Client.Patches
         [HarmonyPatch]
         static class PathGridDoorsBlockedJobCollideWithNonHostilePatch
         {
+            //ShouldCollideWithPawns
+            static readonly MethodInfo MethodShouldCollideWithPawns = AccessTools.Method(typeof(PawnUtility), nameof(PawnUtility.ShouldCollideWithPawns));
+            static MethodInfo MethodShouldCollideWithPawnsGetter = AccessTools.Method(typeof(PawnUtility), nameof(PawnUtility.ShouldCollideWithPawns));
+            //CollideWithNonHostile
             static readonly MethodInfo MethodCanBlockEver =
                 AccessTools.Method(typeof(PathGridDoorsBlockedJob), nameof(PathGridDoorsBlockedJob.CanBlockEver));
             static readonly FieldInfo FieldPawn =
@@ -122,6 +123,7 @@ namespace Multiplayer.Client.Patches
                 yield return AccessTools.Method(typeof(PathGridDoorsBlockedJob), "Execute");
             }
             // start
+            // calls to ShouldCollideWithPawns, replace with cached one
             // calls to CanBlockEver
             // ldarg.0
             // skip all and set result of V_13(collideWithNonHostile) here
@@ -129,19 +131,37 @@ namespace Multiplayer.Client.Patches
             static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> e, MethodBase original)
             {
                 List<CodeInstruction> insts = e.ToList();
-                var finder = new CodeFinder(original, insts);
+                // ShouldCollideWithPawns
+                {
+                    foreach (var inst in insts)
+                        if (inst.Calls(MethodShouldCollideWithPawns))
+                            inst.operand = MethodShouldCollideWithPawnsGetter;
+                }
+                // CollideWithNonHostile
+                {
+                    var finder = new CodeFinder(original, insts);
 
-                var start = finder.Forward(OpCodes.Call, MethodCanBlockEver)
-                    .Forward(OpCodes.Ldarg_0);
-                var end = finder.Forward(OpCodes.Stloc_S, 13);
+                    int start = finder.Forward(OpCodes.Call, MethodCanBlockEver)
+                        .Forward(OpCodes.Ldarg_0);
+                    int end = finder.Forward(OpCodes.Stloc_S, 13);
 
-                insts.RemoveRange(start, end - start);
-                insts.Insert(start,
-                    new CodeInstruction(OpCodes.Ldarg_0),
-                    new CodeInstruction(OpCodes.Ldfld, FieldPawn),
-                    new CodeInstruction(OpCodes.Call, MethodGetCollideWithNonHostile)
-                    );
+                    insts.RemoveRange(start, end - start);
+                    insts.Insert(start,
+                        new CodeInstruction(OpCodes.Ldarg_0),
+                        new CodeInstruction(OpCodes.Ldfld, FieldPawn),
+                        new CodeInstruction(OpCodes.Call, MethodGetCollideWithNonHostile)
+                        );
+                }
+
                 return insts;
+            }
+
+            internal static bool GetShouldCollideWithPawns(Pawn pawn)
+            {
+                if (Multiplayer.Client != null
+                    && PawnPositionSnapshot.TryGet(pawn, out PawnSnapShot snapshot))
+                    return snapshot.ShouldCollideWithPawns;
+                return PawnUtility.ShouldCollideWithPawns(pawn);
             }
             internal static bool GetCollideWithNonHostile(Pawn pawn)
             {
@@ -154,3 +174,4 @@ namespace Multiplayer.Client.Patches
         }
     }
 }
+#endif
