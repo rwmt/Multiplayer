@@ -112,7 +112,7 @@ namespace Multiplayer.Client.Patches
         static class PathGridDoorsBlockedJobCollideWithNonHostilePatch
         {
             static readonly MethodInfo MethodCanBlockEver =
-                AccessTools.Method(typeof(PathGridDoorsBlockedJob), nameof(PathGridDoorsBlockedJob.Execute));
+                AccessTools.Method(typeof(PathGridDoorsBlockedJob), nameof(PathGridDoorsBlockedJob.CanBlockEver));
             static readonly FieldInfo FieldPawn =
                 AccessTools.Field(typeof(PathGridDoorsBlockedJob), nameof(PathGridDoorsBlockedJob.pawn));
             static readonly MethodInfo MethodGetCollideWithNonHostile =
