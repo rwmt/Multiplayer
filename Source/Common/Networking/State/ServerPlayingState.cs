@@ -116,7 +116,7 @@ namespace Multiplayer.Common
 
         [TypedPacketHandler]
         public void HandleSelected(ClientSelectedPacket packet) =>
-            Server.SendToPlaying(new ServerSelectedPacket(Player.id, packet));
+            Server.SendToPlaying(new ServerSelectedPacket(Player.id, packet), excluding: Player);
 
         [TypedPacketHandler]
         public void HandlePing(ClientPingLocPacket packet) =>
