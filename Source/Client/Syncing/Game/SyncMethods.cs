@@ -28,7 +28,6 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Pawn_OutfitTracker), nameof(Pawn_OutfitTracker.CurrentApparelPolicy)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(Pawn_FoodRestrictionTracker), nameof(Pawn_FoodRestrictionTracker.CurrentFoodPolicy)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(Pawn_ReadingTracker), nameof(Pawn_ReadingTracker.CurrentPolicy)).CancelIfAnyArgNull();
-            SyncMethod.Register(typeof(Policy), nameof(Policy.RenamableLabel));
             SyncMethod.Register(typeof(Pawn_PlayerSettings), nameof(Pawn_PlayerSettings.AreaRestrictionInPawnCurrentMap));
             SyncMethod.Register(typeof(Pawn_PlayerSettings), nameof(Pawn_PlayerSettings.Master));
             SyncMethod.Register(typeof(Pawn), nameof(Pawn.Name)).ExposeParameter(0)
@@ -54,7 +53,6 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Building_TurretGun), nameof(Building_TurretGun.ExtractShell));
             SyncMethod.Register(typeof(Area), nameof(Area.Invert));
             SyncMethod.Register(typeof(Area), nameof(Area.Delete));
-            SyncMethod.Register(typeof(Area_Allowed), nameof(Area_Allowed.RenamableLabel));
             SyncMethod.Register(typeof(AreaManager), nameof(AreaManager.TryMakeNewAllowed));
             SyncMethod.Register(typeof(MainTabWindow_Research), nameof(MainTabWindow_Research.DoBeginResearch))
                 .TransformTarget(Serializer.SimpleReader(() => new MainTabWindow_Research()));
@@ -295,7 +293,6 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(CompPowerBattery), nameof(CompPowerBattery.SetStoredEnergyPct)).SetDebugOnly(); // Set battery to 0/100%
             SyncMethod.Lambda(typeof(CompPowerTrader), nameof(CompPowerTrader.CompGetGizmosExtra), 0).SetDebugOnly(); // Toggle power on/off
             SyncMethod.Lambda(typeof(CompProximityFuse), nameof(CompProximityFuse.CompGetGizmosExtra), 0).SetDebugOnly(); // Trigger
-            SyncMethod.Register(typeof(GameComponent_PsychicRitualManager), nameof(GameComponent_PsychicRitualManager.ClearAllCooldowns)).SetDebugOnly();
             SyncMethod.Lambda(typeof(CompRevenant), nameof(CompRevenant.CompGetGizmosExtra), 0).SetDebugOnly(); // Reset hypnosis cooldown
             SyncMethod.Lambda(typeof(CompRevenant), nameof(CompRevenant.CompGetGizmosExtra), 1).SetDebugOnly(); // Change to wander mode
             SyncMethod.Lambda(typeof(CompRevenant), nameof(CompRevenant.CompGetGizmosExtra), 2).SetDebugOnly(); // Change to sleep mode
@@ -926,7 +923,7 @@ namespace Multiplayer.Client
 
         // Seems can't sync Action & Predicate so have to deduct params
         // This is enough for bookcase to use but needs update for new situation if needed.
-        
+
         static bool SyncBookcaseTryDrop(Building_Bookcase bookcase, Thing thing, IntVec3 dropLoc, Map map, ThingPlaceMode mode, int count, out Thing resultingThing, Action<Thing, int> placedAction = null, Predicate<IntVec3> nearPlaceValidator = null)
         {
             return DoSyncBookcaseTryDrop(bookcase, thing, dropLoc, map, mode, count, out resultingThing);
