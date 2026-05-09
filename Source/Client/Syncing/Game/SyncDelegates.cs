@@ -257,8 +257,8 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(Hediff_LaborPushing), nameof(Hediff_LaborPushing.GetGizmos), 1).SetDebugOnly(); // Force infant illness
             SyncMethod.Lambda(typeof(Hediff_LaborPushing), nameof(Hediff_LaborPushing.GetGizmos), 2).SetDebugOnly(); // Force healthy
             SyncMethod.Lambda(typeof(Hediff_LaborPushing), nameof(Hediff_LaborPushing.GetGizmos), 3).SetDebugOnly(); // Force end
-            SyncMethod.Lambda(typeof(Hediff_LaborPushing), nameof(Hediff_Pregnant.GetGizmos), 0).SetDebugOnly(); // Next trimester
-            SyncMethod.Lambda(typeof(Hediff_LaborPushing), nameof(Hediff_Pregnant.GetGizmos), 1).SetDebugOnly(); // Start labor
+            SyncMethod.Lambda(typeof(Hediff_Pregnant), nameof(Hediff_Pregnant.GetGizmos), 0).SetDebugOnly(); // Next trimester
+            SyncMethod.Lambda(typeof(Hediff_Pregnant), nameof(Hediff_Pregnant.GetGizmos), 1).SetDebugOnly(); // Start labor
             SyncDelegate.Lambda(typeof(Hediff_MetalhorrorImplant), nameof(Hediff_MetalhorrorImplant.GetGizmos), 0).SetDebugOnly(); // Emerge
             SyncDelegate.Lambda(typeof(Hediff_MetalhorrorImplant), nameof(Hediff_MetalhorrorImplant.GetGizmos), 1).SetDebugOnly(); // Mark for flesh drop
             SyncDelegate.Lambda(typeof(Hediff_MetalhorrorImplant), nameof(Hediff_MetalhorrorImplant.GetGizmos), 2).SetDebugOnly(); // Discover next interaction
