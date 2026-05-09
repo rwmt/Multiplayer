@@ -36,7 +36,7 @@ var server = MultiplayerServer.instance = new MultiplayerServer(settings)
 {
     running = true,
     IsStandaloneServer = true,
-    BootstrapMode = settingsPresent && savePresent,
+    BootstrapMode = !settingsPresent || !savePresent,
 };
 
 if (!server.BootstrapMode)
