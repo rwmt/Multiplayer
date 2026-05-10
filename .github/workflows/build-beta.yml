@@ -35,7 +35,7 @@ jobs:
       run: dotnet build ${{ env.SLN_PATH }} --configuration Release --no-restore
 
     - name: Publish Server
-      run: dotnet publish ${{ env.SLN_PATH }}Server/Server.csproj --configuration Release --no-restore -o output/Server
+      run: dotnet publish ${{ env.SLN_PATH }}Server/Server.csproj --configuration Release --no-restore --no-build -o output/Server
 
     - name: Package files
       run: |
