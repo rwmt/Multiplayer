@@ -34,6 +34,9 @@ jobs:
     - name: Build Mod
       run: dotnet build ${{ env.SLN_PATH }} --configuration Release --no-restore
 
+    - name: Publish Server
+      run: dotnet publish ${{ env.SLN_PATH }}Server/Server.csproj --configuration Release --no-restore -o output/Server
+
     - name: Package files
       run: |
         sed -i "s/<name>\(.*\)<\/name>\$/<name>\1 [Continuous]<\/name>/" About/About.xml
@@ -41,6 +44,7 @@ jobs:
         mv About/ Assemblies/ AssembliesCustom/ Defs/ Languages/ Textures/ output/Multiplayer
         cd output/
         zip -r ../Multiplayer-beta.zip Multiplayer/
+        zip -r ../Server-beta.zip Server/
         cd ../
 
     - name: Upload Mod Artifacts
@@ -57,5 +61,5 @@ jobs:
     - name: Upload new release
       run: |
         gh release create --target "${{ github.sha }}" --title "Continuous" --notes-file ".github/workflows/alpha-notes.md" --draft "continuous"
-        gh release upload "continuous" Multiplayer-beta.zip
+        gh release upload "continuous" Multiplayer-beta.zip Server-beta.zip
         gh release edit "continuous" --draft=false
