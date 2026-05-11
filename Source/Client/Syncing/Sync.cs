@@ -57,12 +57,13 @@ namespace Multiplayer.Client
 
         public static ISyncField RegisterSyncField(Type targetType, string fieldName)
         {
-            FieldInfo field = AccessTools.Field(targetType, fieldName)
+            MemberInfo field = AccessTools.Field(targetType, fieldName) as MemberInfo
+                ?? AccessTools.Property(targetType, fieldName)
                 ?? throw new Exception($"Couldn't find field {targetType}::{fieldName}");
 
             SyncField sf;
             string memberPath;
-            if (field.IsStatic) {
+            if (field.IsStatic()) {
                 memberPath = field.ReflectedType + "/" + field.Name;
                 sf = Field(null, null, memberPath);
             } else {
