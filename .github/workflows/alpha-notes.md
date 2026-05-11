@@ -13,3 +13,20 @@
 3. Extract the zip file into the `Mods` folder.
    * You should have a `Multiplayer` folder in the `Mods` folder (`Mods/Multiplayer`)
    * Make sure you do not have this directory structure: `Mods/Multiplayer-beta/Multiplayer`. If you do, move the `Multiplayer` folder to the parent directory.
+
+---
+
+#### Standalone server
+
+Download `Server-beta.zip` if you want to host a dedicated standalone server for testing.
+
+**Setup**
+1. Download and extract `Server-beta.zip`.
+2. Run `Server.exe` (Windows) or `dotnet Server.dll` (Linux/Mac) from the extracted folder.
+3. The server will start and wait for the first connection.
+
+**First-time configuration (bootstrap)**
+No manual configuration files are required.
+The **first player to connect** via the Multiplayer mod client will be prompted to perform the initial setup:
+they can configure the game world, scenario, and other options directly from within RimWorld.
+Subsequent players connect to the already-running session.
