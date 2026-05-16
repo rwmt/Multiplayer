@@ -133,6 +133,8 @@ public partial class BootstrapConfiguratorWindow
         autoAdvanceArmed = true;
         AwaitingBootstrapMapInit = true;
         saveUploadStatus = "Generating map...";
+        absorbInputAroundWindow = false;
+        preventCameraMotion = false;
         Find.WindowStack.TryRemove(this);
 
         var scenarioPage = new Page_SelectScenario();
@@ -170,6 +172,8 @@ public partial class BootstrapConfiguratorWindow
         if (!AwaitingBootstrapMapInit)
             return;
 
+        absorbInputAroundWindow = true;
+        preventCameraMotion = false;
         hideWindowDuringMapGen = false;
         retainInstanceOnClose = false;
         AwaitingBootstrapMapInit = false;
