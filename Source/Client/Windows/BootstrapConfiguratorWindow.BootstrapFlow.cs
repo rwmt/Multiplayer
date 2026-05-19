@@ -133,6 +133,13 @@ public partial class BootstrapConfiguratorWindow
         autoAdvanceArmed = true;
         AwaitingBootstrapMapInit = true;
         saveUploadStatus = "Generating map...";
+
+        foreach (var window in Find.WindowStack.Windows)
+        {
+            window.absorbInputAroundWindow = false;
+            window.preventCameraMotion = false;
+        }
+
         absorbInputAroundWindow = false;
         preventCameraMotion = false;
         Find.WindowStack.TryRemove(this);
