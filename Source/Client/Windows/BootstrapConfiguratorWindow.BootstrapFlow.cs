@@ -328,24 +328,35 @@ public partial class BootstrapConfiguratorWindow
             StatusText = statusText ?? string.Empty
         };
 
-        saveUploadStatus = "Save created. Returning to menu...";
-        LongEventHandler.QueueLongEvent(ReturnToMenuAndReconnect, "Returning to menu", false, null);
+        saveUploadStatus = "Save created. Returning to entry...";
+        LongEventHandler.ExecuteWhenFinished(ReturnToEntryAndReconnect);
     }
 
-    private void ReturnToMenuAndReconnect()
+    private void ReturnToEntryAndReconnect()
     {
-        GenScene.GoToMainMenu();
-        LongEventHandler.ExecuteWhenFinished(ReconnectAfterReturningToMenu);
+        try
+        {
+            Log.Message("Bootstrap: returning to entry for save upload reconnect");
+            Rejoiner.ReturnToEntry(ReconnectAfterReturningToEntry);
+        }
+        catch (Exception exception)
+        {
+            saveUploadStatus = $"Return to entry failed: {exception.GetType().Name}: {exception.Message}";
+            bootstrapSaveQueued = false;
+            Log.Error($"Bootstrap return to entry failed: {exception}");
+        }
     }
 
-    private void ReconnectAfterReturningToMenu()
+    private void ReconnectAfterReturningToEntry()
     {
         if (Current.ProgramState != ProgramState.Entry || Current.Game != null)
         {
-            saveUploadStatus = "Waiting to finish returning to menu...";
-            LongEventHandler.ExecuteWhenFinished(ReconnectAfterReturningToMenu);
+            saveUploadStatus = "Waiting to finish returning to entry...";
+            LongEventHandler.ExecuteWhenFinished(ReconnectAfterReturningToEntry);
             return;
         }
+
+        Multiplayer.StopMultiplayer();
 
         saveUploadStatus = "Reconnecting to upload save...";
 
