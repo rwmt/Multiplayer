@@ -178,8 +178,21 @@ public partial class BootstrapConfiguratorWindow
         bootstrapSaveQueued = false;
         saveUploadStatus = "Map initialized. Waiting for controllable colonists to spawn...";
 
-        if (Find.WindowStack.WindowOfType<BootstrapConfiguratorWindow>() == null)
-            Find.WindowStack.Add(this);
+        TryShowBootstrapWindow();
+    }
+
+    private void TryShowBootstrapWindow()
+    {
+        if (Find.WindowStack == null)
+            return;
+
+        if (Find.WindowStack.WindowOfType<BootstrapConfiguratorWindow>() != null)
+            return;
+
+        if (Find.WindowStack.Windows.OfType<Dialog_MessageBox>().Any())
+            return;
+
+        Find.WindowStack.Add(this);
     }
 
     private void TickPostMapEnterSaveDelayAndMaybeSave()
@@ -195,7 +208,10 @@ public partial class BootstrapConfiguratorWindow
             return;
 
         if (!WaitForControllableColonists())
+        {
+            TryShowBootstrapWindow();
             return;
+        }
 
         postMapEnterSaveDelayRemaining = 0f;
         bootstrapSaveQueued = true;
