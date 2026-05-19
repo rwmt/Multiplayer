@@ -135,6 +135,15 @@ namespace Multiplayer.Client
         [TypedPacketHandler]
         public void HandlePing(ServerPingLocPacket packet) => Session.locationPings.ReceivePing(packet);
 
+        [TypedPacketHandler]
+        public void HandleClearMarkers(ServerClearMarkersPacket packet) => Session.locationPings.ReceiveClearMarkers(packet);
+
+        [TypedPacketHandler]
+        public void HandleDeleteMarker(ServerDeleteMarkerPacket packet) => Session.locationPings.ReceiveDeleteMarker(packet);
+
+        [TypedPacketHandler]
+        public void HandleRenameMarker(ServerRenameMarkerPacket packet) => Session.locationPings.ReceiveRenameMarker(packet);
+
         [PacketHandler(Packets.Server_MapResponse, allowFragmented: true)]
         public void HandleMapResponse(ByteReader data)
         {

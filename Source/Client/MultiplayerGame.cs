@@ -142,6 +142,16 @@ namespace Multiplayer.Client
 
             Find.MainTabsRoot?.EscapeCurrentTab();
             Find.ColonistBar?.MarkColonistsDirty();
+
+            // regenMapDrawers:false is the internal SaveAndReload faction-switch (transient).
+            // Only close the rename modal and drop the gizmo cache on a real switch.
+            if (regenMapDrawers)
+            {
+                var loc = Multiplayer.session?.locationPings;
+                if (loc != null)
+                    loc.cachedGizmos = null;  // Next BuildGizmos rebuilds the key alongside.
+                Find.WindowStack?.WindowOfType<PingLabelWindow>()?.Close(false);
+            }
         }
     }
 }

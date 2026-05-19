@@ -20,6 +20,7 @@ namespace Multiplayer.Common
         public bool arbiter;
         public bool asyncTime;
         public bool multifaction;
+        public int markerCapPerPlayer = PingMarkerCap.Default;
         public bool debugMode;
         public bool desyncTraces = true;
         public bool syncConfigs = true;
@@ -62,6 +63,9 @@ namespace Multiplayer.Common
             ScribeLike.Look(ref lan, "lan", true);
             ScribeLike.Look(ref asyncTime, "asyncTime");
             ScribeLike.Look(ref multifaction, "multifaction");
+            ScribeLike.Look(ref markerCapPerPlayer, "markerCapPerPlayer", PingMarkerCap.Default);
+            // Clamp hand-edited settings.toml values.
+            markerCapPerPlayer = PingMarkerCap.Clamp(markerCapPerPlayer);
             ScribeLike.Look(ref debugMode, "debugMode");
             ScribeLike.Look(ref desyncTraces, "desyncTraces", true);
             ScribeLike.Look(ref syncConfigs, "syncConfigs", true);
@@ -90,6 +94,9 @@ namespace Multiplayer.Common
             buf.Bind(ref settings.arbiter);
             buf.Bind(ref settings.asyncTime);
             buf.Bind(ref settings.multifaction);
+            buf.Bind(ref settings.markerCapPerPlayer);
+            // Defend against hand-crafted out-of-range values on the wire.
+            settings.markerCapPerPlayer = PingMarkerCap.Clamp(settings.markerCapPerPlayer);
             buf.Bind(ref settings.debugMode);
             buf.Bind(ref settings.desyncTraces);
             buf.Bind(ref settings.syncConfigs);

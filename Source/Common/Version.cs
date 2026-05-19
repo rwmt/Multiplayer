@@ -6,7 +6,9 @@ namespace Multiplayer.Common
     public static class MpVersion
     {
         public const string SimpleVersion = "0.11.5";
-        public const int Protocol = 55;
+
+        // Wire-compatibility protocol version; intentionally distinct from Packets.Max.
+        public const int Protocol = 63;
 
         public static readonly string? GitHash = Assembly.GetExecutingAssembly()
             .GetCustomAttributes<AssemblyMetadataAttribute>()

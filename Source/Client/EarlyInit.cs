@@ -59,6 +59,10 @@ public static class EarlyInit
 
     internal static void LatePatches()
     {
+        // Inject runtime translation keys (e.g. MarkerInspectTab labelKey) into the active language.
+        // Needed for keys that travel through vanilla code paths which hardcode .Translate().
+        PingRuntimeTranslations.Register();
+
         if (MpVersion.IsDebug)
             Log.Message("== Structure == \n" + SyncDict.syncWorkers.PrintStructure());
     }

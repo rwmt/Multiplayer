@@ -38,11 +38,6 @@ namespace Multiplayer.Client
         {
             Text.Font = GameFont.Small;
 
-            // Legacy debug printout disabled - now handled by SyncDebugPanel
-            // if (MpVersion.IsDebug) {
-            //     IngameDebug.DoDebugPrintout();
-            // }
-
             if (Multiplayer.Client != null && Find.CurrentMap != null && Time.time - lastTicksAt > 0.5f)
             {
                 var async = Find.CurrentMap.AsyncTime();
@@ -61,6 +56,13 @@ namespace Multiplayer.Client
 
             if (Multiplayer.IsReplay && Multiplayer.session.showTimeline || TickPatch.Simulating)
                 ReplayTimeline.DrawTimeline();
+
+            if (Multiplayer.Client != null && !TickPatch.Simulating && !Multiplayer.arbiterInstance)
+            {
+                Multiplayer.session.locationPings.DrawWheelOverlay();
+                Multiplayer.session.locationPings.DrawArmedCursor();
+                PingSelectionUI.UpdatePingInspectPaneVisibility();
+            }
 
             if (TickPatch.Simulating)
             {
@@ -98,6 +100,20 @@ namespace Multiplayer.Client
                     ChatWindow.Opened.Close();
                 else
                     ChatWindow.OpenChat();
+            }
+
+            // Drawer hotkey is default-unbound; users opt in via Keyboard Config.
+            if (Multiplayer.Client != null
+                && !Multiplayer.IsReplay
+                && !Multiplayer.arbiterInstance
+                && MultiplayerStatic.TogglePingMenuDef.KeyDownEvent)
+            {
+                Event.current.Use();
+
+                if (PingMenuWindow.Opened != null)
+                    PingMenuWindow.Opened.Close();
+                else
+                    Find.WindowStack.Add(new PingMenuWindow());
             }
 
             return Find.Maps.Count > 0;

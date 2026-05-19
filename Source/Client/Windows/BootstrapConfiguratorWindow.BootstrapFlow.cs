@@ -250,7 +250,9 @@ public partial class BootstrapConfiguratorWindow
                 pauseOnLetter = settings.pauseOnLetter,
                 pauseOnJoin = settings.pauseOnJoin,
                 pauseOnDesync = settings.pauseOnDesync,
-                timeControl = settings.timeControl
+                timeControl = settings.timeControl,
+                // Carry the cap into the hosted session so the scribed value matches settings.toml.
+                markerCapPerPlayer = settings.markerCapPerPlayer,
             };
 
             if (!HostWindow.HostProgrammatically(hostSettings))

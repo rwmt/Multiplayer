@@ -31,4 +31,10 @@
     <defaultKeyCodeA>Keypad0</defaultKeyCodeA>
   </KeyBindingDef>
 
+  <!-- No default key: the menu is reachable from the wheel + in-game UI, so an opt-in hotkey avoids colliding with mod-added bindings. -->
+  <KeyBindingDef ParentName="MultiplayerKeyBinding">
+    <defName>MpTogglePingMenu</defName>
+    <label>toggle ping menu</label>
+  </KeyBindingDef>
+
 </Defs>

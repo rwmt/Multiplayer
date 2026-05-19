@@ -210,6 +210,26 @@ namespace Multiplayer.Client
             OnMainThread.ClearScheduled();
             LongEventHandler.ClearQueuedEvents();
 
+            // Faction loadIDs are per-world; mutes by loadID would silently apply to unrelated
+            // factions in the next session. Username mutes survive - usernames are stable.
+            if (settings is { } s && s.hiddenFactionLoadIds is { Count: > 0 })
+            {
+                s.hiddenFactionLoadIds.Clear();
+                MultiplayerLoader.Multiplayer.instance?.WriteSettings();
+            }
+            // PingInfo instances die with the session; sweep vanilla's static selectTimes dict.
+            LocationPings.DropStaleSelectTimes();
+            // Close ping windows individually so each runs PostClose (rect persistence).
+            // ClearWindowStack bypasses PostClose and their OnGUI dereferences soon-dead state.
+            var ws = Find.WindowStack;
+            if (ws != null)
+            {
+                ws.WindowOfType<PingLabelWindow>()?.Close(false);
+                ws.WindowOfType<PingMenuWindow>()?.Close(false);
+                ws.WindowOfType<PingFiltersDialog>()?.Close(false);
+                ws.WindowOfType<PingHostSettingsDialog>()?.Close(false);
+            }
+
             if (session != null)
             {
                 session.Stop();

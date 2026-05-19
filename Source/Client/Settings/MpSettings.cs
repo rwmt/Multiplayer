@@ -25,10 +25,19 @@ namespace Multiplayer.Client
         public bool hideTranslationMods = true;
         public bool enablePings = true;
         public bool enableCrossPlanetLayerPings = true;
+        public bool enablePingWheel = true;
+        public float pingWheelHoldDelay = 0.15f;
+        public PingPlaceMode pingPlaceMode = PingPlaceMode.Ping;
+        // Pre-arms last fired category when drawer opens; lastUsedCategory is per-launch, not scribed.
+        public bool rememberLastCategory = true;
         public KeyCode? sendPingButton = KeyCode.Mouse4;
         public KeyCode? jumpToPingButton = KeyCode.Mouse3;
         public Rect chatRect;
         public Vector2 resolutionForChat;
+        // Empty Rect = "never dragged", falls back to default placement.
+        public Rect pingMenuWindowRect;
+        public Rect pingFiltersDialogRect;
+        public Rect pingHostSettingsDialogRect;
         public bool showMainMenuAnim = true;
         public DesyncTracingMode desyncTracingMode = DesyncTracingMode.Fast;
         public bool transparentPlayerCursors = true;
@@ -37,6 +46,14 @@ namespace Multiplayer.Client
         public bool hideOtherPlayersInColonistBar = false;
         public bool hideOtherPlayersQuests = false;
 
+        // Per-client render-only filter; markers still relay/bucket on every receiver. Spectator is a master toggle so freshly-joined players don't pollute the layer.
+        public bool showSpectatorMarkers = true;
+        public HashSet<int> hiddenFactionLoadIds = new();
+        public HashSet<string> hiddenPlayerNames = new();
+
+        // Per-marker local overrides. Entries outlive the marker (markerIds reused across sessions); ReceiveDeleteMarker sweeps stale rows.
+        public Dictionary<int, float> localMarkerAlpha = new();
+        public HashSet<int> locallyHiddenMarkers = new();
 
         internal static readonly ColorRGBClient[] DefaultPlayerColors =
         {
@@ -54,8 +71,6 @@ namespace Multiplayer.Client
 
         public override void ExposeData()
         {
-            // Remember to mirror the default values
-
             Scribe_Values.Look(ref username, "username");
             Scribe_Values.Look(ref showCursors, "showCursors", true);
             Scribe_Values.Look(ref autoAcceptSteam, "autoAcceptSteam");
@@ -70,10 +85,17 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref hideTranslationMods, "hideTranslationMods", true);
             Scribe_Values.Look(ref enablePings, "enablePings", true);
             Scribe_Values.Look(ref enableCrossPlanetLayerPings, "enableCrossPlanetLayerPings", true);
+            Scribe_Values.Look(ref enablePingWheel, "enablePingWheel", true);
+            Scribe_Values.Look(ref pingWheelHoldDelay, "pingWheelHoldDelay", 0.15f);
+            Scribe_Values.Look(ref pingPlaceMode, "pingPlaceMode", PingPlaceMode.Ping);
+            Scribe_Values.Look(ref rememberLastCategory, "rememberLastCategory", true);
             Scribe_Values.Look(ref sendPingButton, "sendPingButton", KeyCode.Mouse4);
             Scribe_Values.Look(ref jumpToPingButton, "jumpToPingButton", KeyCode.Mouse3);
             Scribe_Custom.LookRect(ref chatRect, "chatRect");
             Scribe_Values.Look(ref resolutionForChat, "resolutionForChat");
+            Scribe_Custom.LookRect(ref pingMenuWindowRect, "pingMenuWindowRect");
+            Scribe_Custom.LookRect(ref pingFiltersDialogRect, "pingFiltersDialogRect");
+            Scribe_Custom.LookRect(ref pingHostSettingsDialogRect, "pingHostSettingsDialogRect");
             Scribe_Values.Look(ref showMainMenuAnim, "showMainMenuAnim", true);
             Scribe_Values.Look(ref appendNameToAutosave, "appendNameToAutosave");
             Scribe_Values.Look(ref transparentPlayerCursors, "transparentPlayerCursors", true);
@@ -85,6 +107,17 @@ namespace Multiplayer.Client
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
                 PlayerManager.PlayerColors = playerColors.Select(c => (ColorRGB)c).ToArray();
 
+            Scribe_Values.Look(ref showSpectatorMarkers, "showSpectatorMarkers", true);
+            Scribe_Collections.Look(ref hiddenFactionLoadIds, "mpHiddenFactionLoadIds", LookMode.Value);
+            Scribe_Collections.Look(ref hiddenPlayerNames, "mpHiddenPlayerNames", LookMode.Value);
+            hiddenFactionLoadIds ??= new HashSet<int>();
+            hiddenPlayerNames ??= new HashSet<string>();
+
+            Scribe_Collections.Look(ref localMarkerAlpha, "mpLocalMarkerAlpha", LookMode.Value, LookMode.Value);
+            Scribe_Collections.Look(ref locallyHiddenMarkers, "mpLocallyHiddenMarkers", LookMode.Value);
+            localMarkerAlpha ??= new Dictionary<int, float>();
+            locallyHiddenMarkers ??= new HashSet<int>();
+
             Scribe_Deep.Look(ref serverSettingsClient, "serverSettings");
             serverSettingsClient ??= new ServerSettingsClient();
         }
@@ -93,6 +126,12 @@ namespace Multiplayer.Client
     public enum DesyncTracingMode
     {
         None, Fast, Slow
+    }
+
+    public enum PingPlaceMode
+    {
+        Ping = 0,    // ephemeral, fades after PingDuration
+        Marker = 1,  // persistent, stays until cleared
     }
 
     public struct ColorRGBClient : IExposable

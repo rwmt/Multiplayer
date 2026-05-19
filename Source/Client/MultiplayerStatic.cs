@@ -28,9 +28,325 @@ namespace Multiplayer.Client
     {
         public static KeyBindingDef ToggleChatDef = KeyBindingDef.Named("MpToggleChat");
         public static KeyBindingDef PingKeyDef = KeyBindingDef.Named("MpPingKey");
+        // No default bind - user assigns via Keyboard Config.
+        public static KeyBindingDef TogglePingMenuDef = KeyBindingDef.Named("MpTogglePingMenu");
 
         public static readonly Texture2D PingBase = ContentFinder<Texture2D>.Get("Multiplayer/PingBase");
         public static readonly Texture2D PingPin = ContentFinder<Texture2D>.Get("Multiplayer/PingPin");
+
+        // Procedural, antialiased, white - tint at draw time.
+        public static readonly Texture2D PingCircle = MakeCircleTex(256, outerRadius: 127.5f, innerRadius: 0f);
+        public static readonly Texture2D PingRing   = MakeCircleTex(256, outerRadius: 127.5f, innerRadius: 108f);
+
+        // Pre-rotated wheel sector textures live next to LocationPings.WheelOptions so the slot
+        // count can't desync - see LocationPings.PingSectors / PingSectorArcs.
+        public static readonly Texture2D PingChevronUp = MakeChevronUpTex(64);
+
+        // reportFailure=false so a missing path returns null and the renderer falls back to Glyph().
+        public static readonly Texture2D PingIconAttack = ContentFinder<Texture2D>.Get("UI/Commands/AttackMelee", false);
+        public static readonly Texture2D PingIconDefend = ContentFinder<Texture2D>.Get("UI/Designators/HomeAreaOn", false);
+        public static readonly Texture2D PingIconHelp   = ContentFinder<Texture2D>.Get("UI/Commands/AsMedical", false);
+        public static readonly Texture2D PingIconLoot   = ContentFinder<Texture2D>.Get("UI/Buttons/TradeMode", false);
+        public static readonly Texture2D PingIconRally  = ContentFinder<Texture2D>.Get("UI/Commands/GatherSpotActive", false);
+
+        // Gizmo action icons reuse vanilla UI/ atlases (visibility toggles, reset arrows).
+        public static readonly Texture2D PingHideForMeIcon   = ContentFinder<Texture2D>.Get("UI/Designators/PlanHide");
+        public static readonly Texture2D PingShowForMeIcon   = ContentFinder<Texture2D>.Get("UI/Designators/PlanOn");
+        public static readonly Texture2D PingResetViewIcon   = ContentFinder<Texture2D>.Get("UI/Commands/TempReset");
+        // Procedural - half-faded disc for the transparency gizmo.
+        public static readonly Texture2D PingTransparencyIcon = MakeFadeDiscTex(128);
+        // Procedural - selection corners with central X for the deselect gizmo.
+        public static readonly Texture2D PingDeselectIcon = MakeDeselectTex(128);
+        // Procedural - speaker + knockout slash. Shared by all mute actions; the label carries the distinction.
+        public static readonly Texture2D PingMuteIcon = MakeMuteTex(128);
+
+        private static Texture2D MakeCircleTex(int size, float outerRadius, float innerRadius)
+        {
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            var pixels = new Color32[size * size];
+            var center = (size - 1) / 2f;
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    var dx = x - center;
+                    var dy = y - center;
+                    var d = Mathf.Sqrt(dx * dx + dy * dy);
+
+                    float alpha;
+                    if (innerRadius <= 0f)
+                    {
+                        alpha = Mathf.Clamp01(outerRadius - d + 0.5f);
+                    }
+                    else
+                    {
+                        var inA  = Mathf.Clamp01(d - innerRadius + 0.5f);
+                        var outA = Mathf.Clamp01(outerRadius - d + 0.5f);
+                        alpha = Mathf.Min(inA, outA);
+                    }
+
+                    pixels[y * size + x] = new Color32(255, 255, 255, (byte)(alpha * 255f));
+                }
+            }
+
+            tex.SetPixels32(pixels);
+            tex.filterMode = FilterMode.Bilinear;
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.Apply();
+            return tex;
+        }
+
+        // Annular sector with axis at centerAngleDeg clockwise from screen-up, half-width halfAngleDeg.
+        // Convention: high py = top of rect on screen, so +dy is "screen up" here.
+        internal static Texture2D MakeSectorTex(int size, float outerRadius, float innerRadius, float halfAngleDeg, float centerAngleDeg)
+        {
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            var pixels = new Color32[size * size];
+            var center = (size - 1) / 2f;
+            var halfA = halfAngleDeg * Mathf.Deg2Rad;
+            var centerA = centerAngleDeg * Mathf.Deg2Rad;
+
+            // Outward normals of the right/left radial boundary lines (+x right, +y up).
+            var cosR = Mathf.Cos(centerA + halfA);
+            var sinR = Mathf.Sin(centerA + halfA);
+            var cosL = Mathf.Cos(centerA - halfA);
+            var sinL = Mathf.Sin(centerA - halfA);
+
+            for (int py = 0; py < size; py++)
+            {
+                for (int px = 0; px < size; px++)
+                {
+                    var dx = px - center;
+                    var dy = py - center;
+                    var d = Mathf.Sqrt(dx * dx + dy * dy);
+
+                    var inA  = Mathf.Clamp01(d - innerRadius + 0.5f);
+                    var outA = Mathf.Clamp01(outerRadius - d + 0.5f);
+                    var radialAlpha = Mathf.Min(inA, outA);
+
+                    var dRight = dx * cosR - dy * sinR;
+                    var dLeft  = -dx * cosL + dy * sinL;
+                    var angularAlpha = Mathf.Clamp01(0.5f - Mathf.Max(dRight, dLeft));
+
+                    var alpha = radialAlpha * angularAlpha;
+                    pixels[py * size + px] = new Color32(255, 255, 255, (byte)(alpha * 255f));
+                }
+            }
+
+            tex.SetPixels32(pixels);
+            tex.filterMode = FilterMode.Bilinear;
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.Apply();
+            return tex;
+        }
+
+        // Distance-to-line field with AA band so the texture scales cleanly without re-baking.
+        // Apex (V's point) at HIGH py, arm ends at LOW py - matches MakeSectorTex convention.
+        private static Texture2D MakeChevronUpTex(int size)
+        {
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            var pixels = new Color32[size * size];
+            var center = (size - 1) / 2f;
+            var strokeHalf = size * 0.10f;
+            var apexY = size * 0.78f;
+            var armEndY = size * 0.22f;
+            var armEndDx = size * 0.36f;
+
+            for (int py = 0; py < size; py++)
+            {
+                for (int px = 0; px < size; px++)
+                {
+                    var dx = px - center;
+                    var dy = py;
+
+                    var distR = DistToSegment(dx, dy, 0f, apexY, armEndDx, armEndY);
+                    var distL = DistToSegment(dx, dy, 0f, apexY, -armEndDx, armEndY);
+                    var d = Mathf.Min(distR, distL);
+                    var alpha = Mathf.Clamp01(strokeHalf - d + 0.5f);
+
+                    pixels[py * size + px] = new Color32(255, 255, 255, (byte)(alpha * 255f));
+                }
+            }
+
+            tex.SetPixels32(pixels);
+            tex.filterMode = FilterMode.Bilinear;
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.Apply();
+            return tex;
+        }
+
+        // Disc with horizontal alpha gradient - opaque on the left half, fading to ~15% on the right.
+        private static Texture2D MakeFadeDiscTex(int size)
+        {
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            var pixels = new Color32[size * size];
+            var center = (size - 1) / 2f;
+            var outerRadius = size * 0.46f;
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    var dx = x - center;
+                    var dy = y - center;
+                    var d = Mathf.Sqrt(dx * dx + dy * dy);
+                    var circleAlpha = Mathf.Clamp01(outerRadius - d + 0.5f);
+
+                    // Left edge (x=0) opaque, right edge (x=size-1) at minAlpha.
+                    var t = (float)x / (size - 1);
+                    var horizontalAlpha = Mathf.Lerp(1f, 0.18f, t);
+
+                    var alpha = circleAlpha * horizontalAlpha;
+                    pixels[y * size + x] = new Color32(255, 255, 255, (byte)(alpha * 255f));
+                }
+            }
+
+            tex.SetPixels32(pixels);
+            tex.filterMode = FilterMode.Bilinear;
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.Apply();
+            return tex;
+        }
+
+        // Selection-corner brackets at the four corners + a central X.
+        private static Texture2D MakeDeselectTex(int size)
+        {
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            var pixels = new Color32[size * size];
+            var center = (size - 1) / 2f;
+
+            var inset = size * 0.14f;
+            var armLen = size * 0.22f;
+            var bracketStroke = size * 0.085f;
+            var xHalf = size * 0.16f;
+            var xStroke = size * 0.085f;
+
+            float far = (size - 1) - inset;
+
+            for (int py = 0; py < size; py++)
+            {
+                for (int px = 0; px < size; px++)
+                {
+                    // 8 L-arm segments - horizontal + vertical at each of the 4 corners.
+                    var d = float.MaxValue;
+                    d = Mathf.Min(d, DistToSegment(px, py, inset, inset, inset + armLen, inset));
+                    d = Mathf.Min(d, DistToSegment(px, py, inset, inset, inset, inset + armLen));
+                    d = Mathf.Min(d, DistToSegment(px, py, far, inset, far - armLen, inset));
+                    d = Mathf.Min(d, DistToSegment(px, py, far, inset, far, inset + armLen));
+                    d = Mathf.Min(d, DistToSegment(px, py, inset, far, inset + armLen, far));
+                    d = Mathf.Min(d, DistToSegment(px, py, inset, far, inset, far - armLen));
+                    d = Mathf.Min(d, DistToSegment(px, py, far, far, far - armLen, far));
+                    d = Mathf.Min(d, DistToSegment(px, py, far, far, far, far - armLen));
+                    var bracketAlpha = Mathf.Clamp01(bracketStroke - d + 0.5f);
+
+                    var dXa = DistToSegment(px, py, center - xHalf, center - xHalf, center + xHalf, center + xHalf);
+                    var dXb = DistToSegment(px, py, center - xHalf, center + xHalf, center + xHalf, center - xHalf);
+                    var xAlpha = Mathf.Clamp01(xStroke - Mathf.Min(dXa, dXb) + 0.5f);
+
+                    var alpha = Mathf.Max(bracketAlpha, xAlpha);
+                    pixels[py * size + px] = new Color32(255, 255, 255, (byte)(alpha * 255f));
+                }
+            }
+
+            tex.SetPixels32(pixels);
+            tex.filterMode = FilterMode.Bilinear;
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.Apply();
+            return tex;
+        }
+
+        // Speaker (rectangular stand + trapezoidal horn) + two sound arcs + diagonal slash.
+        // Slash is drawn with a knockout band so it reads against the speaker body (which is
+        // also white) at gizmo scale.
+        private static Texture2D MakeMuteTex(int size)
+        {
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            var pixels = new Color32[size * size];
+            var center = (size - 1) / 2f;
+
+            // Speaker geometry.
+            var standLeft   = size * 0.18f;
+            var standRight  = size * 0.34f;
+            var standTop    = size * 0.42f;
+            var standBottom = size * 0.58f;
+
+            var hornNarrowX = standRight;
+            var hornWideX   = size * 0.56f;
+            var hornNarrowHalfH = (standBottom - standTop) / 2f;
+            var hornWideHalfH   = size * 0.22f;
+
+            // Sound arcs.
+            var arcCenterX = size * 0.56f;
+            var arcCenterY = center;
+            var arcR1 = size * 0.11f;
+            var arcR2 = size * 0.21f;
+            var arcStroke = size * 0.055f;
+
+            // Slash: from upper-right to lower-left. Knockout band carves the speaker so the
+            // slash itself reads as a dark gap with a thin white line through it.
+            var slashAx = size * 0.93f;
+            var slashAy = size * 0.07f;
+            var slashBx = size * 0.07f;
+            var slashBy = size * 0.93f;
+            var slashGap  = size * 0.075f;
+            var slashLine = size * 0.035f;
+
+            for (int py = 0; py < size; py++)
+            {
+                for (int px = 0; px < size; px++)
+                {
+                    float a = 0f;
+
+                    if (px >= standLeft && px <= standRight && py >= standTop && py <= standBottom)
+                        a = 1f;
+
+                    if (px >= hornNarrowX && px <= hornWideX)
+                    {
+                        var t = (px - hornNarrowX) / Mathf.Max(0.0001f, hornWideX - hornNarrowX);
+                        var halfH = Mathf.Lerp(hornNarrowHalfH, hornWideHalfH, t);
+                        if (Mathf.Abs(py - center) <= halfH) a = 1f;
+                    }
+
+                    var rdx = px - arcCenterX;
+                    var rdy = py - arcCenterY;
+                    if (rdx > 0f)
+                    {
+                        var rd = Mathf.Sqrt(rdx * rdx + rdy * rdy);
+                        var wedge = Mathf.Abs(rdy) <= rdx ? 1f : 0f;
+                        var arc1 = Mathf.Clamp01(arcStroke - Mathf.Abs(rd - arcR1) + 0.5f);
+                        var arc2 = Mathf.Clamp01(arcStroke - Mathf.Abs(rd - arcR2) + 0.5f);
+                        a = Mathf.Max(a, Mathf.Max(arc1, arc2) * wedge);
+                    }
+
+                    var slashD = DistToSegment(px, py, slashAx, slashAy, slashBx, slashBy);
+                    if (slashD < slashGap) a = 0f;
+                    var slashAlpha = Mathf.Clamp01(slashLine - slashD + 0.5f);
+                    a = Mathf.Max(a, slashAlpha);
+
+                    pixels[py * size + px] = new Color32(255, 255, 255, (byte)(a * 255f));
+                }
+            }
+
+            tex.SetPixels32(pixels);
+            tex.filterMode = FilterMode.Bilinear;
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.Apply();
+            return tex;
+        }
+
+        private static float DistToSegment(float px, float py, float ax, float ay, float bx, float by)
+        {
+            var dx = bx - ax;
+            var dy = by - ay;
+            var len2 = dx * dx + dy * dy;
+            if (len2 < 1e-6f) return Mathf.Sqrt((px - ax) * (px - ax) + (py - ay) * (py - ay));
+            var t = Mathf.Clamp01(((px - ax) * dx + (py - ay) * dy) / len2);
+            var qx = ax + t * dx;
+            var qy = ay + t * dy;
+            return Mathf.Sqrt((px - qx) * (px - qx) + (py - qy) * (py - qy));
+        }
+
         public static readonly Texture2D WebsiteIcon = ContentFinder<Texture2D>.Get("Multiplayer/Website");
         public static readonly Texture2D DiscordIcon = ContentFinder<Texture2D>.Get("Multiplayer/Discord");
         public static readonly Texture2D Pulse = ContentFinder<Texture2D>.Get("Multiplayer/Pulse");

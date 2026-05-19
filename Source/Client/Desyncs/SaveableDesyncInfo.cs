@@ -22,11 +22,13 @@ public class SaveableDesyncInfo(
     ClientSyncOpinion local,
     ClientSyncOpinion remote,
     int diffAt,
-    bool diffAtFound)
+    bool diffAtFound,
+    SaveableDesyncInfo.SnapshotFreshness snapshotFreshness)
 {
     public readonly ClientSyncOpinion local = local;
     public readonly ClientSyncOpinion remote = remote;
     public readonly int diffAt = diffAt;
+    public readonly SnapshotFreshness snapshotFreshness = snapshotFreshness;
     private readonly Task<string> metadata = Task.Run(MetadataGenerator.Generate);
     private readonly Task<FileInfo> replay = Task.Run(SaveReplayIfApplicable);
 
@@ -60,9 +62,10 @@ public class SaveableDesyncInfo(
             }
             catch (AggregateException e)
             {
-                if (e.InnerExceptions.SingleOrDefault(inner => inner is TaskCanceledException) == null) throw;
+                if (!e.InnerExceptions.Any(inner => inner is TaskCanceledException)) throw;
             }
-            if (replay.IsCompletedSuccessfully) {
+            if (replay.IsCompletedSuccessfully)
+            {
                 var replayFile = replay.Result;
                 zip.CreateEntryFromFile(replayFile.FullName, "replay.rwmts", CompressionLevel.NoCompression);
                 DeleteFileSilent(replayFile);
@@ -71,9 +74,11 @@ public class SaveableDesyncInfo(
         catch (Exception e)
         {
             Log.Error($"Exception writing desync info: {e}");
+            if (replay.IsCompletedSuccessfully)
+                DeleteFileSilent(replay.Result);
         }
 
-        Log.Message($"Desync info writing took {watch.ElapsedMilliseconds}");
+        Log.Message($"Desync info writing took {watch.ElapsedMilliseconds} ms");
     }
 
     private string GetLocalTraces()
@@ -106,6 +111,17 @@ public class SaveableDesyncInfo(
     {
         var desyncInfo = new StringBuilder();
 
+        // gameComp can be null if the session was torn down between desync and Save click.
+        var comp = Multiplayer.game?.gameComp;
+        var markerCount = comp?.AllMarkers.Count.ToStringSafe() ?? "n/a";
+        var nextMarkerId = comp?.nextMarkerId.ToStringSafe() ?? "n/a";
+        var markerCap = comp?.markerCapPerPlayer.ToStringSafe() ?? "n/a";
+
+        // SnapshotTick == -1 means we have no snapshot to compare against (e.g. DebugActions.ShowDesync).
+        var lag = snapshotFreshness.SnapshotTick >= 0
+            ? (snapshotFreshness.DesyncTick - snapshotFreshness.SnapshotTick).ToStringSafe()
+            : "n/a";
+
         desyncInfo
             .AppendLine("###Tick Data###")
             .AppendLine($"Arbiter Connected And Playing|||{Multiplayer.session.ArbiterPlaying}")
@@ -123,6 +139,16 @@ public class SaveableDesyncInfo(
             .AppendLine($"Async time active|||{Multiplayer.GameComp.asyncTime}")
             .AppendLine($"Multifaction active|||{Multiplayer.GameComp.multifaction}")
             .AppendLine($"Map Count|||{Find.Maps?.Count.ToStringSafe()}")
+            .AppendLine($"Marker Count|||{markerCount}")
+            .AppendLine($"Next Marker Id|||{nextMarkerId}")
+            .AppendLine($"Marker Cap Per Player|||{markerCap}")
+            .AppendLine("\n###Replay Snapshot Freshness###")
+            .AppendLine($"Snapshot Tick|||{snapshotFreshness.SnapshotTick}")
+            .AppendLine($"Desync Tick|||{snapshotFreshness.DesyncTick}")
+            .AppendLine($"Snapshot Lag Ticks|||{lag}")
+            .AppendLine($"Refresh Succeeded|||{snapshotFreshness.IsFresh}")
+            .AppendLine($"Refresh Elapsed (ms)|||{snapshotFreshness.ElapsedMs}")
+            .AppendLine($"Fallback Reason|||{snapshotFreshness.FallbackReason ?? "n/a"}")
             .AppendLine("\n###CPU Info###")
             .AppendLine($"Processor Name|||{SystemInfo.processorType}")
             .AppendLine($"Processor Speed (MHz)|||{SystemInfo.processorFrequency}")
@@ -196,4 +222,7 @@ public class SaveableDesyncInfo(
     }
 
     public record HostInfo([CanBeNull] string Traces, [CanBeNull] string JittedMethods);
+
+    // SnapshotTick == DesyncTick when refresh succeeded; otherwise stale (autosave-aligned).
+    public record SnapshotFreshness(bool IsFresh, long ElapsedMs, int SnapshotTick, int DesyncTick, [CanBeNull] string FallbackReason);
 }

@@ -55,12 +55,51 @@ public class PacketTest
             data = []
         };
 
-        yield return new ClientPingLocPacket(0, 0, 0, 0f, 0f, 0f);
+        yield return new ClientPingLocPacket(0, 0, 0, 0f, 0f, 0f, (byte)PingCategory.Default, false, "", 0);
 
-        yield return new ClientPingLocPacket(1, 42, 3, 10.5f, -2.25f, 99.9f);
+        yield return new ClientPingLocPacket(1, 42, 3, 10.5f, -2.25f, 99.9f, (byte)PingCategory.Attack, false, "rush this", 60000);
 
-        yield return new ServerPingLocPacket(7,
-            new ClientPingLocPacket(5, 123, 1, 1.23f, 4.56f, 7.89f));
+        yield return new ClientPingLocPacket(9, 7, 0, -1.5f, 0f, 2.5f, (byte)PingCategory.Defend, true, "hold this corner", 123456);
+
+        yield return new ServerPingLocPacket(7, 10, "Alice", 255, 0, 0,
+            new ClientPingLocPacket(5, 123, 1, 1.23f, 4.56f, 7.89f, (byte)PingCategory.Rally, false, "iron deposit", 250000));
+
+        yield return new ServerPingLocPacket(11, -1, "Bob", 0, 200, 100,
+            new ClientPingLocPacket(2, 0, 0, 50.5f, 1f, 80f, (byte)PingCategory.Loot, true, "stockpile here", 1_000_000));
+
+        // Empty username: server stamps "" if Player.Username is null mid-shutdown.
+        yield return new ServerPingLocPacket(3, -1, "", 128, 128, 128,
+            new ClientPingLocPacket(0, 0, 0, 0f, 0f, 0f, (byte)PingCategory.Default, false, "", 0));
+
+        yield return new ClientClearMarkersPacket((byte)PingMarkerClearMode.Mine, -1, "");
+        yield return new ClientClearMarkersPacket((byte)PingMarkerClearMode.OnMap, 42, "");
+        yield return new ClientClearMarkersPacket((byte)PingMarkerClearMode.FromPlayer, -1, "Charlie");
+
+        yield return new ServerClearMarkersPacket(3, "Alice", false, new ClientClearMarkersPacket((byte)PingMarkerClearMode.Mine, -1, ""));
+        yield return new ServerClearMarkersPacket(8, "Bob", false, new ClientClearMarkersPacket((byte)PingMarkerClearMode.OnMap, 99, ""));
+        // senderIsHost = true: server only relays FromPlayer from host or self.
+        yield return new ServerClearMarkersPacket(2, "Alice", true, new ClientClearMarkersPacket((byte)PingMarkerClearMode.FromPlayer, -1, "Charlie"));
+        // Empty-username defensive case.
+        yield return new ServerClearMarkersPacket(0, "", false, new ClientClearMarkersPacket((byte)PingMarkerClearMode.Mine, -1, ""));
+
+        yield return new ClientDeleteMarkerPacket(new[] { 0 });
+        yield return new ClientDeleteMarkerPacket(new[] { 1 });
+        yield return new ClientDeleteMarkerPacket(new[] { int.MaxValue });
+        yield return new ClientDeleteMarkerPacket(new[] { 1, 2, 3, 4, 5 });
+        // At-cap batch boundary for MaxBatchSize.
+        yield return new ClientDeleteMarkerPacket(Enumerable.Range(1, ClientDeleteMarkerPacket.MaxBatchSize).ToArray());
+        yield return new ServerDeleteMarkerPacket(5, 7, "Alice", false, new ClientDeleteMarkerPacket(new[] { 42 }));
+        // senderIsHost = true: host-bypass branch (placer-agnostic delete).
+        yield return new ServerDeleteMarkerPacket(8, 11, "Bob", true, new ClientDeleteMarkerPacket(new[] { 10, 20, 30 }));
+        // factionId == -1 is the spectator/none sentinel.
+        yield return new ServerDeleteMarkerPacket(0, -1, "", false, new ClientDeleteMarkerPacket(new[] { 1 }));
+
+        yield return new ClientRenameMarkerPacket(1, "");
+        yield return new ClientRenameMarkerPacket(int.MaxValue, "renamed marker");
+        yield return new ClientRenameMarkerPacket(42, new string('x', PingCategoryWire.MaxLabelChars));
+        yield return new ServerRenameMarkerPacket(3, 7, "Alice", false, new ClientRenameMarkerPacket(99, "battle spot"));
+        // Mirrors the delete bypass branch.
+        yield return new ServerRenameMarkerPacket(0, -1, "", true, new ClientRenameMarkerPacket(1, ""));
 
         yield return ServerPlayerListPacket.List([
             new ServerPlayerListPacket.PlayerInfo

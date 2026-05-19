@@ -76,6 +76,16 @@ public static class MpSettingsUI
         listing.CheckboxLabeled("MpEnablePingsSetting".Translate(), ref settings.enablePings);
         listing.CheckboxLabeled("MpEnableCrossPlanetLayerPings".Translate(), ref settings.enableCrossPlanetLayerPings,
             "MpEnableCrossPlanetLayerPingsDesc".Translate());
+        listing.CheckboxLabeled(MpPingWheelLabel(), ref settings.enablePingWheel, MpPingWheelDesc());
+
+        using (MpStyle.Set(TextAnchor.MiddleCenter))
+            if (listing.ButtonTextLabeled(MpPingPlaceModeLabel(), MpPingPlaceModeValue(settings.pingPlaceMode)))
+            {
+                settings.pingPlaceMode = settings.pingPlaceMode == PingPlaceMode.Ping
+                    ? PingPlaceMode.Marker
+                    : PingPlaceMode.Ping;
+            }
+
         listing.CheckboxLabeled("MpShowMainMenuAnimation".Translate(), ref settings.showMainMenuAnim);
 
         const string buttonOff = "Off";
@@ -227,6 +237,22 @@ public static class MpSettingsUI
 
         return false;
     }
+
+    // Keys land in rwmt/Multiplayer-Locale; MpTranslate.Fallback keeps the UI readable until they ship.
+    private static string MpPingWheelLabel()
+        => MpTranslate.Fallback("MpEnablePingWheel", "Enable ping selection wheel");
+
+    private static string MpPingWheelDesc()
+        => MpTranslate.Fallback("MpEnablePingWheelDesc",
+            "Hold the ping key to open a radial menu of ping categories. Quick tap fires a default ping. Not available when the ping is bound to Mouse2.");
+
+    private static string MpPingPlaceModeLabel()
+        => MpTranslate.Fallback("MpPingPlaceModeSetting", "Default ping place-mode");
+
+    private static string MpPingPlaceModeValue(PingPlaceMode mode)
+        => mode == PingPlaceMode.Marker
+            ? MpTranslate.Fallback("MpPingMode_Marker", "Marker")
+            : MpTranslate.Fallback("MpPingMode_Ping", "Ping");
 
     const string UsernameField = "UsernameField";
 

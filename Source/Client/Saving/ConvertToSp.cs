@@ -1,4 +1,5 @@
-﻿using Verse;
+﻿using System;
+using Verse;
 using Verse.Profile;
 
 namespace Multiplayer.Client.Saving;
@@ -37,6 +38,9 @@ public class ConvertToSp
 
     private static void PrepareLoading()
     {
+        // SP reload: MP-only scribed fields (markers, playerData, etc.) are intentionally
+        // dropped because Multiplayer.Client is null past StopMultiplayer. The pre-convert
+        // replay saved above preserves them if the player ever wants to re-host.
         Multiplayer.StopMultiplayer();
 
         var doc = SaveLoad.SaveGameToDoc();
@@ -50,6 +54,6 @@ public class ConvertToSp
             }
         };
 
-        LoadPatch.gameToLoad = new TempGameData(doc, new byte[0]);
+        LoadPatch.gameToLoad = new TempGameData(doc, Array.Empty<byte>());
     }
 }

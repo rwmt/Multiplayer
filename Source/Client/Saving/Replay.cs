@@ -5,6 +5,7 @@ using System.IO.Compression;
 using System.Linq;
 using Multiplayer.Client.Saving;
 using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
 using Multiplayer.Common.Util;
 using RimWorld;
 using Verse;
@@ -42,6 +43,10 @@ namespace Multiplayer.Client
 
             zip.AddEntry($"world/{sectionId}_save", gameData.GameData);
             info.sections.Add(new ReplaySection(gameData.CachedAtTime, TickPatch.Timer));
+
+            // Refresh the header's cap so it reflects the latest section, not just the first.
+            if (Multiplayer.game?.gameComp is { } comp)
+                info.markerCapPerPlayer = PingMarkerCap.Clamp(comp.markerCapPerPlayer);
 
             zip.AddEntry("info", ReplayInfo.Write(info));
         }
@@ -91,6 +96,11 @@ namespace Multiplayer.Client
             );
         }
 
+        // Save-only snapshot; SaveAndReload mutates sim, SendGameData mutates peers. Used by the
+        // desync zip path to capture the divergent tick instead of the stale autosave snapshot.
+        public static GameDataSnapshot CaptureLocalSnapshot()
+            => SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveGameData(), Multiplayer.GameComp.multifaction);
+
         public static FileInfo SavedReplayFile(string fileName, string folder = null)
             => new(Path.Combine(folder ?? Multiplayer.ReplaysDir, $"{fileName}.zip"));
 
@@ -112,7 +122,8 @@ namespace Multiplayer.Client
                     modIds = LoadedModManager.RunningModsListForReading.Select(m => m.PackageId).ToList(),
                     modNames = LoadedModManager.RunningModsListForReading.Select(m => m.Name).ToList(),
                     asyncTime = Multiplayer.GameComp.asyncTime,
-                    multifaction = Multiplayer.GameComp.multifaction
+                    multifaction = Multiplayer.GameComp.multifaction,
+                    markerCapPerPlayer = Multiplayer.GameComp.markerCapPerPlayer
                 }
             };
 

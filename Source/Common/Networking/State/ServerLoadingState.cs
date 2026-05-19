@@ -35,6 +35,10 @@ public class ServerLoadingState : AsyncConnectionState
         SendWorldData();
 
         Player.SendPlayerList();
+
+        // Drain before ChangeState so subsequent broadcasts reach this player via the live path.
+        Server.DrainMidJoinMarkerBuffer(Player);
+
         connection.ChangeState(ConnectionStateEnum.ServerPlaying);
     }
 

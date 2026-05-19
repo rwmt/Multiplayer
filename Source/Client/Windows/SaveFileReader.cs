@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Xml;
 using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -101,6 +102,7 @@ namespace Multiplayer.Client
         public int protocol;
         public bool asyncTime;
         public bool multifaction;
+        public int markerCapPerPlayer = PingMarkerCap.Default;
 
         public bool HasRwVersion => rwVersion != null;
 
@@ -157,6 +159,7 @@ namespace Multiplayer.Client
                 saveFile.modNames = replay.info.modNames.ToArray();
                 saveFile.asyncTime = replay.info.asyncTime;
                 saveFile.multifaction = replay.info.multifaction;
+                saveFile.markerCapPerPlayer = replay.info.markerCapPerPlayer;
             }
             else
             {

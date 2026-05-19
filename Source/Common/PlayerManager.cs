@@ -70,6 +70,7 @@ namespace Multiplayer.Common
 
             ServerPlayer player = conn.serverPlayer;
             Players.Remove(player);
+            server.ClearMidJoinMarkerBuffer(player.id);
 
             if (player.IsHost && server.worldData.CreatingJoinPoint)
             {

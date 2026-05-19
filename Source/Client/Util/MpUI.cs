@@ -35,6 +35,31 @@ namespace Multiplayer.Client.Util
             GL.PopMatrix();
         }
 
+        /// <summary>
+        /// Draws <paramref name="label"/> with a 1px outline by stamping the text 8 times around the
+        /// target rect (cardinal + diagonal offsets) before drawing the foreground pass. Cheap (8 extra
+        /// labels per call) and keeps the label readable over varied map backgrounds.
+        /// </summary>
+        public static void LabelOutlined(Rect rect, string label, Color textColor, Color outlineColor)
+        {
+            var prev = GUI.color;
+
+            GUI.color = outlineColor;
+            Widgets.Label(new Rect(rect.x - 1f, rect.y,        rect.width, rect.height), label);
+            Widgets.Label(new Rect(rect.x + 1f, rect.y,        rect.width, rect.height), label);
+            Widgets.Label(new Rect(rect.x,      rect.y - 1f,   rect.width, rect.height), label);
+            Widgets.Label(new Rect(rect.x,      rect.y + 1f,   rect.width, rect.height), label);
+            Widgets.Label(new Rect(rect.x - 1f, rect.y - 1f,   rect.width, rect.height), label);
+            Widgets.Label(new Rect(rect.x + 1f, rect.y - 1f,   rect.width, rect.height), label);
+            Widgets.Label(new Rect(rect.x - 1f, rect.y + 1f,   rect.width, rect.height), label);
+            Widgets.Label(new Rect(rect.x + 1f, rect.y + 1f,   rect.width, rect.height), label);
+
+            GUI.color = textColor;
+            Widgets.Label(rect, label);
+
+            GUI.color = prev;
+        }
+
         public static void Label(Rect rect, string label, GameFont? font = null, TextAnchor? anchor = null, Color? color = null)
         {
             var prevFont = Text.Font;

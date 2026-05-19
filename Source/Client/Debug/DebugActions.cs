@@ -231,7 +231,8 @@ namespace Multiplayer.Client
         {
             Find.WindowStack.Add(new DesyncedWindow(
                 "Debug action",
-                new SaveableDesyncInfo(Multiplayer.game.sync, new ClientSyncOpinion(0), new ClientSyncOpinion(0), 0, true)
+                new SaveableDesyncInfo(Multiplayer.game.sync, new ClientSyncOpinion(0), new ClientSyncOpinion(0), 0, true,
+                    new SaveableDesyncInfo.SnapshotFreshness(IsFresh: false, ElapsedMs: 0, SnapshotTick: -1, DesyncTick: -1, FallbackReason: "debug action - no live snapshot"))
             ));
         }
 
