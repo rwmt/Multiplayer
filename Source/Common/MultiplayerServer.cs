@@ -86,6 +86,9 @@ namespace Multiplayer.Common
             chatCmdManager = new ChatCmdManager();
             playerManager = new PlayerManager(this);
 
+            var helpCmd = new ChatCmdHelp();
+            RegisterChatCmd("help", helpCmd);
+            RegisterChatCmd("?", helpCmd);
             RegisterChatCmd("joinpoint", new ChatCmdJoinPoint());
             RegisterChatCmd("kick", new ChatCmdKick());
             RegisterChatCmd("stop", new ChatCmdStop());
