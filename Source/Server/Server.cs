@@ -1,4 +1,5 @@
 ﻿using System.Net;
+using System.Threading;
 using Multiplayer.Common;
 using Multiplayer.Common.Util;
 
@@ -118,12 +119,19 @@ new Thread(server.Run) { Name = "Server thread" }.Start();
 
 while (server.running)
 {
-    var cmd = Console.ReadLine();
-    if (cmd != null)
-        server.Enqueue(() => server.HandleChatCmd(consoleSource, cmd));
+    if (Console.KeyAvailable)
+    {
+        var cmd = Console.ReadLine();
+        if (cmd != null)
+            server.Enqueue(() => server.HandleChatCmd(consoleSource, cmd));
 
-    if (cmd == stopCmd)
-        break;
+        if (cmd == stopCmd)
+            break;
+    }
+    else
+    {
+        Thread.Sleep(50);
+    }
 }
 
 class ConsoleSource : IChatSource
