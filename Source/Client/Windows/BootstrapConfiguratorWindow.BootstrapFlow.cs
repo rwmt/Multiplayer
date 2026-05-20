@@ -134,6 +134,9 @@ public partial class BootstrapConfiguratorWindow
         AwaitingBootstrapMapInit = true;
         saveUploadStatus = "Generating map...";
 
+        // TODO: Narrow this workaround to the specific MP window or state that still leaves
+        // WindowStack.WindowsPreventCameraMotion true during Page_SelectStartingSite.
+        // Clearing all current windows is only a temporary bootstrap fix until that blocker is isolated.
         foreach (var window in Find.WindowStack.Windows)
         {
             window.absorbInputAroundWindow = false;
