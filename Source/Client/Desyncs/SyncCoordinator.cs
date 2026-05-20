@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.Util;
@@ -129,58 +128,11 @@ namespace Multiplayer.Client
             var diffAt = FindTraceHashesDiffTick(local, remote, out var found);
             Multiplayer.Client.Send(new ClientDesyncedPacket(local.startTick, diffAt));
 
-            var snapshotInfo = TryRefreshSnapshotForDesync();
-
             MpUI.ClearWindowStack();
             Find.WindowStack.Add(new DesyncedWindow(
                 desyncMessage,
-                new SaveableDesyncInfo(this, local, remote, diffAt, found, snapshotInfo)
+                new SaveableDesyncInfo(this, local, remote, diffAt, found)
             ));
-        }
-
-        // Refresh dataSnapshot synchronously on the main thread so the embedded replay.rwmts
-        // captures the divergent tick instead of the (default 5 min stale) autosave-aligned join
-        // point. SaveGameData isn't thread-safe (Scribe, Find.Maps). No SendGameData - peers must
-        // not see a join-point broadcast spawned by a desync. If the capture overruns the budget
-        // below we keep the stale snapshot, since we can't predict the cost ahead of time.
-        private const int SnapshotRefreshBudgetMs = 2000;
-
-        private static SaveableDesyncInfo.SnapshotFreshness TryRefreshSnapshotForDesync()
-        {
-            var staleAt = Multiplayer.session.dataSnapshot?.CachedAtTime ?? -1;
-            var nowTick = TickPatch.Timer;
-            var watch = Stopwatch.StartNew();
-
-            try
-            {
-                var fresh = Replay.CaptureLocalSnapshot();
-                watch.Stop();
-
-                if (watch.ElapsedMilliseconds > SnapshotRefreshBudgetMs)
-                {
-                    Log.Warning(
-                        $"[MP] Desync snapshot capture took {watch.ElapsedMilliseconds} ms " +
-                        $"(budget {SnapshotRefreshBudgetMs} ms); keeping stale snapshot from tick {staleAt}.");
-                    return new SaveableDesyncInfo.SnapshotFreshness(
-                        IsFresh: false, ElapsedMs: watch.ElapsedMilliseconds, SnapshotTick: staleAt,
-                        DesyncTick: nowTick, FallbackReason: $"capture exceeded {SnapshotRefreshBudgetMs} ms budget");
-                }
-
-                Multiplayer.session.dataSnapshot = fresh;
-                return new SaveableDesyncInfo.SnapshotFreshness(
-                    IsFresh: true, ElapsedMs: watch.ElapsedMilliseconds, SnapshotTick: fresh.CachedAtTime,
-                    DesyncTick: nowTick, FallbackReason: null);
-            }
-            catch (Exception e)
-            {
-                watch.Stop();
-                Log.Warning(
-                    $"[MP] Desync snapshot capture threw after {watch.ElapsedMilliseconds} ms; " +
-                    $"keeping stale snapshot from tick {staleAt}. Exception: {e.Message}");
-                return new SaveableDesyncInfo.SnapshotFreshness(
-                    IsFresh: false, ElapsedMs: watch.ElapsedMilliseconds, SnapshotTick: staleAt,
-                    DesyncTick: nowTick, FallbackReason: $"exception: {e.GetType().Name}: {e.Message}");
-            }
         }
 
         private static int FindTraceHashesDiffTick(ClientSyncOpinion local, ClientSyncOpinion remote, out bool found)

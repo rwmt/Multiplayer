@@ -55,21 +55,24 @@ public class PacketTest
             data = []
         };
 
-        yield return new ClientPingLocPacket(0, 0, 0, 0f, 0f, 0f, (byte)PingCategory.Default, false, "", 0);
+        // Category is a ushort short-hash now; the test only cares about wire roundtrip so any
+        // representative values cover the bit-pattern. UnknownHash (0) is the "fall back to Default"
+        // sentinel, large values cover the upper half of the ushort range.
+        yield return new ClientPingLocPacket(0, 0, 0, 0f, 0f, 0f, (ushort)PingCategoryWire.UnknownHash, false, "", 0);
 
-        yield return new ClientPingLocPacket(1, 42, 3, 10.5f, -2.25f, 99.9f, (byte)PingCategory.Attack, false, "rush this", 60000);
+        yield return new ClientPingLocPacket(1, 42, 3, 10.5f, -2.25f, 99.9f, (ushort)0x1234, false, "rush this", 60000);
 
-        yield return new ClientPingLocPacket(9, 7, 0, -1.5f, 0f, 2.5f, (byte)PingCategory.Defend, true, "hold this corner", 123456);
+        yield return new ClientPingLocPacket(9, 7, 0, -1.5f, 0f, 2.5f, (ushort)0xABCD, true, "hold this corner", 123456);
 
         yield return new ServerPingLocPacket(7, 10, "Alice", 255, 0, 0,
-            new ClientPingLocPacket(5, 123, 1, 1.23f, 4.56f, 7.89f, (byte)PingCategory.Rally, false, "iron deposit", 250000));
+            new ClientPingLocPacket(5, 123, 1, 1.23f, 4.56f, 7.89f, (ushort)0x5678, false, "iron deposit", 250000));
 
         yield return new ServerPingLocPacket(11, -1, "Bob", 0, 200, 100,
-            new ClientPingLocPacket(2, 0, 0, 50.5f, 1f, 80f, (byte)PingCategory.Loot, true, "stockpile here", 1_000_000));
+            new ClientPingLocPacket(2, 0, 0, 50.5f, 1f, 80f, (ushort)ushort.MaxValue, true, "stockpile here", 1_000_000));
 
         // Empty username: server stamps "" if Player.Username is null mid-shutdown.
         yield return new ServerPingLocPacket(3, -1, "", 128, 128, 128,
-            new ClientPingLocPacket(0, 0, 0, 0f, 0f, 0f, (byte)PingCategory.Default, false, "", 0));
+            new ClientPingLocPacket(0, 0, 0, 0f, 0f, 0f, (ushort)PingCategoryWire.UnknownHash, false, "", 0));
 
         yield return new ClientClearMarkersPacket((byte)PingMarkerClearMode.Mine, -1, "");
         yield return new ClientClearMarkersPacket((byte)PingMarkerClearMode.OnMap, 42, "");

@@ -22,13 +22,11 @@ public class SaveableDesyncInfo(
     ClientSyncOpinion local,
     ClientSyncOpinion remote,
     int diffAt,
-    bool diffAtFound,
-    SaveableDesyncInfo.SnapshotFreshness snapshotFreshness)
+    bool diffAtFound)
 {
     public readonly ClientSyncOpinion local = local;
     public readonly ClientSyncOpinion remote = remote;
     public readonly int diffAt = diffAt;
-    public readonly SnapshotFreshness snapshotFreshness = snapshotFreshness;
     private readonly Task<string> metadata = Task.Run(MetadataGenerator.Generate);
     private readonly Task<FileInfo> replay = Task.Run(SaveReplayIfApplicable);
 
@@ -117,11 +115,6 @@ public class SaveableDesyncInfo(
         var nextMarkerId = comp?.nextMarkerId.ToStringSafe() ?? "n/a";
         var markerCap = comp?.markerCapPerPlayer.ToStringSafe() ?? "n/a";
 
-        // SnapshotTick == -1 means we have no snapshot to compare against (e.g. DebugActions.ShowDesync).
-        var lag = snapshotFreshness.SnapshotTick >= 0
-            ? (snapshotFreshness.DesyncTick - snapshotFreshness.SnapshotTick).ToStringSafe()
-            : "n/a";
-
         desyncInfo
             .AppendLine("###Tick Data###")
             .AppendLine($"Arbiter Connected And Playing|||{Multiplayer.session.ArbiterPlaying}")
@@ -142,13 +135,6 @@ public class SaveableDesyncInfo(
             .AppendLine($"Marker Count|||{markerCount}")
             .AppendLine($"Next Marker Id|||{nextMarkerId}")
             .AppendLine($"Marker Cap Per Player|||{markerCap}")
-            .AppendLine("\n###Replay Snapshot Freshness###")
-            .AppendLine($"Snapshot Tick|||{snapshotFreshness.SnapshotTick}")
-            .AppendLine($"Desync Tick|||{snapshotFreshness.DesyncTick}")
-            .AppendLine($"Snapshot Lag Ticks|||{lag}")
-            .AppendLine($"Refresh Succeeded|||{snapshotFreshness.IsFresh}")
-            .AppendLine($"Refresh Elapsed (ms)|||{snapshotFreshness.ElapsedMs}")
-            .AppendLine($"Fallback Reason|||{snapshotFreshness.FallbackReason ?? "n/a"}")
             .AppendLine("\n###CPU Info###")
             .AppendLine($"Processor Name|||{SystemInfo.processorType}")
             .AppendLine($"Processor Speed (MHz)|||{SystemInfo.processorFrequency}")
@@ -222,7 +208,4 @@ public class SaveableDesyncInfo(
     }
 
     public record HostInfo([CanBeNull] string Traces, [CanBeNull] string JittedMethods);
-
-    // SnapshotTick == DesyncTick when refresh succeeded; otherwise stale (autosave-aligned).
-    public record SnapshotFreshness(bool IsFresh, long ElapsedMs, int SnapshotTick, int DesyncTick, [CanBeNull] string FallbackReason);
 }

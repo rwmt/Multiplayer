@@ -38,16 +38,16 @@ namespace Multiplayer.Client
         public static readonly Texture2D PingCircle = MakeCircleTex(256, outerRadius: 127.5f, innerRadius: 0f);
         public static readonly Texture2D PingRing   = MakeCircleTex(256, outerRadius: 127.5f, innerRadius: 108f);
 
-        // Pre-rotated wheel sector textures live next to LocationPings.WheelOptions so the slot
-        // count can't desync - see LocationPings.PingSectors / PingSectorArcs.
-        public static readonly Texture2D PingChevronUp = MakeChevronUpTex(64);
+        // Wheel sector textures are generated per slot count by LocationPings.Wheel.cs
+        // (see SectorTexCache / SectorArcCache there); only the chevrons live here.
+        // Up = drawer-toggle tab. Left / Right = wheel page-nav slots (higher native res because
+        // they render larger than the toggle tab).
+        public static readonly Texture2D PingChevronUp    = MakeChevronTex(64, ChevronDir.Up);
+        public static readonly Texture2D PingChevronLeft  = MakeChevronTex(96, ChevronDir.Left);
+        public static readonly Texture2D PingChevronRight = MakeChevronTex(96, ChevronDir.Right);
 
-        // reportFailure=false so a missing path returns null and the renderer falls back to Glyph().
-        public static readonly Texture2D PingIconAttack = ContentFinder<Texture2D>.Get("UI/Commands/AttackMelee", false);
-        public static readonly Texture2D PingIconDefend = ContentFinder<Texture2D>.Get("UI/Designators/HomeAreaOn", false);
-        public static readonly Texture2D PingIconHelp   = ContentFinder<Texture2D>.Get("UI/Commands/AsMedical", false);
-        public static readonly Texture2D PingIconLoot   = ContentFinder<Texture2D>.Get("UI/Buttons/TradeMode", false);
-        public static readonly Texture2D PingIconRally  = ContentFinder<Texture2D>.Get("UI/Commands/GatherSpotActive", false);
+        // Category icons used to live here as readonly Texture2D fields; they now resolve lazily
+        // from MultiplayerPingDef.iconPath so mods can declare new categories in XML.
 
         // Gizmo action icons reuse vanilla UI/ atlases (visibility toggles, reset arrows).
         public static readonly Texture2D PingHideForMeIcon   = ContentFinder<Texture2D>.Get("UI/Designators/PlanHide");
@@ -143,26 +143,54 @@ namespace Multiplayer.Client
 
         // Distance-to-line field with AA band so the texture scales cleanly without re-baking.
         // Apex (V's point) at HIGH py, arm ends at LOW py - matches MakeSectorTex convention.
-        private static Texture2D MakeChevronUpTex(int size)
+        private enum ChevronDir { Up, Right, Down, Left }
+
+        // Two-stroke chevron (^ / > / v / <) with antialiased edges. Apex sits 0.78 along the
+        // pointing axis, arm-ends at 0.22 along that axis and ±0.36 across it - same proportions
+        // for every orientation, so rotated chevrons stay visually consistent with the original
+        // up-pointing one.
+        private static Texture2D MakeChevronTex(int size, ChevronDir dir)
         {
             var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
             var pixels = new Color32[size * size];
             var center = (size - 1) / 2f;
             var strokeHalf = size * 0.10f;
-            var apexY = size * 0.78f;
-            var armEndY = size * 0.22f;
-            var armEndDx = size * 0.36f;
+            var apexOff = size * 0.78f;
+            var armAlong = size * 0.22f;
+            var armAcross = size * 0.36f;
+
+            float apexX, apexY, arm1X, arm1Y, arm2X, arm2Y;
+            switch (dir)
+            {
+                case ChevronDir.Right:
+                    apexX = apexOff;             apexY = center;
+                    arm1X = armAlong;            arm1Y = center + armAcross;
+                    arm2X = armAlong;            arm2Y = center - armAcross;
+                    break;
+                case ChevronDir.Down:
+                    apexX = center;              apexY = armAlong;
+                    arm1X = center + armAcross;  arm1Y = apexOff;
+                    arm2X = center - armAcross;  arm2Y = apexOff;
+                    break;
+                case ChevronDir.Left:
+                    apexX = armAlong;            apexY = center;
+                    arm1X = apexOff;             arm1Y = center + armAcross;
+                    arm2X = apexOff;             arm2Y = center - armAcross;
+                    break;
+                default: // Up
+                    apexX = center;              apexY = apexOff;
+                    arm1X = center + armAcross;  arm1Y = armAlong;
+                    arm2X = center - armAcross;  arm2Y = armAlong;
+                    break;
+            }
 
             for (int py = 0; py < size; py++)
             {
                 for (int px = 0; px < size; px++)
                 {
-                    var dx = px - center;
-                    var dy = py;
-
-                    var distR = DistToSegment(dx, dy, 0f, apexY, armEndDx, armEndY);
-                    var distL = DistToSegment(dx, dy, 0f, apexY, -armEndDx, armEndY);
-                    var d = Mathf.Min(distR, distL);
+                    var d1 = DistToSegment(px, py, apexX, apexY, arm1X, arm1Y);
+                    var d2 = DistToSegment(px, py, apexX, apexY, arm2X, arm2Y);
+                    var d = Mathf.Min(d1, d2);
                     var alpha = Mathf.Clamp01(strokeHalf - d + 0.5f);
 
                     pixels[py * size + px] = new Color32(255, 255, 255, (byte)(alpha * 255f));

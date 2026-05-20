@@ -29,16 +29,19 @@ public partial class LocationPings
     private PlanetTile wheelTargetTile;
     private Vector3 wheelTargetMapLoc;
     private float? pingKeyDownTime;
-    private PingCategory hoveredCategory;
+    // Null = mouse is in the deadzone / not pointing at any slice. The Default-flagged def is
+    // never set here - that case is represented as null.
+    internal MultiplayerPingDef hoveredCategory;
 
     public static bool MenuWindowOpen => PingMenuWindow.Opened != null;
 
     // Wheel-slice click sets this; LMB on the map drops a ping/marker until disarmed.
-    public PingCategory? armedCategory;
+    public MultiplayerPingDef armedCategory;
     public bool ArmedAsMarker => Multiplayer.settings.pingPlaceMode == PingPlaceMode.Marker;
 
     // Reset each launch so opening the drawer next session doesn't pre-arm a stale category.
-    public PingCategory? lastUsedCategory;
+    // Stored as defName so a mod removal between sessions doesn't crash the open.
+    public string lastUsedCategoryDefName;
 
     public HashSet<int> selectedMarkerIds = new();
     public HashSet<int> selectedPingPlayerIds = new();
@@ -261,7 +264,10 @@ public partial class LocationPings
                 wheelTargetTile = tile;
                 wheelTargetMapLoc = mapLoc;
                 wheelScreenOrigin = UI.MousePositionOnUIInverted;
-                hoveredCategory = PingCategory.Default;
+                hoveredCategory = null;
+                // Cursor-mode wheel always opens on page 0 so it stays glanceable for the common
+                // first-N categories. Drawer mode keeps its own page (preserved across opens).
+                ResetWheelPage();
             }
         }
 
@@ -282,14 +288,16 @@ public partial class LocationPings
             if (!heldNow)
             {
                 // Release in center = cancel; release on a slice = typed ping; quick tap (no wheel) = default.
-                PingCategory? toFire = wheelActive
-                    ? (hoveredCategory == PingCategory.Default ? null : (PingCategory?)hoveredCategory)
-                    : PingCategory.Default;
+                MultiplayerPingDef toFire;
+                if (wheelActive)
+                    toFire = hoveredCategory; // null if in the deadzone
+                else
+                    toFire = MultiplayerPingDef.Default;
 
-                if (toFire is { } cat)
+                if (toFire != null)
                 {
                     var asMarker = Multiplayer.settings.pingPlaceMode == PingPlaceMode.Marker;
-                    FirePing(wheelTargetMapId, wheelTargetTile, wheelTargetMapLoc, cat, asMarker);
+                    FirePing(wheelTargetMapId, wheelTargetTile, wheelTargetMapLoc, toFire, asMarker);
                 }
 
                 CancelWheel();
@@ -305,7 +313,9 @@ public partial class LocationPings
         if (!MpInput.Mouse2UpWithoutDrag) return;
         if (!TryCaptureTarget(out var mapId, out var tile, out var mapLoc)) return;
         var asMarker = Multiplayer.settings.pingPlaceMode == PingPlaceMode.Marker;
-        FirePing(mapId, tile, mapLoc, PingCategory.Default, asMarker);
+        var def = MultiplayerPingDef.Default;
+        if (def == null) return;
+        FirePing(mapId, tile, mapLoc, def, asMarker);
     }
 
     private void ToggleDrawer()
@@ -326,8 +336,9 @@ public partial class LocationPings
         SoundDefOf.FloatMenu_Open.PlayOneShotOnCamera();
     }
 
-    public void ArmPlacement(PingCategory category, bool playSound = true)
+    public void ArmPlacement(MultiplayerPingDef category, bool playSound = true)
     {
+        if (category == null || category.isDefault) return;
         armedCategory = category;
         if (playSound)
             SoundDefOf.Click.PlayOneShotOnCamera();
@@ -343,8 +354,8 @@ public partial class LocationPings
 
     public bool FireArmedAtMap(int mapId, PlanetTile tile, Vector3 mapLoc)
     {
-        if (armedCategory is not { } cat) return false;
-        FirePing(mapId, tile, mapLoc, cat, ArmedAsMarker);
+        if (armedCategory == null) return false;
+        FirePing(mapId, tile, mapLoc, armedCategory, ArmedAsMarker);
         return true;
     }
 
@@ -415,7 +426,14 @@ public partial class LocationPings
     {
         wheelActive = false;
         pingKeyDownTime = null;
+        ResetWheelPage();
     }
+
+    // Pageable wheel state. Reset on every open so the user lands on familiar slots; mutated
+    // by the Next/Previous nav slices in DrawWheelCore. Drawer mode does NOT reset on open -
+    // see PingMenuWindow.PostOpen for that policy decision.
+    internal int wheelPage;
+    internal void ResetWheelPage() => wheelPage = 0;
 
     // Strip control characters - keeps crafted packets from injecting weird text.
     private static string SanitizeLabel(string raw)
@@ -427,19 +445,20 @@ public partial class LocationPings
         return sb.ToString();
     }
 
-    private void FirePing(int mapId, PlanetTile tile, Vector3 mapLoc, PingCategory category, bool asMarker)
+    private void FirePing(int mapId, PlanetTile tile, Vector3 mapLoc, MultiplayerPingDef category, bool asMarker)
     {
         if (Multiplayer.arbiterInstance) return;
         if (Multiplayer.Client == null) return;
+        if (category == null) return;
         // Stamp from the placer; server relays unchanged so every receiver agrees on the value.
         var tick = Find.TickManager?.TicksGame ?? 0;
         Multiplayer.Client.Send(new ClientPingLocPacket(
             mapId, tile.tileId, tile.layerId,
             mapLoc.x, mapLoc.y, mapLoc.z,
-            (byte)category, asMarker, "", tick));
-        if (category != PingCategory.Default)
-            lastUsedCategory = category;
-        category.Sound().PlayOneShotOnCamera();
+            PingCategoryExtensions.ToWire(category), asMarker, "", tick));
+        if (!category.isDefault)
+            lastUsedCategoryDefName = category.defName;
+        category.Sound.PlayOneShotOnCamera();
     }
 
     // Mouse2 reports the *release* (UpWithoutDrag) because hold is reserved for camera-drag;

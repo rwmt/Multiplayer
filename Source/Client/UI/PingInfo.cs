@@ -15,7 +15,10 @@ public class PingInfo : IExposable, ISynchronizable
     public PlanetTile planetTile;
     public Vector3 mapLoc;
 
-    public PingCategory category;
+    // Resolved from the wire / scribe. A null category is treated as "untyped" by every
+    // downstream check, so a category whose def was removed (mod uninstall) still renders as a
+    // plain ping rather than crashing.
+    public MultiplayerPingDef category;
     public string label = "";
     public bool isMarker;
 
@@ -76,11 +79,16 @@ public class PingInfo : IExposable, ISynchronizable
         get
         {
             var b = BaseColor;
-            if (category == PingCategory.Default) return b;
-            var t = category.Tint();
+            if (IsUntyped) return b;
+            var t = category.tint;
             return new Color(t.r, t.g, t.b, b.a);
         }
     }
+
+    // "Untyped" = the special Default-flagged def OR the def couldn't be resolved at all. Every
+    // category-conditional render path routes through this so a stale category from a save (def
+    // removed) degrades silently to a vanilla ping.
+    public bool IsUntyped => category == null || category.isDefault;
 
     internal const float PingDuration = 10f;
 
@@ -226,12 +234,12 @@ public class PingInfo : IExposable, ISynchronizable
         using (MpStyle.Set(pinDrawColor))
             GUI.DrawTexture(pinRect, MultiplayerStatic.PingPin);
 
-        if (category != PingCategory.Default)
+        if (!IsUntyped)
         {
-            var iconTex = category.Icon();
+            var iconTex = category.IconTexture;
             if (iconTex != null)
             {
-                var iconSize = size * 0.42f * category.IconScale();
+                var iconSize = size * 0.42f * category.iconScale;
                 var headCenterY = pinRect.y + size * 0.34f;
                 var iconRect = new Rect(
                     pinRect.center.x - iconSize / 2f,
@@ -245,22 +253,18 @@ public class PingInfo : IExposable, ISynchronizable
                 using (MpStyle.Set(new Color(1f, 1f, 1f, AlphaMult)))
                     GUI.DrawTexture(iconRect, iconTex);
             }
-            else
+            else if (!string.IsNullOrEmpty(category.glyph))
             {
-                var glyph = category.Glyph();
-                if (glyph.Length > 0)
-                {
-                    var glyphRect = new Rect(pinRect.x, pinRect.y + size * 0.18f, size, size * 0.32f);
-                    using (MpStyle.Set(GameFont.Small).Set(TextAnchor.MiddleCenter))
-                        MpUI.LabelOutlined(glyphRect, glyph,
-                            new Color(1f, 1f, 1f, AlphaMult),
-                            new Color(0f, 0f, 0f, 0.95f * AlphaMult));
-                }
+                var glyphRect = new Rect(pinRect.x, pinRect.y + size * 0.18f, size, size * 0.32f);
+                using (MpStyle.Set(GameFont.Small).Set(TextAnchor.MiddleCenter))
+                    MpUI.LabelOutlined(glyphRect, category.glyph,
+                        new Color(1f, 1f, 1f, AlphaMult),
+                        new Color(0f, 0f, 0f, 0.95f * AlphaMult));
             }
         }
 
         var labelY = screenCenter.y + size * 0.42f;
-        if (category != PingCategory.Default)
+        if (!IsUntyped)
         {
             var nameRect = new Rect(screenCenter.x - LabelWidth / 2f, labelY, LabelWidth, 18f);
             using (MpStyle.Set(GameFont.Small).Set(TextAnchor.MiddleCenter))
@@ -308,10 +312,13 @@ public class PingInfo : IExposable, ISynchronizable
 
         sync.Bind(ref mapLoc);
 
-        byte cat = (byte)category;
-        sync.Bind(ref cat);
+        // Wire the def via its short-hash (vanilla's standard def-serialization size). An unknown
+        // hash on the receiver resolves to Default so a session with a half-installed mod set
+        // still re-hydrates ping rows without throwing.
+        ushort catHash = PingCategoryExtensions.ToWire(category);
+        sync.Bind(ref catHash);
         if (!sync.isWriting)
-            category = (PingCategory)cat;
+            category = PingCategoryExtensions.ResolveFromWire(catHash);
 
         sync.Bind(ref label);
         sync.Bind(ref isMarker);
@@ -338,7 +345,17 @@ public class PingInfo : IExposable, ISynchronizable
             planetTile = new PlanetTile(tileId, layerId);
 
         Scribe_Values.Look(ref mapLoc, "mapLoc");
-        Scribe_Values.Look(ref category, "category", PingCategory.Default);
+
+        // Save as defName (string) so a missing-mod load doesn't drop the marker - we just fall
+        // back to Default at resolve time, which still renders. Scribe_Defs.Look would crash on
+        // unresolved.
+        string categoryDefName = Scribe.mode == LoadSaveMode.Saving ? category?.defName : null;
+        Scribe_Values.Look(ref categoryDefName, "categoryDefName");
+        if (Scribe.mode == LoadSaveMode.LoadingVars)
+            category = string.IsNullOrEmpty(categoryDefName)
+                ? MultiplayerPingDef.Default
+                : (DefDatabase<MultiplayerPingDef>.GetNamedSilentFail(categoryDefName) ?? MultiplayerPingDef.Default);
+
         Scribe_Values.Look(ref label, "label", "");
         Scribe_Values.Look(ref isMarker, "isMarker");
         Scribe_Values.Look(ref markerId, "markerId");

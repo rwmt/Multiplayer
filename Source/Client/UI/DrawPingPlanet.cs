@@ -138,8 +138,7 @@ namespace Multiplayer.Client
             var labelRect = new Rect(tileCenter.x - PingInfo.LabelWidth / 2f, tileCenter.y + size * 0.42f, PingInfo.LabelWidth, 18f);
             using (MpStyle.Set(GameFont.Small).Set(TextAnchor.MiddleCenter))
                 MpUI.LabelOutlined(labelRect,
-                    MpTranslate.Fallback("MpPingCluster_Label",
-                        $"{group.Count} markers", group.Count),
+                    "MpPingCluster_Label".Translate(group.Count),
                     new Color(1f, 1f, 1f, 1f),
                     new Color(0f, 0f, 0f, 0.95f));
         }

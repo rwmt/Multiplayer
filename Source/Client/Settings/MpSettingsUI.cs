@@ -238,21 +238,19 @@ public static class MpSettingsUI
         return false;
     }
 
-    // Keys land in rwmt/Multiplayer-Locale; MpTranslate.Fallback keeps the UI readable until they ship.
     private static string MpPingWheelLabel()
-        => MpTranslate.Fallback("MpEnablePingWheel", "Enable ping selection wheel");
+        => "MpEnablePingWheel".Translate();
 
     private static string MpPingWheelDesc()
-        => MpTranslate.Fallback("MpEnablePingWheelDesc",
-            "Hold the ping key to open a radial menu of ping categories. Quick tap fires a default ping. Not available when the ping is bound to Mouse2.");
+        => "MpEnablePingWheelDesc".Translate();
 
     private static string MpPingPlaceModeLabel()
-        => MpTranslate.Fallback("MpPingPlaceModeSetting", "Default ping place-mode");
+        => "MpPingPlaceModeSetting".Translate();
 
     private static string MpPingPlaceModeValue(PingPlaceMode mode)
         => mode == PingPlaceMode.Marker
-            ? MpTranslate.Fallback("MpPingMode_Marker", "Marker")
-            : MpTranslate.Fallback("MpPingMode_Ping", "Ping");
+            ? "MpPingMode_Marker".Translate()
+            : "MpPingMode_Ping".Translate();
 
     const string UsernameField = "UsernameField";
 
