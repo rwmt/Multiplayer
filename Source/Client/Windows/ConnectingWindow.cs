@@ -14,6 +14,7 @@ namespace Multiplayer.Client
         protected abstract string ConnectingString { get; }
 
         public bool returnToServerBrowser;
+        public bool suppressPostCloseActions;
         protected string result;
 
         // Only show this window if there aren't any others during connecting
@@ -117,6 +118,9 @@ namespace Multiplayer.Client
 
         public override void PostClose()
         {
+            if (suppressPostCloseActions)
+                return;
+
             Multiplayer.StopMultiplayer();
 
             if (returnToServerBrowser)

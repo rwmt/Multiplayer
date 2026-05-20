@@ -127,6 +127,16 @@ namespace Multiplayer.Client
                 {
                     if (bootstrapState is { Enabled: true } state)
                     {
+                        var connectingWindows = Find.WindowStack.Windows
+                            .OfType<BaseConnectingWindow>()
+                            .ToList();
+
+                        foreach (var connectingWindow in connectingWindows)
+                        {
+                            connectingWindow.suppressPostCloseActions = true;
+                            Find.WindowStack.TryRemove(connectingWindow);
+                        }
+
                         connection.ChangeState(ConnectionStateEnum.ClientBootstrap);
                         Find.WindowStack.Add(new BootstrapConfiguratorWindow(connection, state));
                         return;
