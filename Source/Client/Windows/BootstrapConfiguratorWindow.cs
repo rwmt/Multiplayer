@@ -145,6 +145,7 @@ public partial class BootstrapConfiguratorWindow : Window, IConnectionStatusList
         isUploadingSave = false;
         saveUploadAutoStarted = false;
         postMapEnterSaveDelayRemaining = 0f;
+        postMapEnterWindowDelayRemaining = 0f;
 
         if (resetServerDrivenState)
         {

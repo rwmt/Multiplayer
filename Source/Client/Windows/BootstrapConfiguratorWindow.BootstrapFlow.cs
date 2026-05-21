@@ -16,6 +16,7 @@ public partial class BootstrapConfiguratorWindow
 {
     private const string BootstrapSaveName = "MpBootstrapSave";
     private const float PostMapEnterSaveDelaySeconds = 1.5f;
+    private const float PostMapEnterWindowDelaySeconds = 0.1f;
 
     private bool hideWindowDuringMapGen;
     private bool autoAdvanceArmed;
@@ -29,6 +30,7 @@ public partial class BootstrapConfiguratorWindow
     private string saveUploadStatus;
     private float saveUploadProgress;
     private float postMapEnterSaveDelayRemaining;
+    private float postMapEnterWindowDelayRemaining;
 
     private float GetGenerateMapStepHeight()
     {
@@ -132,6 +134,7 @@ public partial class BootstrapConfiguratorWindow
         savedReplayPath = null;
         autoAdvanceArmed = true;
         AwaitingBootstrapMapInit = true;
+        postMapEnterWindowDelayRemaining = 0f;
         saveUploadStatus = "Generating map...";
         Find.WindowStack.TryRemove(this);
 
@@ -144,7 +147,7 @@ public partial class BootstrapConfiguratorWindow
         if (AwaitingBootstrapMapInit)
             return;
 
-        if (Multiplayer.Client != null || bootstrapSaveQueued || saveReady || isUploadingSave || saveUploadAutoStarted)
+        if (Multiplayer.Client != null || bootstrapSaveQueued || saveReady || isUploadingSave || saveUploadAutoStarted || awaitingControllablePawns || postMapEnterSaveDelayRemaining > 0f)
             return;
 
         if (Current.ProgramState != ProgramState.Playing || Find.Maps == null || Find.Maps.Count == 0)
@@ -174,11 +177,10 @@ public partial class BootstrapConfiguratorWindow
         retainInstanceOnClose = false;
         AwaitingBootstrapMapInit = false;
         postMapEnterSaveDelayRemaining = PostMapEnterSaveDelaySeconds;
+        postMapEnterWindowDelayRemaining = PostMapEnterWindowDelaySeconds;
         awaitingControllablePawns = true;
         bootstrapSaveQueued = false;
         saveUploadStatus = "Map initialized. Waiting for controllable colonists to spawn...";
-
-        TryShowBootstrapWindow();
     }
 
     private void TryShowBootstrapWindow()
@@ -189,7 +191,7 @@ public partial class BootstrapConfiguratorWindow
         if (Find.WindowStack.WindowOfType<BootstrapConfiguratorWindow>() != null)
             return;
 
-        if (Find.WindowStack.Windows.OfType<Dialog_MessageBox>().Any())
+        if (Find.WindowStack.Windows.Any(window => window is Dialog_MessageBox or Dialog_NodeTree))
             return;
 
         Find.WindowStack.Add(this);
@@ -199,6 +201,13 @@ public partial class BootstrapConfiguratorWindow
     {
         if (hideWindowDuringMapGen || bootstrapSaveQueued || saveReady || isUploadingSave)
             return;
+
+        if (postMapEnterWindowDelayRemaining > 0f || postMapEnterSaveDelayRemaining > 0f || awaitingControllablePawns)
+        {
+            postMapEnterWindowDelayRemaining -= Time.deltaTime;
+            if (postMapEnterWindowDelayRemaining <= 0f)
+                TryShowBootstrapWindow();
+        }
 
         if (postMapEnterSaveDelayRemaining <= 0f && !awaitingControllablePawns)
             return;
