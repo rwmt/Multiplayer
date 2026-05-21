@@ -24,9 +24,7 @@ namespace Multiplayer.Client
         {
             Multiplayer.reloading = true;
 
-            var worldGridSaved = Find.WorldGrid;
             var tweenedPos = new Dictionary<int, Vector3>();
-            var drawers = new Dictionary<int, MapDrawer>();
             var localFactionId = Multiplayer.RealPlayerFaction.loadID;
             var mapCmds = new Dictionary<int, Queue<ScheduledCommand>>();
             var planetRenderMode = Find.World.renderer.wantedMode;
@@ -37,8 +35,6 @@ namespace Multiplayer.Client
 
             foreach (Map map in Find.Maps)
             {
-                drawers[map.uniqueID] = map.mapDrawer;
-
                 foreach (Pawn p in map.mapPawns.AllPawnsSpawned)
                     tweenedPos[p.thingIDNumber] = p.drawer.tweener.tweenedPos;
 
@@ -58,20 +54,15 @@ namespace Multiplayer.Client
                 gameData = SaveGameData();
             }
 
-            if (cache)
-            {
-                MapDrawerRegenPatch.copyFrom = drawers;
-                WorldGridCachePatch.copyFrom = worldGridSaved;
-                WorldGridExposeDataPatch.copyFrom = worldGridSaved;
-                WorldRendererCachePatch.copyFrom = worldGridSaved;
-            }
-            else
-            {
-                MapDrawerRegenPatch.copyFrom.Clear();
-                WorldGridCachePatch.copyFrom = null;
-                WorldGridExposeDataPatch.copyFrom = null;
-                WorldRendererCachePatch.copyFrom = null;
-            }
+            // Join-point live caches stay disabled here.
+            // Reusing render/world objects across reload proved unstable, while the measured gain
+            // was only about half a second, which is not enough to justify the risk.
+            // We still clear/null the static holders instead of commenting them out so stale state
+            // cannot survive if another path ever arms these cache fields again.
+            MapDrawerRegenPatch.copyFrom.Clear();
+            WorldGridCachePatch.copyFrom = null;
+            WorldGridExposeDataPatch.copyFrom = null;
+            WorldRendererCachePatch.copyFrom = null;
 
             MusicManagerPlay musicManager = null;
             if (Find.MusicManagerPlay.gameObjectCreated)
