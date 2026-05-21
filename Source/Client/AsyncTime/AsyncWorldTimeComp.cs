@@ -276,7 +276,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
 
     private static void CreateJoinPointAndSendIfHost()
     {
-        Multiplayer.session.dataSnapshot = SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveAndReload(true), Multiplayer.GameComp.multifaction);
+        Multiplayer.session.dataSnapshot = SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveAndReload(), Multiplayer.GameComp.multifaction);
 
         if (!TickPatch.Simulating && !Multiplayer.IsReplay)
         {
