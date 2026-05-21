@@ -20,7 +20,7 @@ namespace Multiplayer.Client
 
     public static class SaveLoad
     {
-        public static TempGameData SaveAndReload(bool cache = false)
+        public static TempGameData SaveAndReload()
         {
             Multiplayer.reloading = true;
 
