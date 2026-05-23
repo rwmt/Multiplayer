@@ -83,7 +83,7 @@ namespace Multiplayer.Client
                 writer.Write(thing.thingIDNumber);
                 writer.Write(thing.HitPoints);
 
-                byte growth = (byte)Math.Ceiling(thing.Growth * 255);
+                byte growth = EncodePlantGrowth(thing.Growth);
                 writer.Write(growth);
                 writer.Write(thing.Age);
 
@@ -105,6 +105,18 @@ namespace Multiplayer.Client
             {
                 writer.Write((ushort)0);
             }
+        }
+
+        private static byte EncodePlantGrowth(float growth)
+        {
+            int quantized = (int)(growth * 255f + 0.5f);
+
+            if (quantized < 0)
+                quantized = 0;
+            else if (quantized > 255)
+                quantized = 255;
+
+            return (byte)quantized;
         }
 
         public static void Load(Map map)
