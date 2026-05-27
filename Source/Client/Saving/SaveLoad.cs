@@ -20,15 +20,15 @@ namespace Multiplayer.Client
 
     public static class SaveLoad
     {
-        public static TempGameData SaveAndReload(bool cache = false)
+        public static TempGameData SaveAndReload()
         {
-            return SaveAndReload(cache ? ReloadOptimizationMode.DeferFactionMapDrawerRebuildForSnapshot : ReloadOptimizationMode.None);
+            return SaveAndReload(ReloadOptimizationMode.None);
         }
 
         public static TempGameData SaveAndReload(ReloadOptimizationMode optimizationMode)
         {
             var data = SaveAndReloadCore(optimizationMode);
-            CacheForReloading.Complete(optimizationMode);
+            ReloadOptimization.Complete(optimizationMode);
             return data;
         }
 
@@ -81,7 +81,7 @@ namespace Multiplayer.Client
             if (musicManager != null)
                 Current.Root_Play.musicManagerPlay = musicManager;
 
-            var deferFactionMapDrawerRebuild = CacheForReloading.ShouldDeferFactionMapDrawerRebuild(optimizationMode);
+            var deferFactionMapDrawerRebuild = ReloadOptimization.ShouldDeferFactionMapDrawerRebuild(optimizationMode);
             Multiplayer.game.ChangeRealPlayerFaction(Find.FactionManager.GetById(localFactionId), !deferFactionMapDrawerRebuild);
 
             foreach (Map m in Find.Maps)
@@ -116,7 +116,7 @@ namespace Multiplayer.Client
         {
             var data = SaveAndReloadCore(optimizationMode);
             var snapshot = CreateGameDataSnapshot(data, removeCurrentMapId);
-            CacheForReloading.Complete(optimizationMode);
+            ReloadOptimization.Complete(optimizationMode);
             return snapshot;
         }
 

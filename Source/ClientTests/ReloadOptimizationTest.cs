@@ -4,13 +4,13 @@ using NUnit.Framework;
 namespace ClientTests;
 
 [TestFixture]
-public class CacheForReloadingTest
+public class ReloadOptimizationTest
 {
     [Test]
     public void NoneMode_DoesNotDeferFactionMapDrawerRebuild()
     {
         Assert.That(
-            CacheForReloading.ShouldDeferFactionMapDrawerRebuild(ReloadOptimizationMode.None),
+            ReloadOptimization.ShouldDeferFactionMapDrawerRebuild(ReloadOptimizationMode.None),
             Is.False
         );
     }
@@ -19,7 +19,7 @@ public class CacheForReloadingTest
     public void SnapshotMode_DefersFactionMapDrawerRebuild()
     {
         Assert.That(
-            CacheForReloading.ShouldDeferFactionMapDrawerRebuild(
+            ReloadOptimization.ShouldDeferFactionMapDrawerRebuild(
                 ReloadOptimizationMode.DeferFactionMapDrawerRebuildForSnapshot
             ),
             Is.True
