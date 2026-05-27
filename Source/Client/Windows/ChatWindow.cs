@@ -288,14 +288,7 @@ namespace Multiplayer.Client
 
             foreach (ChatMsg msg in Multiplayer.session.messages)
             {
-                float height = 0f;
-                float textWidth = 0f;
-
-                WithRawMessage(msg.RawMessage, () =>
-                {
-                    height = Text.CalcHeight(msg.Msg, width - 20f);
-                    textWidth = Text.CalcSize(msg.Msg).x + 15;
-                });
+                CalculateMessageSize(msg, width, out var height, out var textWidth);
 
                 Rect msgRect = new Rect(20f, yPos, width - 20f, height);
 
@@ -317,10 +310,7 @@ namespace Multiplayer.Client
                     GUI.color = new Color(0.8f, 0.8f, 1);
 
                 GUI.SetNextControlName("chat_msg_" + i++);
-                WithRawMessage(msg.RawMessage, () =>
-                {
-                    Widgets.TextArea(msgRect, msg.Msg, true);
-                });
+                DrawMessageTextArea(msgRect, msg);
 
                 if (mouseOver && msg.Clickable)
                 {
@@ -439,28 +429,38 @@ namespace Multiplayer.Client
             chatScroll.y = messagesHeight;
         }
 
-        private static void WithRawMessage(bool rawMessage, Action action)
+        private static void CalculateMessageSize(ChatMsg msg, float width, out float height, out float textWidth)
         {
-            if (!rawMessage)
+            if (!msg.RawMessage)
             {
-                action();
+                height = Text.CalcHeight(msg.Msg, width - 20f);
+                textWidth = Text.CalcSize(msg.Msg).x + 15;
                 return;
             }
 
-            var textRichText = Text.CurFontStyle.richText;
-            var textAreaRichText = Text.CurTextAreaReadOnlyStyle.richText;
-            Text.CurFontStyle.richText = false;
-            Text.CurTextAreaReadOnlyStyle.richText = false;
+            var style = RawTextAreaStyle();
+            var content = new GUIContent(msg.Msg);
+            height = style.CalcHeight(content, width - 20f);
+            textWidth = style.CalcSize(content).x + 15;
+        }
 
-            try
+        private static void DrawMessageTextArea(Rect rect, ChatMsg msg)
+        {
+            if (!msg.RawMessage)
             {
-                action();
+                Widgets.TextArea(rect, msg.Msg, true);
+                return;
             }
-            finally
+
+            GUI.Label(rect, msg.Msg, RawTextAreaStyle());
+        }
+
+        private static GUIStyle RawTextAreaStyle()
+        {
+            return new GUIStyle(Text.CurTextAreaReadOnlyStyle)
             {
-                Text.CurFontStyle.richText = textRichText;
-                Text.CurTextAreaReadOnlyStyle.richText = textAreaRichText;
-            }
+                richText = false
+            };
         }
 
         public override void PostClose()
