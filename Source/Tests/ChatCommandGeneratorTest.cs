@@ -68,6 +68,37 @@ public class ChatCommandGeneratorTest
     }
 
     [Test]
+    public void ChatCommand_GeneratesPlayerArgumentParser()
+    {
+        var result = RunGeneratorWithCompilation(
+            """
+            using Multiplayer.Common;
+            using Multiplayer.Common.ChatCommands;
+
+            namespace Multiplayer.Common;
+
+            public readonly record struct InspectArgs([ChatArgument("username")] ServerPlayer Player);
+
+            [ChatCommand("inspect", Usage = "inspect <username>")]
+            public sealed class InspectCommand : ChatCommand<InspectArgs>
+            {
+                protected override void Execute(ChatCommandContext context, InspectArgs args)
+                {
+                }
+            }
+            """
+        );
+
+        var source = GeneratedRegistrySource(result.Result);
+
+        Assert.That(source, Does.Contain("ChatCommandArgumentReader.TryParsePlayer(context, context.RawArgs[0], @\"username\""));
+        Assert.That(
+            result.Compilation.GetDiagnostics().Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error),
+            Is.Empty
+        );
+    }
+
+    [Test]
     public void ChatCommand_SameClassNameInDifferentNamespacesGeneratesCompilableRegistry()
     {
         var result = RunGeneratorWithCompilation(

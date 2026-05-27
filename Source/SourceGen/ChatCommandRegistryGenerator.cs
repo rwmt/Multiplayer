@@ -17,6 +17,7 @@ public sealed class ChatCommandRegistryGenerator : IIncrementalGenerator
     private static readonly string ChatCommandAttributeName = AttributeMetadataName(nameof(ChatCommandAttribute));
     private const string ChatCommandGenericName = "Multiplayer.Common.ChatCommands.ChatCommand<TArgs>";
     private const string ChatCommandContextName = "Multiplayer.Common.ChatCommands.ChatCommandContext";
+    private const string ServerPlayerName = "Multiplayer.Common.ServerPlayer";
     private static readonly string ChatArgumentAttributeName = AttributeMetadataName(nameof(ChatArgumentAttribute));
     private static readonly string ChatRestAttributeName = AttributeMetadataName(nameof(ChatRestAttribute));
 
@@ -514,6 +515,12 @@ public sealed class ChatCommandRegistryGenerator : IIncrementalGenerator
         {
             var typeName = nonNullable.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
             statements = CreateTryParseStatements($"TryParseEnum<{typeName}>", rawExpression, variable, parameter);
+            return $"parsed{variable}";
+        }
+
+        if (nonNullable.ToDisplayString() == ServerPlayerName)
+        {
+            statements = CreateTryParseStatements("TryParsePlayer", $"context, {rawExpression}", variable, parameter);
             return $"parsed{variable}";
         }
 

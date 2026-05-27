@@ -5,13 +5,7 @@ public class WhoisCommand : ChatCommand<WhoisCommandArgs>
 {
     protected override void Execute(ChatCommandContext context, WhoisCommandArgs args)
     {
-        var player = PlayerCommandUtility.FindPlayer(Server, args.Username);
-
-        if (player == null)
-        {
-            context.Source.SendMsg("Couldn't find the player.");
-            return;
-        }
+        ServerPlayer player = args.Player;
 
         context.Source.SendMsg($"Player: {player.Username} (#{player.id})");
         context.Source.SendMsg($"Status: {player.status}");
@@ -26,4 +20,4 @@ public class WhoisCommand : ChatCommand<WhoisCommandArgs>
     }
 }
 
-public readonly record struct WhoisCommandArgs([ChatArgument("username")] string Username);
+public readonly record struct WhoisCommandArgs([ChatArgument("username")] ServerPlayer Player);
