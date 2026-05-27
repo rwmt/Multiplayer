@@ -14,6 +14,7 @@ namespace Multiplayer.Client
         public bool showCursors = true;
         public bool autoAcceptSteam;
         public bool transparentChat = true;
+        public bool helpOnlyUsableCommands;
         public int autosaveSlots = 5;
         public bool showDevInfo;
         public bool includeReplayInDesync = VersionChecker.IsContinuousRelease;
@@ -60,6 +61,7 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref showCursors, "showCursors", true);
             Scribe_Values.Look(ref autoAcceptSteam, "autoAcceptSteam");
             Scribe_Values.Look(ref transparentChat, "transparentChat", true);
+            Scribe_Values.Look(ref helpOnlyUsableCommands, "helpOnlyUsableCommands");
             Scribe_Values.Look(ref autosaveSlots, "autosaveSlots", 5);
             Scribe_Values.Look(ref showDevInfo, "showDevInfo");
             Scribe_Values.Look(ref includeReplayInDesync, "includeReplayInDesync", VersionChecker.IsContinuousRelease);

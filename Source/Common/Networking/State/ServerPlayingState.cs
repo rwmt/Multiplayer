@@ -63,6 +63,8 @@ namespace Multiplayer.Common
         [TypedPacketHandler]
         public void HandleChat(ClientChatPacket packet)
         {
+            Player.helpOnlyUsableCommands = packet.helpOnlyUsableCommands;
+
             string msg = packet.msg;
             msg = msg.Trim();
 

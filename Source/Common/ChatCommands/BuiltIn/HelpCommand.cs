@@ -1,3 +1,4 @@
+using System.Linq;
 using Multiplayer.Common;
 
 namespace Multiplayer.Common.ChatCommands;
@@ -20,7 +21,7 @@ public class HelpCommand : ChatCommand<HelpCommandArgs>
                     source.SendMsg($"Description: {command.Description}");
 
                 if (!string.IsNullOrEmpty(command.Usage))
-                    source.SendMsg($"Usage: {command.Usage}");
+                    source.SendRawMsg($"Usage: {command.Usage}");
 
                 if (command.RequiresHost)
                     source.SendMsg("Requires host permissions.");
@@ -32,8 +33,14 @@ public class HelpCommand : ChatCommand<HelpCommandArgs>
             return;
         }
 
-        source.SendMsg("Available commands:");
-        foreach (var command in Server.chatCmdManager.GetCommandInfos())
+        var onlyUsable = source is ServerPlayer { helpOnlyUsableCommands: true };
+        source.SendMsg(onlyUsable ? "Available commands you can use:" : "Available commands:");
+
+        var commands = Server.chatCmdManager.GetCommandInfos();
+        if (onlyUsable)
+            commands = commands.Where(command => command.CanUse(source));
+
+        foreach (var command in commands)
         {
             var summary = command.Description;
             if (command.RequiresHost)
@@ -42,6 +49,6 @@ public class HelpCommand : ChatCommand<HelpCommandArgs>
             source.SendMsg($"- {command.DisplayNames}: {summary}");
         }
 
-        source.SendMsg("Use help <command> for detailed usage.");
+        source.SendRawMsg("Use help <command> for detailed usage.");
     }
 }

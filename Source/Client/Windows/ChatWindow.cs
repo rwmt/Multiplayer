@@ -362,7 +362,7 @@ namespace Multiplayer.Client
             if (Multiplayer.Client == null)
                 Multiplayer.session.AddMsg(Multiplayer.username + ": " + currentMsg);
             else
-                Multiplayer.Client.Send(ClientChatPacket.Create(currentMsg));
+                Multiplayer.Client.Send(ClientChatPacket.Create(currentMsg, Multiplayer.settings.helpOnlyUsableCommands));
 
             currentMsg = "";
         }

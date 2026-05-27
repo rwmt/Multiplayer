@@ -17,11 +17,18 @@ public record struct ServerChatPacket : IPacket
 public record struct ClientChatPacket : IPacket
 {
     public string msg;
+    public bool helpOnlyUsableCommands;
 
-    public static ClientChatPacket Create(string msg) => new() { msg = msg.Trim() };
+    public static ClientChatPacket Create(string msg, bool helpOnlyUsableCommands = false) => new()
+    {
+        msg = msg.Trim(),
+        helpOnlyUsableCommands = helpOnlyUsableCommands
+    };
 
     public void Bind(PacketBuffer buf)
     {
         buf.Bind(ref msg);
+        if (buf.isWriting || buf.DataRemaining)
+            buf.Bind(ref helpOnlyUsableCommands);
     }
 }

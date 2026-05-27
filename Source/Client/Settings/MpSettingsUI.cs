@@ -70,6 +70,8 @@ public static class MpSettingsUI
         listing.CheckboxLabeled("MpAutoAcceptSteam".Translate(), ref settings.autoAcceptSteam,
             "MpAutoAcceptSteamDesc".Translate());
         listing.CheckboxLabeled("MpTransparentChat".Translate(), ref settings.transparentChat);
+        listing.CheckboxLabeled("MpHelpOnlyUsableCommands".Translate(), ref settings.helpOnlyUsableCommands,
+            "MpHelpOnlyUsableCommandsDesc".Translate());
         listing.CheckboxLabeled("MpAppendNameToAutosave".Translate(), ref settings.appendNameToAutosave);
         listing.CheckboxLabeled("MpShowModCompat".Translate(), ref settings.showModCompatibility,
             "MpShowModCompatDesc".Translate());
