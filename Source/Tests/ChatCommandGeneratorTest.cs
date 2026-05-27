@@ -396,6 +396,53 @@ public class ChatCommandGeneratorTest
     }
 
     [Test]
+    public void ChatCommand_PrivateCommandConstructorReportsDiagnostic()
+    {
+        var result = RunGenerator(
+            """
+            using Multiplayer.Common;
+            using Multiplayer.Common.ChatCommands;
+
+            namespace Multiplayer.Common;
+
+            [ChatCommand("secret")]
+            public sealed class SecretCommand : ChatCommand
+            {
+                private SecretCommand()
+                {
+                }
+
+                public override void Execute(ChatCommandContext context)
+                {
+                }
+            }
+            """
+        );
+
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Id), Does.Contain("MPCHAT006"));
+    }
+
+    [Test]
+    public void ChatCommand_AbstractCommandReportsDiagnostic()
+    {
+        var result = RunGenerator(
+            """
+            using Multiplayer.Common;
+            using Multiplayer.Common.ChatCommands;
+
+            namespace Multiplayer.Common;
+
+            [ChatCommand("abstract")]
+            public abstract class AbstractCommand : ChatCommand
+            {
+            }
+            """
+        );
+
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Id), Does.Contain("MPCHAT006"));
+    }
+
+    [Test]
     public void ChatCommand_DuplicateNameReportsDiagnostic()
     {
         var result = RunGenerator(

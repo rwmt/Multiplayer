@@ -65,6 +65,15 @@ public sealed class ChatCommandRegistryGenerator : IIncrementalGenerator
         true
     );
 
+    private static readonly DiagnosticDescriptor InvalidCommandConstructorDescriptor = new(
+        "MPCHAT006",
+        "Invalid chat command constructor",
+        "Chat command '{0}' must have an accessible parameterless constructor",
+        "ChatCommands",
+        DiagnosticSeverity.Error,
+        true
+    );
+
     private static readonly SymbolDisplayFormat FullyQualifiedNullableFormat =
         SymbolDisplayFormat.FullyQualifiedFormat.WithMiscellaneousOptions(
             SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier
@@ -128,6 +137,16 @@ public sealed class ChatCommandRegistryGenerator : IIncrementalGenerator
             {
                 context.ReportDiagnostic(Diagnostic.Create(
                     InvalidCommandDescriptor,
+                    command.Type.Locations.FirstOrDefault(),
+                    command.Type.ToDisplayString()
+                ));
+                continue;
+            }
+
+            if (!HasAccessibleParameterlessConstructor(command.Type))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    InvalidCommandConstructorDescriptor,
                     command.Type.Locations.FirstOrDefault(),
                     command.Type.ToDisplayString()
                 ));
