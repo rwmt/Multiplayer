@@ -78,6 +78,20 @@ public class ChatCommandManagerTest
     }
 
     [Test]
+    public void Commands_DispatchCaseInsensitively()
+    {
+        var server = MakeServer();
+        var command = new RecordingCommand();
+        var source = new RecordingChatSource();
+
+        server.RegisterChatCommand("mixed", command);
+        server.HandleChatCommand(source, "MIXED");
+
+        Assert.That(command.ExecutionCount, Is.EqualTo(1));
+        Assert.That(source.Messages, Is.Empty);
+    }
+
+    [Test]
 #pragma warning disable CS0618
     public void LegacyRegistration_UsesOldHandlerMetadataAndDispatch()
     {

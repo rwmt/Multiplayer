@@ -8,7 +8,7 @@ namespace Multiplayer.Common.ChatCommands;
 public class ChatCommandManager
 {
     private readonly MultiplayerServer server;
-    private readonly IDictionary<string, ChatCommandRegistration> handlers = new Dictionary<string, ChatCommandRegistration>();
+    private readonly IDictionary<string, ChatCommandRegistration> handlers = new Dictionary<string, ChatCommandRegistration>(StringComparer.OrdinalIgnoreCase);
 
     public ChatCommandManager(MultiplayerServer server)
     {
@@ -43,7 +43,7 @@ public class ChatCommandManager
             .Where(entry => ReferenceEquals(entry.Value.Command, command))
             .Select(entry => entry.Key)
             .Append(name)
-            .Distinct()
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
         var info = new ChatCommandInfo(command, names, GetDescription(command), GetUsage(command), RequiresHost(command));
@@ -52,7 +52,7 @@ public class ChatCommandManager
 
     public void AddCommands(string[] names, IChatCommand command, string description, string usage, bool requiresHost)
     {
-        var registeredNames = names.Distinct().ToArray();
+        var registeredNames = names.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         var info = new ChatCommandInfo(command, registeredNames, description, usage, requiresHost);
         AddCommands(registeredNames, command, info);
     }
