@@ -11,4 +11,8 @@ public sealed class ChatCommandInfo(IChatCommand command, string[] names, string
     public string Description { get; } = description;
     public string Usage { get; } = usage;
     public bool RequiresHost { get; } = requiresHost;
+
+    public bool CanUse(IChatSource source) => Command.CanUse(source);
+
+    public string PermissionDeniedMessage => Command.PermissionDeniedMessage;
 }

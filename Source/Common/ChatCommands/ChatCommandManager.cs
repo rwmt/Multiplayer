@@ -23,8 +23,8 @@ public class ChatCommandManager
 
         if (handlers.TryGetValue(parts[0], out var registration))
         {
-            if (registration.Info.RequiresHost && source is ServerPlayer { IsHost: false })
-                source.SendMsg("No permission");
+            if (!registration.Info.CanUse(source))
+                source.SendMsg(registration.Info.PermissionDeniedMessage);
             else
                 registration.Command.Execute(new ChatCommandContext(source, parts[0], parts.Skip(1).ToArray()));
         }
@@ -59,6 +59,9 @@ public class ChatCommandManager
 
     private void AddCommands(string[] names, IChatCommand command, ChatCommandInfo info)
     {
+        if (command is ChatCommand chatCommand)
+            chatCommand.ConfigurePermissions(info.RequiresHost);
+
         foreach (var name in names)
             handlers[name] = new ChatCommandRegistration(command, info);
     }

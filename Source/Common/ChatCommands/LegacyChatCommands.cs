@@ -23,6 +23,12 @@ public abstract class ChatCmdHandler : IChatCommand, IChatCommandMetadata
     public virtual string Description => string.Empty;
     public virtual string Usage => string.Empty;
     bool IChatCommandMetadata.RequiresHost => requiresHost;
+    public virtual string PermissionDeniedMessage => "No permission";
+
+    public virtual bool CanUse(IChatSource source)
+    {
+        return !requiresHost || source is not ServerPlayer { IsHost: false };
+    }
 
     public void Execute(ChatCommandContext context)
     {
