@@ -189,6 +189,40 @@ public class ChatCommandGeneratorTest
     }
 
     [Test]
+    public void ChatCommand_OptionalEnumDefaultGeneratesCompilableRegistry()
+    {
+        var result = RunGeneratorWithCompilation(
+            """
+            using Multiplayer.Common;
+            using Multiplayer.Common.ChatCommands;
+
+            namespace Multiplayer.Common;
+
+            public enum EchoMode
+            {
+                Normal,
+                Loud
+            }
+
+            public readonly record struct EchoArgs([ChatArgument("mode")] EchoMode Mode = EchoMode.Loud);
+
+            [ChatCommand("echo")]
+            public sealed class EchoCommand : ChatCommand<EchoArgs>
+            {
+                protected override void Execute(ChatCommandContext context, EchoArgs args)
+                {
+                }
+            }
+            """
+        );
+
+        Assert.That(
+            result.Compilation.GetDiagnostics().Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error),
+            Is.Empty
+        );
+    }
+
+    [Test]
     public void ChatCommand_DuplicateNameReportsDiagnostic()
     {
         var result = RunGenerator(

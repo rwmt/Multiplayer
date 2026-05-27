@@ -390,13 +390,24 @@ public sealed class ChatCommandRegistryGenerator : IIncrementalGenerator
     private static string DefaultExpression(IParameterSymbol parameter)
     {
         if (parameter.HasExplicitDefaultValue)
+        {
+            var nonNullable = NonNullableType(parameter.Type);
+            if (parameter.ExplicitDefaultValue != null && nonNullable.TypeKind == TypeKind.Enum)
+                return $"({nonNullable.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}){Literal(parameter.ExplicitDefaultValue)}";
+
             return Literal(parameter.ExplicitDefaultValue);
+        }
 
         return parameter.Type.NullableAnnotation == NullableAnnotation.Annotated
             || parameter.Type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T }
             ? "null"
             : "default";
     }
+
+    private static ITypeSymbol NonNullableType(ITypeSymbol type) =>
+        type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } named
+            ? named.TypeArguments[0]
+            : type;
 
     private static string Literal(object? value)
     {
