@@ -298,6 +298,104 @@ public class ChatCommandGeneratorTest
     }
 
     [Test]
+    public void ChatCommand_AmbiguousArgumentConstructorsReportDiagnostic()
+    {
+        var result = RunGenerator(
+            """
+            using Multiplayer.Common;
+            using Multiplayer.Common.ChatCommands;
+
+            namespace Multiplayer.Common;
+
+            public sealed class EchoArgs
+            {
+                public EchoArgs(int count)
+                {
+                }
+
+                public EchoArgs(string text)
+                {
+                }
+            }
+
+            [ChatCommand("echo")]
+            public sealed class EchoCommand : ChatCommand<EchoArgs>
+            {
+                protected override void Execute(ChatCommandContext context, EchoArgs args)
+                {
+                }
+            }
+            """
+        );
+
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Id), Does.Contain("MPCHAT005"));
+    }
+
+    [Test]
+    public void ChatCommand_PrivateCustomParserDoesNotGenerateInaccessibleCall()
+    {
+        var result = RunGeneratorWithCompilation(
+            """
+            using Multiplayer.Common;
+            using Multiplayer.Common.ChatCommands;
+
+            namespace Multiplayer.Common;
+
+            public readonly record struct EchoArgs(string Text);
+
+            [ChatCommand("echo")]
+            public sealed class EchoCommand : ChatCommand<EchoArgs>
+            {
+                private static bool TryParse(ChatCommandContext context, out EchoArgs args)
+                {
+                    args = new EchoArgs("private");
+                    return true;
+                }
+
+                protected override void Execute(ChatCommandContext context, EchoArgs args)
+                {
+                }
+            }
+            """
+        );
+
+        Assert.That(
+            result.Compilation.GetDiagnostics().Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error),
+            Is.Empty
+        );
+    }
+
+    [Test]
+    public void ChatCommand_PrivateArgumentConstructorReportsDiagnostic()
+    {
+        var result = RunGenerator(
+            """
+            using Multiplayer.Common;
+            using Multiplayer.Common.ChatCommands;
+
+            namespace Multiplayer.Common;
+
+            public sealed class EchoArgs
+            {
+                private EchoArgs(string text)
+                {
+                }
+            }
+
+            [ChatCommand("echo")]
+            public sealed class EchoCommand : ChatCommand<EchoArgs>
+            {
+                protected override void Execute(ChatCommandContext context, EchoArgs args)
+                {
+                }
+            }
+            """
+        );
+
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Id), Does.Contain("MPCHAT005"));
+    }
+
+    [Test]
     public void ChatCommand_DuplicateNameReportsDiagnostic()
     {
         var result = RunGenerator(

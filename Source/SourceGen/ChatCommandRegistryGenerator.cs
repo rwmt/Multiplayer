@@ -56,6 +56,15 @@ public sealed class ChatCommandRegistryGenerator : IIncrementalGenerator
         true
     );
 
+    private static readonly DiagnosticDescriptor InvalidArgumentParserDescriptor = new(
+        "MPCHAT005",
+        "Invalid chat command argument parser",
+        "Chat command arguments '{0}' {1}",
+        "ChatCommands",
+        DiagnosticSeverity.Error,
+        true
+    );
+
     private static readonly SymbolDisplayFormat FullyQualifiedNullableFormat =
         SymbolDisplayFormat.FullyQualifiedFormat.WithMiscellaneousOptions(
             SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier
@@ -213,10 +222,21 @@ public sealed class ChatCommandRegistryGenerator : IIncrementalGenerator
         if (customParser != null)
             return CreateCustomParser(command, argsType, parserName);
 
-        var constructor = FindConstructor(argsType);
+        var constructor = FindConstructor(context, argsType, out var hasValidConstructorSelection);
+
+        if (!hasValidConstructorSelection)
+            return CreateInvalidParser(argsType, parserName);
 
         if (constructor == null)
+        {
+            if (!HasAccessibleParameterlessConstructor(argsType))
+            {
+                ReportInvalidArgumentParser(context, argsType, "must have an accessible constructor");
+                return CreateInvalidParser(argsType, parserName);
+            }
+
             return CreateParameterlessParser(argsType, parserName);
+        }
 
         if (!ValidateConstructorParameters(context, constructor))
             return CreateInvalidParser(argsType, parserName);
@@ -331,14 +351,45 @@ public sealed class ChatCommandRegistryGenerator : IIncrementalGenerator
                  """;
     }
 
-    private static IMethodSymbol? FindConstructor(ITypeSymbol argsType)
+    private static IMethodSymbol? FindConstructor(SourceProductionContext context, ITypeSymbol argsType, out bool isValid)
     {
-        return argsType
+        isValid = true;
+        var constructors = argsType
             .GetMembers(".ctor")
             .OfType<IMethodSymbol>()
-            .Where(ctor => !ctor.IsStatic && ctor.Parameters.Length > 0)
-            .OrderByDescending(ctor => ctor.Parameters.Length)
-            .FirstOrDefault();
+            .Where(ctor => !ctor.IsStatic && ctor.Parameters.Length > 0 && IsAccessible(ctor))
+            .ToArray();
+
+        if (constructors.Length == 0)
+            return null;
+
+        var largestParameterCount = constructors.Max(ctor => ctor.Parameters.Length);
+        var candidates = constructors
+            .Where(ctor => ctor.Parameters.Length == largestParameterCount)
+            .ToArray();
+
+        if (candidates.Length == 1)
+            return candidates[0];
+
+        ReportInvalidArgumentParser(context, argsType, "has ambiguous constructors");
+        isValid = false;
+        return null;
+    }
+
+    private static bool HasAccessibleParameterlessConstructor(ITypeSymbol argsType) =>
+        argsType.IsValueType
+        || argsType.GetMembers(".ctor")
+            .OfType<IMethodSymbol>()
+            .Any(ctor => !ctor.IsStatic && ctor.Parameters.Length == 0 && IsAccessible(ctor));
+
+    private static void ReportInvalidArgumentParser(SourceProductionContext context, ITypeSymbol argsType, string message)
+    {
+        context.ReportDiagnostic(Diagnostic.Create(
+            InvalidArgumentParserDescriptor,
+            argsType.Locations.FirstOrDefault(),
+            argsType.ToDisplayString(),
+            message
+        ));
     }
 
     private static bool ValidateConstructorParameters(SourceProductionContext context, IMethodSymbol constructor)
@@ -525,6 +576,7 @@ public sealed class ChatCommandRegistryGenerator : IIncrementalGenerator
             .OfType<IMethodSymbol>()
             .FirstOrDefault(method =>
                 method.IsStatic
+                && IsAccessible(method)
                 && method.ReturnType.SpecialType == SpecialType.System_Boolean
                 && method.Parameters.Length == 2
                 && method.Parameters[0].Type.ToDisplayString() == ChatCommandContextName
@@ -532,6 +584,9 @@ public sealed class ChatCommandRegistryGenerator : IIncrementalGenerator
                 && SymbolEqualityComparer.Default.Equals(method.Parameters[1].Type, argsType)
             );
     }
+
+    private static bool IsAccessible(ISymbol symbol) =>
+        symbol.DeclaredAccessibility is Accessibility.Public or Accessibility.Internal or Accessibility.ProtectedOrInternal;
 
     private static bool ImplementsInterface(INamedTypeSymbol type, string interfaceName) =>
         type.AllInterfaces.Any(@interface => @interface.ToDisplayString() == interfaceName);
