@@ -47,6 +47,15 @@ public sealed class ChatCommandRegistryGenerator : IIncrementalGenerator
         true
     );
 
+    private static readonly DiagnosticDescriptor InvalidRestArgumentDescriptor = new(
+        "MPCHAT004",
+        "Invalid chat rest argument",
+        "Chat rest argument '{0}' {1}",
+        "ChatCommands",
+        DiagnosticSeverity.Error,
+        true
+    );
+
     private static readonly SymbolDisplayFormat FullyQualifiedNullableFormat =
         SymbolDisplayFormat.FullyQualifiedFormat.WithMiscellaneousOptions(
             SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier
@@ -209,6 +218,9 @@ public sealed class ChatCommandRegistryGenerator : IIncrementalGenerator
         if (constructor == null)
             return CreateParameterlessParser(argsType, parserName);
 
+        if (!ValidateConstructorParameters(context, constructor))
+            return CreateInvalidParser(argsType, parserName);
+
         var body = new StringBuilder();
         var values = new List<string>();
         var index = 0;
@@ -307,6 +319,18 @@ public sealed class ChatCommandRegistryGenerator : IIncrementalGenerator
                  """;
     }
 
+    private static string CreateInvalidParser(ITypeSymbol argsType, string parserName)
+    {
+        return $$"""
+                 private static bool {{parserName}}(global::Multiplayer.Common.ChatCommands.ChatCommandContext context, out {{argsType.ToDisplayString(FullyQualifiedNullableFormat)}} args, out string? error)
+                 {
+                     args = default;
+                     error = "Invalid command arguments.";
+                     return false;
+                 }
+                 """;
+    }
+
     private static IMethodSymbol? FindConstructor(ITypeSymbol argsType)
     {
         return argsType
@@ -315,6 +339,51 @@ public sealed class ChatCommandRegistryGenerator : IIncrementalGenerator
             .Where(ctor => !ctor.IsStatic && ctor.Parameters.Length > 0)
             .OrderByDescending(ctor => ctor.Parameters.Length)
             .FirstOrDefault();
+    }
+
+    private static bool ValidateConstructorParameters(SourceProductionContext context, IMethodSymbol constructor)
+    {
+        var valid = true;
+        var hasRestArgument = false;
+
+        for (var i = 0; i < constructor.Parameters.Length; i++)
+        {
+            var parameter = constructor.Parameters[i];
+            if (!HasAttribute(parameter, ChatRestAttributeName))
+                continue;
+
+            if (hasRestArgument)
+            {
+                ReportInvalidRestArgument(context, parameter, "must be the only rest argument");
+                valid = false;
+            }
+
+            hasRestArgument = true;
+
+            if (NonNullableType(parameter.Type).SpecialType != SpecialType.System_String)
+            {
+                ReportInvalidRestArgument(context, parameter, "must be a string");
+                valid = false;
+            }
+
+            if (i != constructor.Parameters.Length - 1)
+            {
+                ReportInvalidRestArgument(context, parameter, "must be the final argument");
+                valid = false;
+            }
+        }
+
+        return valid;
+    }
+
+    private static void ReportInvalidRestArgument(SourceProductionContext context, IParameterSymbol parameter, string message)
+    {
+        context.ReportDiagnostic(Diagnostic.Create(
+            InvalidRestArgumentDescriptor,
+            parameter.Locations.FirstOrDefault(),
+            parameter.Name,
+            message
+        ));
     }
 
     private static void AppendRequiredArgumentCheck(StringBuilder body, ChatCommandModel command, string displayName, int index)

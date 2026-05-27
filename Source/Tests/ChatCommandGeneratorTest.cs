@@ -223,6 +223,81 @@ public class ChatCommandGeneratorTest
     }
 
     [Test]
+    public void ChatCommand_RestArgumentMustBeString()
+    {
+        var result = RunGenerator(
+            """
+            using Multiplayer.Common;
+            using Multiplayer.Common.ChatCommands;
+
+            namespace Multiplayer.Common;
+
+            public readonly record struct EchoArgs([ChatRest] int Text);
+
+            [ChatCommand("echo")]
+            public sealed class EchoCommand : ChatCommand<EchoArgs>
+            {
+                protected override void Execute(ChatCommandContext context, EchoArgs args)
+                {
+                }
+            }
+            """
+        );
+
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Id), Does.Contain("MPCHAT004"));
+    }
+
+    [Test]
+    public void ChatCommand_RestArgumentMustBeFinalArgument()
+    {
+        var result = RunGenerator(
+            """
+            using Multiplayer.Common;
+            using Multiplayer.Common.ChatCommands;
+
+            namespace Multiplayer.Common;
+
+            public readonly record struct EchoArgs([ChatRest] string Text, int Count);
+
+            [ChatCommand("echo")]
+            public sealed class EchoCommand : ChatCommand<EchoArgs>
+            {
+                protected override void Execute(ChatCommandContext context, EchoArgs args)
+                {
+                }
+            }
+            """
+        );
+
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Id), Does.Contain("MPCHAT004"));
+    }
+
+    [Test]
+    public void ChatCommand_RestArgumentMustBeUnique()
+    {
+        var result = RunGenerator(
+            """
+            using Multiplayer.Common;
+            using Multiplayer.Common.ChatCommands;
+
+            namespace Multiplayer.Common;
+
+            public readonly record struct EchoArgs([ChatRest] string First, [ChatRest] string Second);
+
+            [ChatCommand("echo")]
+            public sealed class EchoCommand : ChatCommand<EchoArgs>
+            {
+                protected override void Execute(ChatCommandContext context, EchoArgs args)
+                {
+                }
+            }
+            """
+        );
+
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Id), Does.Contain("MPCHAT004"));
+    }
+
+    [Test]
     public void ChatCommand_DuplicateNameReportsDiagnostic()
     {
         var result = RunGenerator(
