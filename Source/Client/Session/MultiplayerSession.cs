@@ -74,9 +74,9 @@ namespace Multiplayer.Client
 
         public PlayerInfo GetPlayerInfo(int id) => players.FirstOrDefault(p => p.id == id);
 
-        public void AddMsg(string msg, bool notify = true)
+        public void AddMsg(string msg, bool notify = true, bool rawMessage = false)
         {
-            AddMsg(new ChatMsg_Text(msg), notify);
+            AddMsg(new ChatMsg_Text(msg, rawMessage), notify);
         }
 
         public void AddMsg(ChatMsg msg, bool notify = true)

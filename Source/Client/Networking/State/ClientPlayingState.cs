@@ -92,7 +92,7 @@ namespace Multiplayer.Client
         }
 
         [TypedPacketHandler]
-        public void HandleChat(ServerChatPacket packet) => Multiplayer.session.AddMsg(packet.msg);
+        public void HandleChat(ServerChatPacket packet) => Multiplayer.session.AddMsg(packet.msg, rawMessage: packet.rawMessage);
 
         [TypedPacketHandler]
         public void HandleCursor(ServerCursorPacket packet)

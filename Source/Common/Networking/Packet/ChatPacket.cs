@@ -4,12 +4,16 @@ namespace Multiplayer.Common.Networking.Packet;
 public record struct ServerChatPacket : IPacket
 {
     public string msg;
+    public bool rawMessage;
 
     public static ServerChatPacket Create(string msg) => new() { msg = msg.Trim() };
+    public static ServerChatPacket CreateRaw(string msg) => new() { msg = msg.Trim(), rawMessage = true };
 
     public void Bind(PacketBuffer buf)
     {
         buf.Bind(ref msg);
+        if (buf.isWriting || buf.DataRemaining)
+            buf.Bind(ref rawMessage);
     }
 }
 

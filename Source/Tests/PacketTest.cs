@@ -164,6 +164,7 @@ public class PacketTest
 
         yield return ServerChatPacket.Create("");
         yield return ServerChatPacket.Create("ABC123!@#");
+        yield return ServerChatPacket.CreateRaw("Usage: whois <username>");
 
         yield return ClientChatPacket.Create("");
         yield return ClientChatPacket.Create("ABC123!@#");

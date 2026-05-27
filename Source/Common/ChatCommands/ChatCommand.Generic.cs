@@ -18,7 +18,7 @@ public abstract class ChatCommand<TArgs> : ChatCommand
 
         if (!parser(context, out var args, out var error))
         {
-            context.Source.SendMsg(error ?? "Invalid command arguments.");
+            context.Source.SendRawMsg(error ?? "Invalid command arguments.");
             return;
         }
 

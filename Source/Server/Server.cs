@@ -140,4 +140,9 @@ class ConsoleSource : IChatSource
     {
         ServerLog.Log(msg);
     }
+
+    public void SendRawMsg(string msg)
+    {
+        SendMsg(msg);
+    }
 }

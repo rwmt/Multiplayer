@@ -163,6 +163,44 @@ public class ChatCommandManagerTest
         server.HandleChatCommand(source, "kick");
 
         Assert.That(source.Messages, Is.EqualTo(["Usage: kick <username>"]));
+        Assert.That(source.RawMessages, Is.EqualTo(["Usage: kick <username>"]));
+    }
+
+    [Test]
+    public void GeneratedTypedCommand_MissingWhoisArgumentRepliesWithUsernameUsage()
+    {
+        var server = MakeServer();
+        var source = new RecordingChatSource();
+
+        server.HandleChatCommand(source, "whois");
+
+        Assert.That(source.Messages, Is.EqualTo(["Usage: whois <username>"]));
+        Assert.That(source.RawMessages, Is.EqualTo(["Usage: whois <username>"]));
+    }
+
+    [Test]
+    public void GeneratedTypedCommand_MissingResyncArgumentRepliesWithUsernameUsage()
+    {
+        var server = MakeServer();
+        var source = new RecordingChatSource();
+
+        server.HandleChatCommand(source, "resync");
+
+        Assert.That(source.Messages, Is.EqualTo(["Usage: resync <username>"]));
+        Assert.That(source.RawMessages, Is.EqualTo(["Usage: resync <username>"]));
+    }
+
+    [Test]
+    public void GeneratedTypedCommand_MissingArgumentSentToPlayerKeepsRawUsageText()
+    {
+        var server = MakeServer();
+        var player = AddPlayingPlayer(server, "host", isHost: true);
+
+        server.HandleChatCommand(player, "resync");
+
+        var conn = (RecordingConnection)player.conn;
+        Assert.That(conn.ChatMessages, Is.EqualTo(["Usage: resync <username>"]));
+        Assert.That(conn.RawChatMessages, Is.EqualTo(["Usage: resync <username>"]));
     }
 
     [Test]
@@ -205,6 +243,49 @@ public class ChatCommandManagerTest
         Assert.That(source.Messages, Does.Contain("Map: 2"));
         Assert.That(source.Messages, Does.Contain("Ticks behind: 12"));
         Assert.That(source.Messages, Does.Contain("Steam: Steam Guest (12345)"));
+    }
+
+    [Test]
+    public void PlayerArgument_ResolvesUniquePartialName()
+    {
+        var server = MakeServer();
+        var player = AddPlayingPlayer(server, "NemuruYama", factionId: 7, currentMapId: 2);
+        AddPlayingPlayer(server, "OtherPlayer");
+        var source = new RecordingChatSource();
+
+        server.HandleChatCommand(source, "whois Nemu");
+
+        Assert.That(source.Messages, Does.Contain($"Player: NemuruYama (#{player.id})"));
+    }
+
+    [Test]
+    public void PlayerArgument_RejectsAmbiguousPartialNameBeforeExecute()
+    {
+        var server = MakeServer();
+        AddPlayingPlayer(server, "NemuruYama1");
+        AddPlayingPlayer(server, "NemuruYama2");
+        var source = new RecordingChatSource();
+
+        server.HandleChatCommand(source, "whois Nemu");
+
+        Assert.That(
+            source.Messages,
+            Is.EqualTo(["Player name 'Nemu' is ambiguous: NemuruYama1, NemuruYama2."])
+        );
+    }
+
+    [Test]
+    public void PlayerArgument_ExactNameWinsOverAmbiguousPartialName()
+    {
+        var server = MakeServer();
+        var exact = AddPlayingPlayer(server, "Nemu");
+        AddPlayingPlayer(server, "NemuruYama1");
+        AddPlayingPlayer(server, "NemuruYama2");
+        var source = new RecordingChatSource();
+
+        server.HandleChatCommand(source, "whois Nemu");
+
+        Assert.That(source.Messages, Does.Contain($"Player: Nemu (#{exact.id})"));
     }
 
     [Test]
@@ -285,10 +366,10 @@ public class ChatCommandManagerTest
     }
 
     [Test]
-    public void TimeControlCommands_ScheduleExpectedGlobalCommands()
+    public void TimeControlCommands_SchedulePlayerScopedCommands()
     {
         var server = MakeServer();
-        var source = new RecordingChatSource();
+        var source = AddPlayingPlayer(server, "guest", factionId: 7);
 
         server.HandleChatCommand(source, "pause");
         var pauseCommand = LastGlobalCommand(server);
@@ -299,14 +380,72 @@ public class ChatCommandManagerTest
         server.HandleChatCommand(source, "speed 3");
         var speedCommand = LastGlobalCommand(server);
 
-        Assert.That(pauseCommand.type, Is.EqualTo(CommandType.PauseAll));
+        Assert.That(pauseCommand.type, Is.EqualTo(CommandType.GlobalTimeSpeed));
+        Assert.That(pauseCommand.factionId, Is.EqualTo(7));
+        Assert.That(pauseCommand.playerId, Is.EqualTo(source.id));
+        Assert.That(pauseCommand.data, Is.EqualTo([(byte)TimeVote.Paused]));
         Assert.That(unpauseCommand.type, Is.EqualTo(CommandType.GlobalTimeSpeed));
+        Assert.That(unpauseCommand.factionId, Is.EqualTo(7));
+        Assert.That(unpauseCommand.playerId, Is.EqualTo(source.id));
         Assert.That(unpauseCommand.data, Is.EqualTo([(byte)TimeVote.Normal]));
         Assert.That(speedCommand.type, Is.EqualTo(CommandType.GlobalTimeSpeed));
+        Assert.That(speedCommand.factionId, Is.EqualTo(7));
+        Assert.That(speedCommand.playerId, Is.EqualTo(source.id));
         Assert.That(speedCommand.data, Is.EqualTo([(byte)TimeVote.Superfast]));
-        Assert.That(source.Messages, Does.Contain("Pause requested."));
-        Assert.That(source.Messages, Does.Contain("Speed set to Normal."));
-        Assert.That(source.Messages, Does.Contain("Speed set to Superfast."));
+        Assert.That(((RecordingConnection)source.conn).ChatMessages, Does.Contain("Speed set to Paused."));
+        Assert.That(((RecordingConnection)source.conn).ChatMessages, Does.Contain("Speed set to Normal."));
+        Assert.That(((RecordingConnection)source.conn).ChatMessages, Does.Contain("Speed set to Superfast."));
+    }
+
+    [Test]
+    public void TimeControlCommands_UseLowestWinsVoteWhenEnabled()
+    {
+        var server = MakeServer();
+        server.settings.timeControl = TimeControl.LowestWins;
+        var source = AddPlayingPlayer(server, "guest", factionId: 7);
+
+        server.HandleChatCommand(source, "pause");
+
+        var command = LastGlobalCommand(server);
+        var data = new ByteReader(command.data);
+        Assert.That(command.type, Is.EqualTo(CommandType.TimeSpeedVote));
+        Assert.That(command.factionId, Is.EqualTo(7));
+        Assert.That(command.playerId, Is.EqualTo(source.id));
+        Assert.That((TimeVote)data.ReadByte(), Is.EqualTo(TimeVote.Paused));
+        Assert.That(data.ReadInt32(), Is.EqualTo(ScheduledCommand.Global));
+    }
+
+    [Test]
+    public void TimeControlCommands_RespectHostOnlyTimeControlSetting()
+    {
+        var server = MakeServer();
+        server.settings.timeControl = TimeControl.HostOnly;
+        AddPlayingPlayer(server, "host", isHost: true);
+        var guest = AddPlayingPlayer(server, "guest");
+
+        server.HandleChatCommand(guest, "pause");
+
+        Assert.That(server.worldData.mapCmds.ContainsKey(ScheduledCommand.Global), Is.False);
+        Assert.That(((RecordingConnection)guest.conn).ChatMessages, Does.Contain("No permission"));
+    }
+
+    [Test]
+    public void HelpCommand_CanShowOnlyCommandsThePlayerCanUse()
+    {
+        var server = MakeServer();
+        server.settings.timeControl = TimeControl.HostOnly;
+        AddPlayingPlayer(server, "host", isHost: true);
+        var guest = AddPlayingPlayer(server, "guest");
+        guest.helpOnlyUsableCommands = true;
+
+        server.HandleChatCommand(guest, "help");
+
+        var messages = ((RecordingConnection)guest.conn).ChatMessages;
+        Assert.That(messages, Does.Contain("Available commands you can use:"));
+        Assert.That(messages, Does.Contain("- help, ?: Show available commands or detailed help for one command."));
+        Assert.That(messages, Does.Contain("- whois: Show details for a connected player."));
+        Assert.That(messages.Any(message => message.StartsWith("- kick:")), Is.False);
+        Assert.That(messages.Any(message => message.StartsWith("- pause:")), Is.False);
     }
 
     [Test]
@@ -361,10 +500,17 @@ public class ChatCommandManagerTest
     private sealed class RecordingChatSource : IChatSource
     {
         public List<string> Messages { get; } = [];
+        public List<string> RawMessages { get; } = [];
 
         public void SendMsg(string msg)
         {
             Messages.Add(msg);
+        }
+
+        public void SendRawMsg(string msg)
+        {
+            Messages.Add(msg);
+            RawMessages.Add(msg);
         }
     }
 
@@ -381,6 +527,7 @@ public class ChatCommandManagerTest
     private sealed class RecordingConnection : ConnectionBase
     {
         public List<string> ChatMessages { get; } = [];
+        public List<string> RawChatMessages { get; } = [];
         public List<Packets> PacketIds { get; } = [];
 
         public RecordingConnection(string username)
@@ -400,6 +547,8 @@ public class ChatCommandManagerTest
             var packet = new ServerChatPacket();
             packet.Bind(new PacketReader(new ByteReader(raw[1..])));
             ChatMessages.Add(packet.msg ?? "");
+            if (packet.rawMessage)
+                RawChatMessages.Add(packet.msg ?? "");
         }
 
         protected override void OnClose(ServerDisconnectPacket? goodbye) { }
