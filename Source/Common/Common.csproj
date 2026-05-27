@@ -21,6 +21,11 @@
     <PackageReference Include="Tomlyn" Version="0.16.2" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\ChatCommandContracts\ChatCommandContracts.csproj" />
+    <ProjectReference Include="..\SourceGen\SourceGen.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
   <!-- Ignore any system frameworks and get the system assemblies from Krafs.Rimworld.Ref -->
   <Target Name="RemoveFramework" BeforeTargets="PrepareForBuild" DependsOnTargets="GetReferenceAssemblyPaths">
     <PropertyGroup>

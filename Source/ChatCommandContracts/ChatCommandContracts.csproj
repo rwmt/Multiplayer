@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <LangVersion>12</LangVersion>
+    <RootNamespace>Multiplayer.Common</RootNamespace>
+    <AssemblyName>MultiplayerChatCommandContracts</AssemblyName>
+  </PropertyGroup>
+
+</Project>

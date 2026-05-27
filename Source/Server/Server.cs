@@ -123,7 +123,7 @@ while (server.running)
     {
         var cmd = Console.ReadLine();
         if (cmd != null)
-            server.Enqueue(() => server.HandleChatCmd(consoleSource, cmd));
+            server.Enqueue(() => server.HandleChatCommand(consoleSource, cmd));
 
         if (cmd == stopCmd)
             break;

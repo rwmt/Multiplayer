@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using HarmonyLib;
+using Multiplayer.Common.ChatCommands;
 using Multiplayer.Common.Networking.Packet;
 
 namespace Multiplayer.Common
@@ -36,7 +37,7 @@ namespace Multiplayer.Common
         public WorldData worldData;
         public FreezeManager freezeManager;
         public CommandHandler commands;
-        public ChatCmdManager chatCmdManager;
+        public ChatCommandManager chatCmdManager;
         public PlayerManager playerManager;
         public List<INetManager> netManagers = [];
         public IEnumerable<ServerPlayer> JoinedPlayers => playerManager.JoinedPlayers;
@@ -83,15 +84,10 @@ namespace Multiplayer.Common
             worldData = new WorldData(this);
             freezeManager = new FreezeManager(this);
             commands = new CommandHandler(this);
-            chatCmdManager = new ChatCmdManager();
+            chatCmdManager = new ChatCommandManager(this);
             playerManager = new PlayerManager(this);
 
-            var helpCmd = new ChatCmdHelp();
-            RegisterChatCmd("help", helpCmd);
-            RegisterChatCmd("?", helpCmd);
-            RegisterChatCmd("joinpoint", new ChatCmdJoinPoint());
-            RegisterChatCmd("kick", new ChatCmdKick());
-            RegisterChatCmd("stop", new ChatCmdStop());
+            ChatCommandRegistry.Register(chatCmdManager, this);
 
             initDataSource.SetResult(null);
         }
@@ -273,10 +269,20 @@ namespace Multiplayer.Common
         public void SendNotification(string key, params string[] args) =>
             SendToPlaying(new ServerNotificationPacket(key) { args = args });
 
-        public void RegisterChatCmd(string cmdName, ChatCmdHandler handler) =>
-            chatCmdManager.AddCommandHandler(cmdName, handler);
+        public void RegisterChatCommand(string commandName, IChatCommand command) =>
+            chatCmdManager.AddCommand(commandName, command);
 
-        public void HandleChatCmd(IChatSource source, string cmd) => chatCmdManager.Handle(source, cmd);
+        public void RegisterChatCommand(string[] commandNames, IChatCommand command, string description = "", string usage = "", bool requiresHost = false) =>
+            chatCmdManager.AddCommands(commandNames, command, description, usage, requiresHost);
+
+        [Obsolete("Use RegisterChatCommand instead.")]
+        public void RegisterChatCmd(string cmdName, ChatCmdHandler handler) =>
+            RegisterChatCommand(cmdName, handler);
+
+        public void HandleChatCommand(IChatSource source, string command) => chatCmdManager.Handle(source, command);
+
+        [Obsolete("Use HandleChatCommand instead.")]
+        public void HandleChatCmd(IChatSource source, string cmd) => HandleChatCommand(source, cmd);
 
         public Task<ServerInitData?> InitDataTask() => initDataSource.Task;
 
