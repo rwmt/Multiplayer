@@ -1,3 +1,4 @@
+using System;
 using Verse;
 
 namespace Multiplayer.Client
@@ -5,23 +6,48 @@ namespace Multiplayer.Client
     public enum ReloadOptimizationMode
     {
         None,
-        DeferFactionMapDrawerRebuildForSnapshot,
+        ForJoinPointSnapshot,
     }
 
     internal static class ReloadOptimization
     {
-        public static bool ShouldDeferFactionMapDrawerRebuild(ReloadOptimizationMode mode)
+        public static ReloadOptimizationPlan PlanFor(ReloadOptimizationMode mode)
         {
-            return mode == ReloadOptimizationMode.DeferFactionMapDrawerRebuildForSnapshot;
+            return mode switch
+            {
+                ReloadOptimizationMode.ForJoinPointSnapshot => new(
+                    RegenerateMapDrawersWhenRestoringFaction: false,
+                    RegenerateMapDrawersAfterSnapshot: true
+                ),
+                _ => new(
+                    RegenerateMapDrawersWhenRestoringFaction: true,
+                    RegenerateMapDrawersAfterSnapshot: false
+                ),
+            };
         }
 
         public static void Complete(ReloadOptimizationMode mode)
         {
-            if (!ShouldDeferFactionMapDrawerRebuild(mode))
+            Complete(mode, RegenerateMapDrawers);
+        }
+
+        internal static void Complete(ReloadOptimizationMode mode, Action regenerateMapDrawers)
+        {
+            if (!PlanFor(mode).RegenerateMapDrawersAfterSnapshot)
                 return;
 
+            regenerateMapDrawers();
+        }
+
+        private static void RegenerateMapDrawers()
+        {
             foreach (var map in Find.Maps)
                 map.mapDrawer.RegenerateEverythingNow();
         }
     }
+
+    internal readonly record struct ReloadOptimizationPlan(
+        bool RegenerateMapDrawersWhenRestoringFaction,
+        bool RegenerateMapDrawersAfterSnapshot
+    );
 }

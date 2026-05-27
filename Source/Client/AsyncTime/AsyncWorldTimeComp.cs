@@ -278,7 +278,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
     {
         Multiplayer.session.dataSnapshot = SaveLoad.SaveReloadAndCreateSnapshot(
             Multiplayer.GameComp.multifaction,
-            ReloadOptimizationMode.DeferFactionMapDrawerRebuildForSnapshot
+            ReloadOptimizationMode.ForJoinPointSnapshot
         );
 
         if (!TickPatch.Simulating && !Multiplayer.IsReplay)

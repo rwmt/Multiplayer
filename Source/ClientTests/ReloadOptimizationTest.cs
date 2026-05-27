@@ -7,22 +7,52 @@ namespace ClientTests;
 public class ReloadOptimizationTest
 {
     [Test]
-    public void NoneMode_DoesNotDeferFactionMapDrawerRebuild()
+    public void NormalReload_RestoresFactionWithImmediateMapRedrawOnly()
     {
+        var plan = ReloadOptimization.PlanFor(ReloadOptimizationMode.None);
+
         Assert.That(
-            ReloadOptimization.ShouldDeferFactionMapDrawerRebuild(ReloadOptimizationMode.None),
+            plan.RegenerateMapDrawersWhenRestoringFaction,
+            Is.True
+        );
+        Assert.That(
+            plan.RegenerateMapDrawersAfterSnapshot,
             Is.False
         );
     }
 
     [Test]
-    public void SnapshotMode_DefersFactionMapDrawerRebuild()
+    public void JoinPointSnapshotReload_RestoresFactionWithoutRedrawAndCompletesAfterSnapshot()
     {
+        var plan = ReloadOptimization.PlanFor(ReloadOptimizationMode.ForJoinPointSnapshot);
+
         Assert.That(
-            ReloadOptimization.ShouldDeferFactionMapDrawerRebuild(
-                ReloadOptimizationMode.DeferFactionMapDrawerRebuildForSnapshot
-            ),
+            plan.RegenerateMapDrawersWhenRestoringFaction,
+            Is.False
+        );
+        Assert.That(
+            plan.RegenerateMapDrawersAfterSnapshot,
             Is.True
         );
+    }
+
+    [Test]
+    public void NormalReloadCompletion_DoesNotRunDeferredMapRedraw()
+    {
+        var redrawCount = 0;
+
+        ReloadOptimization.Complete(ReloadOptimizationMode.None, () => redrawCount++);
+
+        Assert.That(redrawCount, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void JoinPointSnapshotCompletion_RunsOneDeferredMapRedraw()
+    {
+        var redrawCount = 0;
+
+        ReloadOptimization.Complete(ReloadOptimizationMode.ForJoinPointSnapshot, () => redrawCount++);
+
+        Assert.That(redrawCount, Is.EqualTo(1));
     }
 }

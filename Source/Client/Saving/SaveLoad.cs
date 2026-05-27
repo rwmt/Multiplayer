@@ -81,8 +81,11 @@ namespace Multiplayer.Client
             if (musicManager != null)
                 Current.Root_Play.musicManagerPlay = musicManager;
 
-            var deferFactionMapDrawerRebuild = ReloadOptimization.ShouldDeferFactionMapDrawerRebuild(optimizationMode);
-            Multiplayer.game.ChangeRealPlayerFaction(Find.FactionManager.GetById(localFactionId), !deferFactionMapDrawerRebuild);
+            var reloadPlan = ReloadOptimization.PlanFor(optimizationMode);
+            Multiplayer.game.ChangeRealPlayerFaction(
+                Find.FactionManager.GetById(localFactionId),
+                reloadPlan.RegenerateMapDrawersWhenRestoringFaction
+            );
 
             foreach (Map m in Find.Maps)
             {
