@@ -278,8 +278,9 @@ public class ChatCommandManagerTest
         server.HandleChatCommand(source, "resync guest");
 
         var connection = (RecordingConnection)player.conn;
-        Assert.That(connection.PacketIds, Does.Contain(Packets.Server_WorldDataStart));
-        Assert.That(connection.PacketIds, Does.Contain(Packets.Server_WorldData));
+        Assert.That(connection.PacketIds, Does.Contain(Packets.Server_RequestRejoin));
+        Assert.That(connection.PacketIds, Does.Not.Contain(Packets.Server_WorldDataStart));
+        Assert.That(connection.PacketIds, Does.Not.Contain(Packets.Server_WorldData));
         Assert.That(source.Messages, Does.Contain("Resync requested for guest."));
     }
 

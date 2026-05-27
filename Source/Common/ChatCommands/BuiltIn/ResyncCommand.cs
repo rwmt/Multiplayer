@@ -1,3 +1,5 @@
+using Multiplayer.Common.Networking.Packet;
+
 namespace Multiplayer.Common.ChatCommands;
 
 [ChatCommand("resync", Description = "Force a player to reload world data.", Usage = "resync <username>", RequiresHost = true)]
@@ -5,13 +7,7 @@ public class ResyncCommand : ChatCommand<ResyncCommandArgs>
 {
     protected override void Execute(ChatCommandContext context, ResyncCommandArgs args)
     {
-        var player = PlayerCommandUtility.FindPlayer(Server, args.Username);
-
-        if (player == null)
-        {
-            context.Source.SendMsg("Couldn't find the player.");
-            return;
-        }
+        ServerPlayer player = args.Player;
 
         if (player.IsHost)
         {
@@ -25,10 +21,9 @@ public class ResyncCommand : ChatCommand<ResyncCommandArgs>
             return;
         }
 
-        player.conn.ChangeState(ConnectionStateEnum.ServerLoading);
-        player.ResetTimeVotes();
+        player.SendPacket(new ServerRequestRejoinPacket());
         context.Source.SendMsg($"Resync requested for {player.Username}.");
     }
 }
 
-public readonly record struct ResyncCommandArgs([ChatArgument("username")] string Username);
+public readonly record struct ResyncCommandArgs([ChatArgument("username")] ServerPlayer Player);

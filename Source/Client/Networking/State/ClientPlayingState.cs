@@ -205,6 +205,9 @@ namespace Multiplayer.Client
         public void HandleDebug(ServerDebugPacket _) => Rejoiner.DoRejoin();
 
         [TypedPacketHandler]
+        public void HandleRequestRejoin(ServerRequestRejoinPacket _) => Rejoiner.DoRejoin();
+
+        [TypedPacketHandler]
         public void HandleSetFaction(ServerSetFactionPacket packet)
         {
             var playerId = packet.playerId;
