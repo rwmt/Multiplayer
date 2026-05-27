@@ -22,6 +22,18 @@ namespace Multiplayer.Client
     {
         public static TempGameData SaveAndReload(bool cache = false)
         {
+            return SaveAndReload(cache ? ReloadOptimizationMode.DeferFactionMapDrawerRebuildForSnapshot : ReloadOptimizationMode.None);
+        }
+
+        public static TempGameData SaveAndReload(ReloadOptimizationMode optimizationMode)
+        {
+            var data = SaveAndReloadCore(optimizationMode);
+            CacheForReloading.Complete(optimizationMode);
+            return data;
+        }
+
+        private static TempGameData SaveAndReloadCore(ReloadOptimizationMode optimizationMode)
+        {
             Multiplayer.reloading = true;
 
             var tweenedPos = new Dictionary<int, Vector3>();
@@ -54,8 +66,6 @@ namespace Multiplayer.Client
                 gameData = SaveGameData();
             }
 
-            using var reloadCache = CacheForReloading.Begin(cache);
-
             MusicManagerPlay musicManager = null;
             if (Find.MusicManagerPlay.gameObjectCreated)
             {
@@ -71,7 +81,8 @@ namespace Multiplayer.Client
             if (musicManager != null)
                 Current.Root_Play.musicManagerPlay = musicManager;
 
-            Multiplayer.game.ChangeRealPlayerFaction(Find.FactionManager.GetById(localFactionId));
+            var deferFactionMapDrawerRebuild = CacheForReloading.ShouldDeferFactionMapDrawerRebuild(optimizationMode);
+            Multiplayer.game.ChangeRealPlayerFaction(Find.FactionManager.GetById(localFactionId), !deferFactionMapDrawerRebuild);
 
             foreach (Map m in Find.Maps)
             {
@@ -99,6 +110,14 @@ namespace Multiplayer.Client
             Multiplayer.reloading = false;
 
             return gameData;
+        }
+
+        public static GameDataSnapshot SaveReloadAndCreateSnapshot(bool removeCurrentMapId, ReloadOptimizationMode optimizationMode)
+        {
+            var data = SaveAndReloadCore(optimizationMode);
+            var snapshot = CreateGameDataSnapshot(data, removeCurrentMapId);
+            CacheForReloading.Complete(optimizationMode);
+            return snapshot;
         }
 
         public static void LoadInMainThread(TempGameData gameData)
