@@ -443,6 +443,52 @@ public class ChatCommandGeneratorTest
     }
 
     [Test]
+    public void ChatCommand_BlankPrimaryNameReportsDiagnostic()
+    {
+        var result = RunGenerator(
+            """
+            using Multiplayer.Common;
+            using Multiplayer.Common.ChatCommands;
+
+            namespace Multiplayer.Common;
+
+            [ChatCommand("")]
+            public sealed class BlankCommand : ChatCommand
+            {
+                public override void Execute(ChatCommandContext context)
+                {
+                }
+            }
+            """
+        );
+
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Id), Does.Contain("MPCHAT007"));
+    }
+
+    [Test]
+    public void ChatCommand_BlankAliasReportsDiagnostic()
+    {
+        var result = RunGenerator(
+            """
+            using Multiplayer.Common;
+            using Multiplayer.Common.ChatCommands;
+
+            namespace Multiplayer.Common;
+
+            [ChatCommand("named", "")]
+            public sealed class BlankAliasCommand : ChatCommand
+            {
+                public override void Execute(ChatCommandContext context)
+                {
+                }
+            }
+            """
+        );
+
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Id), Does.Contain("MPCHAT007"));
+    }
+
+    [Test]
     public void ChatCommand_DuplicateNameReportsDiagnostic()
     {
         var result = RunGenerator(

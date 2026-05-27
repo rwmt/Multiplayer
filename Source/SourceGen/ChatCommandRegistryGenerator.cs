@@ -74,6 +74,15 @@ public sealed class ChatCommandRegistryGenerator : IIncrementalGenerator
         true
     );
 
+    private static readonly DiagnosticDescriptor InvalidNameDescriptor = new(
+        "MPCHAT007",
+        "Invalid chat command name",
+        "Chat command name or alias cannot be blank",
+        "ChatCommands",
+        DiagnosticSeverity.Error,
+        true
+    );
+
     private static readonly SymbolDisplayFormat FullyQualifiedNullableFormat =
         SymbolDisplayFormat.FullyQualifiedFormat.WithMiscellaneousOptions(
             SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier
@@ -108,7 +117,6 @@ public sealed class ChatCommandRegistryGenerator : IIncrementalGenerator
         var aliases = attribute.ConstructorArguments.Length > 1
             ? attribute.ConstructorArguments[1].Values
                 .Select(value => value.Value?.ToString() ?? string.Empty)
-                .Where(value => !string.IsNullOrWhiteSpace(value))
                 .ToArray()
             : [];
 
@@ -154,11 +162,19 @@ public sealed class ChatCommandRegistryGenerator : IIncrementalGenerator
             }
 
             var commandType = command.Type.ToDisplayString();
-            var hasDuplicate = false;
+            var hasInvalidName = false;
+            var hasDuplicateName = false;
             foreach (var name in command.AllNames)
             {
                 if (string.IsNullOrWhiteSpace(name))
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(
+                        InvalidNameDescriptor,
+                        command.Type.Locations.FirstOrDefault()
+                    ));
+                    hasInvalidName = true;
                     continue;
+                }
 
                 if (!seenNames.TryAdd(name, commandType))
                 {
@@ -168,11 +184,11 @@ public sealed class ChatCommandRegistryGenerator : IIncrementalGenerator
                         name,
                         seenNames[name]
                     ));
-                    hasDuplicate = true;
+                    hasDuplicateName = true;
                 }
             }
 
-            if (!hasDuplicate)
+            if (!hasInvalidName && !hasDuplicateName)
                 validCommands.Add(command);
         }
 
