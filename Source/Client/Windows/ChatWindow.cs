@@ -431,14 +431,7 @@ namespace Multiplayer.Client
 
         private static void CalculateMessageSize(ChatMsg msg, float width, out float height, out float textWidth)
         {
-            if (!msg.RawMessage)
-            {
-                height = Text.CalcHeight(msg.Msg, width - 20f);
-                textWidth = Text.CalcSize(msg.Msg).x + 15;
-                return;
-            }
-
-            var style = RawTextAreaStyle();
+            var style = msg.RawMessage ? RawTextAreaStyle() : Text.CurTextAreaReadOnlyStyle;
             var content = new GUIContent(msg.Msg);
             height = style.CalcHeight(content, width - 20f);
             textWidth = style.CalcSize(content).x + 15;
