@@ -17,7 +17,12 @@ public class ChatCommandManager
 
     public void Handle(IChatSource source, string cmd)
     {
-        var parts = cmd.Split([' '], StringSplitOptions.RemoveEmptyEntries);
+        if (!CommandTokenizer.TryTokenize(cmd, out var parts, out var error))
+        {
+            source.SendMsg(error ?? "Invalid command arguments.");
+            return;
+        }
+
         if (parts.Length == 0)
             return;
 

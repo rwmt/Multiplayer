@@ -289,6 +289,32 @@ public class ChatCommandManagerTest
     }
 
     [Test]
+    public void PlayerArgument_ResolvesQuotedPlayerName()
+    {
+        var server = MakeServer();
+        var player = AddPlayingPlayer(server, "Player Name", factionId: 7, currentMapId: 2);
+        var source = new RecordingChatSource();
+
+        server.HandleChatCommand(source, "whois \"Player Name\"");
+
+        Assert.That(source.Messages, Does.Contain($"Player: Player Name (#{player.id})"));
+    }
+
+    [Test]
+    public void QuotedArgument_MissingClosingQuoteStopsBeforeDispatch()
+    {
+        var server = MakeServer();
+        var command = new RecordingCommand();
+        var source = new RecordingChatSource();
+
+        server.RegisterChatCommand("record", command);
+        server.HandleChatCommand(source, "record \"unfinished");
+
+        Assert.That(command.ExecutionCount, Is.Zero);
+        Assert.That(source.Messages, Is.EqualTo(["Invalid command arguments: missing closing quote."]));
+    }
+
+    [Test]
     public void StatusCommand_ShowsServerSummary()
     {
         var server = MakeServer();
@@ -456,6 +482,19 @@ public class ChatCommandManagerTest
         var source = new RecordingChatSource();
 
         server.HandleChatCommand(source, "announce raid soon");
+
+        Assert.That(player.conn, Is.TypeOf<RecordingConnection>());
+        Assert.That(((RecordingConnection)player.conn).ChatMessages, Does.Contain("[Announcement] raid soon"));
+    }
+
+    [Test]
+    public void AnnounceCommand_PreservesQuotedMessageAsOneArgument()
+    {
+        var server = MakeServer();
+        var player = AddPlayingPlayer(server, "guest");
+        var source = new RecordingChatSource();
+
+        server.HandleChatCommand(source, "announce \"raid soon\"");
 
         Assert.That(player.conn, Is.TypeOf<RecordingConnection>());
         Assert.That(((RecordingConnection)player.conn).ChatMessages, Does.Contain("[Announcement] raid soon"));
