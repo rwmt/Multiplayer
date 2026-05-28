@@ -285,24 +285,15 @@ public sealed class ChatCommandRegistryGenerator : IIncrementalGenerator
         {
             var variable = $"arg{index}";
             var displayName = GetArgumentName(parameter);
-            var isRest = HasAttribute(parameter, ChatRestAttributeName);
+            var isRest = IsRestArgument(constructor, parameter);
             var isOptional = IsOptional(parameter);
-
-            if (isRest)
-            {
-                if (!isOptional)
-                    AppendRequiredArgumentCheck(body, command, displayName, index);
-
-                body.AppendLine($"        var {variable} = global::Multiplayer.Common.ChatCommands.ChatCommandArgumentReader.JoinRest(context.RawArgs, {index});");
-                values.Add(variable);
-                index++;
-                continue;
-            }
 
             if (!isOptional)
                 AppendRequiredArgumentCheck(body, command, displayName, index);
 
-            var rawExpression = $"context.RawArgs[{index}]";
+            var rawExpression = isRest
+                ? $"global::Multiplayer.Common.ChatCommands.ChatCommandArgumentReader.JoinRest(context.RawArgs, {index})"
+                : $"context.RawArgs[{index}]";
             var defaultExpression = DefaultExpression(parameter);
             var parseExpression = ParseExpression(context, parameter, rawExpression, variable, out var parseStatements);
             if (isOptional && parseStatements.Length > 0)
@@ -436,7 +427,7 @@ public sealed class ChatCommandRegistryGenerator : IIncrementalGenerator
         for (var i = 0; i < constructor.Parameters.Length; i++)
         {
             var parameter = constructor.Parameters[i];
-            if (!HasAttribute(parameter, ChatRestAttributeName))
+            if (!IsRestArgument(constructor, parameter))
                 continue;
 
             if (hasRestArgument)
@@ -447,9 +438,9 @@ public sealed class ChatCommandRegistryGenerator : IIncrementalGenerator
 
             hasRestArgument = true;
 
-            if (NonNullableType(parameter.Type).SpecialType != SpecialType.System_String)
+            if (!IsValidRestType(parameter.Type))
             {
-                ReportInvalidRestArgument(context, parameter, "must be a string");
+                ReportInvalidRestArgument(context, parameter, "must be a string or ServerPlayer");
                 valid = false;
             }
 
@@ -461,6 +452,26 @@ public sealed class ChatCommandRegistryGenerator : IIncrementalGenerator
         }
 
         return valid;
+    }
+
+    private static bool IsRestArgument(IMethodSymbol constructor, IParameterSymbol parameter)
+    {
+        return HasAttribute(parameter, ChatRestAttributeName)
+               || (constructor.Parameters.Length == 1 && IsImplicitRestType(parameter.Type));
+    }
+
+    private static bool IsImplicitRestType(ITypeSymbol type)
+    {
+        var nonNullable = NonNullableType(type);
+        return nonNullable.SpecialType == SpecialType.System_String
+               || nonNullable.ToDisplayString() == ServerPlayerName;
+    }
+
+    private static bool IsValidRestType(ITypeSymbol type)
+    {
+        var nonNullable = NonNullableType(type);
+        return nonNullable.SpecialType == SpecialType.System_String
+               || nonNullable.ToDisplayString() == ServerPlayerName;
     }
 
     private static void ReportInvalidRestArgument(SourceProductionContext context, IParameterSymbol parameter, string message)

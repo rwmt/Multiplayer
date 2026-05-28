@@ -301,6 +301,18 @@ public class ChatCommandManagerTest
     }
 
     [Test]
+    public void SinglePlayerArgument_UsesRemainingTextAsPlayerName()
+    {
+        var server = MakeServer();
+        var player = AddPlayingPlayer(server, "Player Name", factionId: 7, currentMapId: 2);
+        var source = new RecordingChatSource();
+
+        server.HandleChatCommand(source, "whois Player Name");
+
+        Assert.That(source.Messages, Does.Contain($"Player: Player Name (#{player.id})"));
+    }
+
+    [Test]
     public void QuotedArgument_MissingClosingQuoteStopsBeforeDispatch()
     {
         var server = MakeServer();

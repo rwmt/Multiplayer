@@ -9,4 +9,4 @@ public class AnnounceCommand : ChatCommand<AnnounceCommandArgs>
     }
 }
 
-public readonly record struct AnnounceCommandArgs([ChatRest] string Message);
+public readonly record struct AnnounceCommandArgs(string Message);

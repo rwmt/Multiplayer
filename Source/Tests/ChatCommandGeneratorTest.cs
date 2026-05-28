@@ -64,7 +64,7 @@ public class ChatCommandGeneratorTest
 
         Assert.That(source, Does.Contain("command0.SetParser(TryParseCommand0Args);"));
         Assert.That(source, Does.Contain("args = new global::Multiplayer.Common.EchoArgs(arg0);"));
-        Assert.That(source, Does.Contain("var arg0 = context.RawArgs[0];"));
+        Assert.That(source, Does.Contain("var arg0 = global::Multiplayer.Common.ChatCommands.ChatCommandArgumentReader.JoinRest(context.RawArgs, 0);"));
     }
 
     [Test]
@@ -91,7 +91,7 @@ public class ChatCommandGeneratorTest
 
         var source = GeneratedRegistrySource(result.Result);
 
-        Assert.That(source, Does.Contain("ChatCommandArgumentReader.TryParsePlayer(context, context.RawArgs[0], @\"username\""));
+        Assert.That(source, Does.Contain("ChatCommandArgumentReader.TryParsePlayer(context, global::Multiplayer.Common.ChatCommands.ChatCommandArgumentReader.JoinRest(context.RawArgs, 0), @\"username\""));
         Assert.That(
             result.Compilation.GetDiagnostics().Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error),
             Is.Empty
@@ -140,6 +140,34 @@ public class ChatCommandGeneratorTest
             result.Compilation.GetDiagnostics().Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error),
             Is.Empty
         );
+    }
+
+    [Test]
+    public void ChatCommand_MultipleArgumentsKeepStringArgumentPositional()
+    {
+        var result = RunGenerator(
+            """
+            using Multiplayer.Common;
+            using Multiplayer.Common.ChatCommands;
+
+            namespace Multiplayer.Common;
+
+            public readonly record struct EchoArgs(string Text, int Count);
+
+            [ChatCommand("echo", Usage = "echo <text> <count>")]
+            public sealed class EchoCommand : ChatCommand<EchoArgs>
+            {
+                protected override void Execute(ChatCommandContext context, EchoArgs args)
+                {
+                }
+            }
+            """
+        );
+
+        var source = GeneratedRegistrySource(result);
+
+        Assert.That(source, Does.Contain("var arg0 = context.RawArgs[0];"));
+        Assert.That(source, Does.Contain("ChatCommandArgumentReader.TryParseInt(context.RawArgs[1], @\"Count\""));
     }
 
     [Test]
