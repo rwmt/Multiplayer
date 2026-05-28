@@ -4,13 +4,22 @@ using Multiplayer.Common.Networking.Packet;
 
 namespace Multiplayer.Common.ChatCommands;
 
-[ChatCommand("mods", Description = "Show the server mod list summary.", Usage = "mods")]
-public class ModsCommand : ChatCommand
-{
-    private const int MaxModsToPrint = 20;
+public readonly record struct ModsCommandArgs(
+    [ChatArgument("page")] int Page = 1,
+    [ChatArgument("amount")] int Amount = 20
+);
 
-    public override void Execute(ChatCommandContext context)
+[ChatCommand("mods", Description = "Show the server mod list summary.", Usage = "mods [page] [amount]")]
+public class ModsCommand : ChatCommand<ModsCommandArgs>
+{
+    protected override void Execute(ChatCommandContext context, ModsCommandArgs args)
     {
+        if (args.Page < 1 || args.Amount < 1)
+        {
+            context.Source.SendMsg("Usage: mods [page] [amount]");
+            return;
+        }
+
         var initData = Server.InitData;
         if (initData == null)
         {
@@ -21,15 +30,26 @@ public class ModsCommand : ChatCommand
         try
         {
             var mods = ClientInitDataPacket.ModData.ListBinder.Deserialize(initData.RawData);
+            var totalPages = Math.Max(1, (int)Math.Ceiling(mods.Count / (double)args.Amount));
+            if (args.Page > totalPages)
+            {
+                context.Source.SendMsg($"Page {args.Page} is out of range. Last page is {totalPages}.");
+                return;
+            }
+
+            var pageMods = mods
+                .Skip((args.Page - 1) * args.Amount)
+                .Take(args.Amount)
+                .ToList();
 
             context.Source.SendMsg($"RimWorld: {initData.RwVersion}");
-            context.Source.SendMsg($"Mods ({mods.Count}):");
+            context.Source.SendMsg(totalPages == 1
+                ? $"Mods ({mods.Count}):"
+                : $"Mods ({mods.Count}), page {args.Page}/{totalPages}:"
+            );
 
-            foreach (var mod in mods.Take(MaxModsToPrint))
+            foreach (var mod in pageMods)
                 context.Source.SendMsg($"- {mod.name} ({mod.packageIdNonUnique})");
-
-            if (mods.Count > MaxModsToPrint)
-                context.Source.SendMsg($"... and {mods.Count - MaxModsToPrint} more.");
         }
         catch (Exception e)
         {

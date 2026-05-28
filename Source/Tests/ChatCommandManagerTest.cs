@@ -355,18 +355,8 @@ public class ChatCommandManagerTest
         var server = MakeServer();
         server.StartInitData().SetResult(new ServerInitData(
             ClientInitDataPacket.ModData.ListBinder.Serialize([
-                new ClientInitDataPacket.ModData
-                {
-                    name = "Core",
-                    packageIdNonUnique = "ludeon.rimworld",
-                    files = []
-                },
-                new ClientInitDataPacket.ModData
-                {
-                    name = "Multiplayer",
-                    packageIdNonUnique = "rwmt.multiplayer",
-                    files = []
-                }
+                ModData("Core", "ludeon.rimworld"),
+                ModData("Multiplayer", "rwmt.multiplayer")
             ]),
             false,
             "1.6.4633",
@@ -383,6 +373,36 @@ public class ChatCommandManagerTest
         Assert.That(source.Messages, Does.Contain("Mods (2):"));
         Assert.That(source.Messages, Does.Contain("- Core (ludeon.rimworld)"));
         Assert.That(source.Messages, Does.Contain("- Multiplayer (rwmt.multiplayer)"));
+    }
+
+    [Test]
+    public void ModsCommand_CanPageThroughServerModList()
+    {
+        var server = MakeServer();
+        server.StartInitData().SetResult(new ServerInitData(
+            ClientInitDataPacket.ModData.ListBinder.Serialize([
+                ModData("Core", "ludeon.rimworld"),
+                ModData("Royalty", "ludeon.rimworld.royalty"),
+                ModData("Ideology", "ludeon.rimworld.ideology"),
+                ModData("Biotech", "ludeon.rimworld.biotech"),
+                ModData("Multiplayer", "rwmt.multiplayer")
+            ]),
+            false,
+            "1.6.4633",
+            [],
+            [],
+            default,
+            []
+        ));
+        var source = new RecordingChatSource();
+
+        server.HandleChatCommand(source, "mods 2 2");
+
+        Assert.That(source.Messages, Does.Contain("Mods (5), page 2/3:"));
+        Assert.That(source.Messages, Does.Contain("- Ideology (ludeon.rimworld.ideology)"));
+        Assert.That(source.Messages, Does.Contain("- Biotech (ludeon.rimworld.biotech)"));
+        Assert.That(source.Messages, Does.Not.Contain("- Core (ludeon.rimworld)"));
+        Assert.That(source.Messages, Does.Not.Contain("- Multiplayer (rwmt.multiplayer)"));
     }
 
     [Test]
@@ -546,6 +566,16 @@ public class ChatCommandManagerTest
     private static ScheduledCommand LastGlobalCommand(MultiplayerServer server)
     {
         return ScheduledCommand.Deserialize(new ByteReader(server.worldData.mapCmds[ScheduledCommand.Global].Last()));
+    }
+
+    private static ClientInitDataPacket.ModData ModData(string name, string packageId)
+    {
+        return new ClientInitDataPacket.ModData
+        {
+            name = name,
+            packageIdNonUnique = packageId,
+            files = []
+        };
     }
 
     private sealed class RecordingChatSource : IChatSource
