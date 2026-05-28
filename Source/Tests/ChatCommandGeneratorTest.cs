@@ -32,7 +32,7 @@ public class ChatCommandGeneratorTest
         var registry = result.GeneratedTrees.Single(tree => tree.FilePath.EndsWith("ChatCommandRegistry.g.cs"));
         var source = registry.GetText().ToString();
 
-        Assert.That(source, Does.Contain("internal static class ChatCommandRegistry"));
+        Assert.That(source, Does.Contain("internal static partial class ChatCommandRegistry"));
         Assert.That(source, Does.Contain("""new global::Multiplayer.Common.PingCommand()"""));
         Assert.That(source, Does.Contain("""manager.AddCommand(@"ping","""));
     }
@@ -590,9 +590,21 @@ public class ChatCommandGeneratorTest
             .Cast<MetadataReference>();
 
         var parseOptions = new CSharpParseOptions(LanguageVersion.CSharp12);
+        var registryDeclaration = CSharpSyntaxTree.ParseText(
+            """
+            namespace Multiplayer.Common.ChatCommands;
+
+            internal static partial class ChatCommandRegistry
+            {
+                public static partial void Register(ChatCommandManager manager, MultiplayerServer server);
+            }
+            """,
+            parseOptions
+        );
+
         var compilation = CSharpCompilation.Create(
             "ChatCommandGeneratorTests",
-            [CSharpSyntaxTree.ParseText(source, parseOptions)],
+            [CSharpSyntaxTree.ParseText(source, parseOptions), registryDeclaration],
             references,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
         );

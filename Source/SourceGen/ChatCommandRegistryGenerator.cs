@@ -214,22 +214,22 @@ public sealed class ChatCommandRegistryGenerator : IIncrementalGenerator
             var names = command.AllNames.ToArray();
             var namesExpression = "new string[] { " + string.Join(", ", names.Select(StringLiteral)) + " }";
 
-            registrations.AppendLine($"        var {variable} = new {commandType}();");
+            registrations.AppendLine($"var {variable} = new {commandType}();");
 
             var argsType = GetChatCommandArgumentType(command.Type);
             if (argsType != null)
             {
                 var parserName = $"TryParseCommand{i}Args";
-                registrations.AppendLine($"        {variable}.SetParser({parserName});");
+                registrations.AppendLine($"{variable}.SetParser({parserName});");
                 parsers.AppendLine(CreateParser(context, command, argsType, parserName));
             }
 
             registrations.AppendLine(
-                $"        var {metadata} = new global::Multiplayer.Common.ChatCommands.ChatCommandInfo({variable}, {namesExpression}, {StringLiteral(command.Description)}, {StringLiteral(command.Usage)}, {command.RequiresHost.ToString().ToLowerInvariant()});"
+                $"var {metadata} = new global::Multiplayer.Common.ChatCommands.ChatCommandInfo({variable}, {namesExpression}, {StringLiteral(command.Description)}, {StringLiteral(command.Usage)}, {command.RequiresHost.ToString().ToLowerInvariant()});"
             );
 
             foreach (var name in names)
-                registrations.AppendLine($"        manager.AddCommand({StringLiteral(name)}, {variable}, {metadata});");
+                registrations.AppendLine($"manager.AddCommand({StringLiteral(name)}, {variable}, {metadata});");
 
             registrations.AppendLine();
         }
@@ -240,11 +240,11 @@ public sealed class ChatCommandRegistryGenerator : IIncrementalGenerator
 
                  namespace Multiplayer.Common.ChatCommands;
 
-                 internal static class ChatCommandRegistry
+                 internal static partial class ChatCommandRegistry
                  {
-                     public static void Register(global::Multiplayer.Common.ChatCommands.ChatCommandManager manager, global::Multiplayer.Common.MultiplayerServer server)
+                     public static partial void Register(global::Multiplayer.Common.ChatCommands.ChatCommandManager manager, global::Multiplayer.Common.MultiplayerServer server)
                      {
-                 {{registrations.ToString().TrimEnd()}}
+                 {{Indent(registrations.ToString().TrimEnd(), 8)}}
                      }
 
                  {{Indent(parsers.ToString().TrimEnd(), 4)}}
@@ -299,17 +299,18 @@ public sealed class ChatCommandRegistryGenerator : IIncrementalGenerator
             var valueExpression = variable;
             if (isOptional && parseStatements.Length > 0)
             {
-                body.AppendLine($"    {parameter.Type.ToDisplayString(FullyQualifiedNullableFormat)} {variable};");
-                body.AppendLine($"    if (context.RawArgs.Count > {index})");
-                body.AppendLine("    {");
-                body.Append(Indent(parseStatements.TrimEnd(), 8));
-                body.AppendLine();
-                body.AppendLine($"        {variable} = {parseExpression};");
-                body.AppendLine("    }");
-                body.AppendLine("    else");
-                body.AppendLine("    {");
-                body.AppendLine($"        {variable} = {defaultExpression};");
-                body.AppendLine("    }");
+                body.AppendLine($$"""
+                        {{parameter.Type.ToDisplayString(FullyQualifiedNullableFormat)}} {{variable}};
+                        if (context.RawArgs.Count > {{index}})
+                        {
+                    {{Indent(parseStatements.TrimEnd(), 8)}}
+                            {{variable}} = {{parseExpression}};
+                        }
+                        else
+                        {
+                            {{variable}} = {{defaultExpression}};
+                        }
+                    """);
             }
             else if (isOptional)
             {
@@ -462,14 +463,7 @@ public sealed class ChatCommandRegistryGenerator : IIncrementalGenerator
     private static bool IsRestArgument(IMethodSymbol constructor, IParameterSymbol parameter)
     {
         return HasAttribute(parameter, ChatRestAttributeName)
-               || (constructor.Parameters.Length == 1 && IsImplicitRestType(parameter.Type));
-    }
-
-    private static bool IsImplicitRestType(ITypeSymbol type)
-    {
-        var nonNullable = NonNullableType(type);
-        return nonNullable.SpecialType == SpecialType.System_String
-               || nonNullable.ToDisplayString() == ServerPlayerName;
+               || (constructor.Parameters.Length == 1 && IsValidRestType(parameter.Type));
     }
 
     private static bool IsValidRestType(ITypeSymbol type)
@@ -491,11 +485,13 @@ public sealed class ChatCommandRegistryGenerator : IIncrementalGenerator
 
     private static void AppendRequiredArgumentCheck(StringBuilder body, ChatCommandModel command, string displayName, int index)
     {
-        body.AppendLine($"    if (!global::Multiplayer.Common.ChatCommands.ChatCommandArgumentReader.HasArgument(context, {index}, {StringLiteral(MissingArgumentMessage(command, displayName))}, out error))");
-        body.AppendLine("    {");
-        body.AppendLine("        args = default;");
-        body.AppendLine("        return false;");
-        body.AppendLine("    }");
+        body.AppendLine($$"""
+                if (!global::Multiplayer.Common.ChatCommands.ChatCommandArgumentReader.HasArgument(context, {{index}}, {{StringLiteral(MissingArgumentMessage(command, displayName))}}, out error))
+                {
+                    args = default;
+                    return false;
+                }
+            """);
     }
 
     private static string ParseExpression(SourceProductionContext context, IParameterSymbol parameter, string rawExpression, string variable, out string statements)
@@ -664,7 +660,11 @@ public sealed class ChatCommandRegistryGenerator : IIncrementalGenerator
             return string.Empty;
 
         var prefix = new string(' ', spaces);
-        return string.Join("\n", value.Split(["\r\n", "\n"], StringSplitOptions.None).Select(line => prefix + line));
+        return string.Join(
+            "\n",
+            value.Split(["\r\n", "\n"], StringSplitOptions.None)
+                .Select(line => line.Length == 0 ? string.Empty : prefix + line)
+        );
     }
 
     private sealed class ChatCommandModel
