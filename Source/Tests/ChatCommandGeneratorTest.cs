@@ -63,8 +63,10 @@ public class ChatCommandGeneratorTest
         var source = GeneratedRegistrySource(result);
 
         Assert.That(source, Does.Contain("command0.SetParser(TryParseCommand0Args);"));
-        Assert.That(source, Does.Contain("args = new global::Multiplayer.Common.EchoArgs(arg0);"));
-        Assert.That(source, Does.Contain("var arg0 = global::Multiplayer.Common.ChatCommands.ChatCommandArgumentReader.JoinRest(context.RawArgs, 0);"));
+        Assert.That(
+            source,
+            Does.Contain("args = new global::Multiplayer.Common.EchoArgs(global::Multiplayer.Common.ChatCommands.ChatCommandArgumentReader.JoinRest(context.RawArgs, 0));")
+        );
     }
 
     [Test]
@@ -166,8 +168,8 @@ public class ChatCommandGeneratorTest
 
         var source = GeneratedRegistrySource(result);
 
-        Assert.That(source, Does.Contain("var arg0 = context.RawArgs[0];"));
         Assert.That(source, Does.Contain("ChatCommandArgumentReader.TryParseInt(context.RawArgs[1], @\"Count\""));
+        Assert.That(source, Does.Contain("args = new global::Multiplayer.Common.EchoArgs(context.RawArgs[0], parsedarg1);"));
     }
 
     [Test]

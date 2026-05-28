@@ -296,32 +296,37 @@ public sealed class ChatCommandRegistryGenerator : IIncrementalGenerator
                 : $"context.RawArgs[{index}]";
             var defaultExpression = DefaultExpression(parameter);
             var parseExpression = ParseExpression(context, parameter, rawExpression, variable, out var parseStatements);
+            var valueExpression = variable;
             if (isOptional && parseStatements.Length > 0)
             {
-                body.AppendLine($"        {parameter.Type.ToDisplayString(FullyQualifiedNullableFormat)} {variable};");
-                body.AppendLine($"        if (context.RawArgs.Count > {index})");
-                body.AppendLine("        {");
-                body.Append(Indent(parseStatements.TrimEnd(), 12));
+                body.AppendLine($"    {parameter.Type.ToDisplayString(FullyQualifiedNullableFormat)} {variable};");
+                body.AppendLine($"    if (context.RawArgs.Count > {index})");
+                body.AppendLine("    {");
+                body.Append(Indent(parseStatements.TrimEnd(), 8));
                 body.AppendLine();
-                body.AppendLine($"            {variable} = {parseExpression};");
-                body.AppendLine("        }");
-                body.AppendLine("        else");
-                body.AppendLine("        {");
-                body.AppendLine($"            {variable} = {defaultExpression};");
-                body.AppendLine("        }");
+                body.AppendLine($"        {variable} = {parseExpression};");
+                body.AppendLine("    }");
+                body.AppendLine("    else");
+                body.AppendLine("    {");
+                body.AppendLine($"        {variable} = {defaultExpression};");
+                body.AppendLine("    }");
             }
             else if (isOptional)
             {
-                body.AppendLine($"        var {variable} = context.RawArgs.Count > {index} ? {parseExpression} : {defaultExpression};");
+                body.AppendLine($"    var {variable} = context.RawArgs.Count > {index} ? {parseExpression} : {defaultExpression};");
             }
             else
             {
-                body.Append(Indent(parseStatements.TrimEnd(), 8));
-                body.AppendLine();
-                body.AppendLine($"        var {variable} = {parseExpression};");
+                if (parseStatements.Length > 0)
+                {
+                    body.Append(Indent(parseStatements.TrimEnd(), 4));
+                    body.AppendLine();
+                }
+
+                valueExpression = parseExpression;
             }
 
-            values.Add(variable);
+            values.Add(valueExpression);
             index++;
         }
 
@@ -486,11 +491,11 @@ public sealed class ChatCommandRegistryGenerator : IIncrementalGenerator
 
     private static void AppendRequiredArgumentCheck(StringBuilder body, ChatCommandModel command, string displayName, int index)
     {
-        body.AppendLine($"        if (!global::Multiplayer.Common.ChatCommands.ChatCommandArgumentReader.HasArgument(context, {index}, {StringLiteral(MissingArgumentMessage(command, displayName))}, out error))");
-        body.AppendLine("        {");
-        body.AppendLine("            args = default;");
-        body.AppendLine("            return false;");
-        body.AppendLine("        }");
+        body.AppendLine($"    if (!global::Multiplayer.Common.ChatCommands.ChatCommandArgumentReader.HasArgument(context, {index}, {StringLiteral(MissingArgumentMessage(command, displayName))}, out error))");
+        body.AppendLine("    {");
+        body.AppendLine("        args = default;");
+        body.AppendLine("        return false;");
+        body.AppendLine("    }");
     }
 
     private static string ParseExpression(SourceProductionContext context, IParameterSymbol parameter, string rawExpression, string variable, out string statements)
