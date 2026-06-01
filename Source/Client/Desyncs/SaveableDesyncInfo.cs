@@ -60,9 +60,10 @@ public class SaveableDesyncInfo(
             }
             catch (AggregateException e)
             {
-                if (e.InnerExceptions.SingleOrDefault(inner => inner is TaskCanceledException) == null) throw;
+                if (!e.InnerExceptions.Any(inner => inner is TaskCanceledException)) throw;
             }
-            if (replay.IsCompletedSuccessfully) {
+            if (replay.IsCompletedSuccessfully)
+            {
                 var replayFile = replay.Result;
                 zip.CreateEntryFromFile(replayFile.FullName, "replay.rwmts", CompressionLevel.NoCompression);
                 DeleteFileSilent(replayFile);
@@ -71,9 +72,11 @@ public class SaveableDesyncInfo(
         catch (Exception e)
         {
             Log.Error($"Exception writing desync info: {e}");
+            if (replay.IsCompletedSuccessfully)
+                DeleteFileSilent(replay.Result);
         }
 
-        Log.Message($"Desync info writing took {watch.ElapsedMilliseconds}");
+        Log.Message($"Desync info writing took {watch.ElapsedMilliseconds} ms");
     }
 
     private string GetLocalTraces()
@@ -106,6 +109,12 @@ public class SaveableDesyncInfo(
     {
         var desyncInfo = new StringBuilder();
 
+        // gameComp can be null if the session was torn down between desync and Save click.
+        var comp = Multiplayer.game?.gameComp;
+        var markerCount = comp?.AllMarkers.Count.ToStringSafe() ?? "n/a";
+        var nextMarkerId = comp?.nextMarkerId.ToStringSafe() ?? "n/a";
+        var markerCap = comp?.markerCapPerPlayer.ToStringSafe() ?? "n/a";
+
         desyncInfo
             .AppendLine("###Tick Data###")
             .AppendLine($"Arbiter Connected And Playing|||{Multiplayer.session.ArbiterPlaying}")
@@ -123,6 +132,9 @@ public class SaveableDesyncInfo(
             .AppendLine($"Async time active|||{Multiplayer.GameComp.asyncTime}")
             .AppendLine($"Multifaction active|||{Multiplayer.GameComp.multifaction}")
             .AppendLine($"Map Count|||{Find.Maps?.Count.ToStringSafe()}")
+            .AppendLine($"Marker Count|||{markerCount}")
+            .AppendLine($"Next Marker Id|||{nextMarkerId}")
+            .AppendLine($"Marker Cap Per Player|||{markerCap}")
             .AppendLine("\n###CPU Info###")
             .AppendLine($"Processor Name|||{SystemInfo.processorType}")
             .AppendLine($"Processor Speed (MHz)|||{SystemInfo.processorFrequency}")

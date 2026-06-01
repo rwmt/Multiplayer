@@ -23,6 +23,10 @@ namespace Multiplayer.Common
         public string steamPersonaName = "";
 
         public int lastCursorTick = -1;
+        public int lastPingTick = -1;
+        public int lastMarkerClearTick = -1;
+        public int lastMarkerDeleteTick = -1;
+        public int lastMarkerRenameTick = -1;
 
         public int keepAliveId;
         public int keepAliveAt;

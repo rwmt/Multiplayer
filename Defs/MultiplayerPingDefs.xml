@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<Defs>
+
+  <!--
+    Built-in ping categories. <isDefault>true</isDefault> marks the singleton "no category picked"
+    entry that lives in the wheel's centre - mods should not flag a second def as default. The
+    <order> values leave gaps of 100 so mods can slot themselves between vanilla entries without
+    everyone having to renumber.
+
+    Labels and descriptions resolve through the standard DefInjected localization path; the
+    rwmt/Multiplayer-Locale repo owns translations.
+  -->
+
+  <Multiplayer.Client.MultiplayerPingDef>
+    <defName>MpPing_Default</defName>
+    <label>Ping</label>
+    <description>Plain attention ping. No category selected.</description>
+    <isDefault>true</isDefault>
+    <order>0</order>
+  </Multiplayer.Client.MultiplayerPingDef>
+
+  <Multiplayer.Client.MultiplayerPingDef>
+    <defName>MpPing_Attack</defName>
+    <label>Attack</label>
+    <description>Call an attack here.</description>
+    <order>100</order>
+    <tint>(1, 0.25, 0.25)</tint>
+    <iconPath>UI/Commands/AttackMelee</iconPath>
+    <iconScale>1.20</iconScale>
+    <glyph>A</glyph>
+    <soundDefName>Quest_Failed</soundDefName>
+  </Multiplayer.Client.MultiplayerPingDef>
+
+  <Multiplayer.Client.MultiplayerPingDef>
+    <defName>MpPing_Defend</defName>
+    <label>Defend</label>
+    <description>Hold this position.</description>
+    <order>200</order>
+    <tint>(0.4, 0.6, 1)</tint>
+    <iconPath>UI/Designators/HomeAreaOn</iconPath>
+    <iconScale>0.92</iconScale>
+    <glyph>D</glyph>
+    <soundDefName>DraftOn</soundDefName>
+  </Multiplayer.Client.MultiplayerPingDef>
+
+  <Multiplayer.Client.MultiplayerPingDef>
+    <defName>MpPing_Help</defName>
+    <label>Help</label>
+    <description>Request assistance.</description>
+    <order>300</order>
+    <tint>(1, 0.95, 0.3)</tint>
+    <iconPath>UI/Commands/AsMedical</iconPath>
+    <iconScale>1.00</iconScale>
+    <glyph>+</glyph>
+    <soundDefName>TutorMessageAppear</soundDefName>
+  </Multiplayer.Client.MultiplayerPingDef>
+
+  <Multiplayer.Client.MultiplayerPingDef>
+    <defName>MpPing_Loot</defName>
+    <label>Loot</label>
+    <description>Items or resources to grab.</description>
+    <order>400</order>
+    <tint>(0.4, 1, 0.4)</tint>
+    <iconPath>UI/Buttons/TradeMode</iconPath>
+    <iconScale>1.06</iconScale>
+    <glyph>L</glyph>
+    <soundDefName>ExecuteTrade</soundDefName>
+  </Multiplayer.Client.MultiplayerPingDef>
+
+  <Multiplayer.Client.MultiplayerPingDef>
+    <defName>MpPing_Rally</defName>
+    <label>Rally</label>
+    <description>Meet up here.</description>
+    <order>500</order>
+    <tint>(0.85, 0.55, 1)</tint>
+    <iconPath>UI/Commands/GatherSpotActive</iconPath>
+    <iconScale>0.95</iconScale>
+    <glyph>R</glyph>
+    <soundDefName>Quest_Accepted</soundDefName>
+  </Multiplayer.Client.MultiplayerPingDef>
+
+</Defs>

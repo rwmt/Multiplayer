@@ -227,6 +227,97 @@ namespace Multiplayer.Common
                     player.conn.Send(serialized, reliable);
         }
 
+        // Per-loading-player buffer for marker mutations; drained on ChangeState(ServerPlaying).
+        // Closes the snapshot-to-state-change race. Tiered eviction (see MidJoinPacketTier).
+        private readonly Dictionary<int, List<BufferedMidJoinPacket>> midJoinMarkerBuffer = new();
+
+        // Per-player soft cap. At the cap, a Replaceable entry is evicted ahead of any Critical one.
+        private const int MidJoinMarkerBufferCapPerPlayer = 1024;
+        // Guarded by `midJoinMarkerBuffer`'s monitor.
+        private readonly HashSet<int> midJoinBufferOverflowLogged = new();
+
+        // Critical = losing this leaves the joiner desynced (ghost marker after a missed delete or clear).
+        // Replaceable = at most a cosmetic divergence; dropped first when the cap is hit.
+        public enum MidJoinPacketTier
+        {
+            Replaceable,
+            Critical,
+        }
+
+        public readonly record struct BufferedMidJoinPacket(SerializedPacket packet, MidJoinPacketTier tier);
+
+        // Called only from packet handlers on the server tick thread, so Players is not concurrently mutated.
+        public void SendToPlayingAndBufferForLoading<T>(T packet, MidJoinPacketTier tier, ServerPlayer? excluding = null) where T : IPacket
+        {
+            var serialized = packet.Serialize();
+            foreach (ServerPlayer player in PlayingPlayers)
+                if (player != excluding)
+                    player.conn.Send(serialized, reliable: true);
+
+            // Same SerializedPacket bytes - no per-destination re-serialization.
+            var entry = new BufferedMidJoinPacket(serialized, tier);
+            lock (midJoinMarkerBuffer)
+            {
+                foreach (ServerPlayer player in playerManager.Players)
+                {
+                    if (player.conn.State != ConnectionStateEnum.ServerLoading) continue;
+                    if (!midJoinMarkerBuffer.TryGetValue(player.id, out var list))
+                        midJoinMarkerBuffer[player.id] = list = new List<BufferedMidJoinPacket>(MidJoinMarkerBufferCapPerPlayer);
+                    if (list.Count >= MidJoinMarkerBufferCapPerPlayer)
+                        EvictForCap(list, player.id);
+                    list.Add(entry);
+                }
+            }
+        }
+
+        // Evicts the oldest Replaceable entry; falls back to the head if the buffer is all Critical.
+        private void EvictForCap(List<BufferedMidJoinPacket> list, int playerId)
+        {
+            var evictIdx = -1;
+            for (var i = 0; i < list.Count; i++)
+            {
+                if (list[i].tier == MidJoinPacketTier.Replaceable)
+                {
+                    evictIdx = i;
+                    break;
+                }
+            }
+            var evictingCritical = evictIdx < 0;
+            if (evictingCritical) evictIdx = 0;
+            list.RemoveAt(evictIdx);
+
+            if (midJoinBufferOverflowLogged.Add(playerId))
+            {
+                var note = evictingCritical
+                    ? "evicting a critical entry (delete/clear) - joiner may inherit a ghost marker"
+                    : "evicting oldest replaceable entry";
+                ServerLog.Log($"Mid-join marker buffer for player {playerId} hit cap " +
+                    $"({MidJoinMarkerBufferCapPerPlayer}); {note}.");
+            }
+        }
+
+        public void DrainMidJoinMarkerBuffer(ServerPlayer player)
+        {
+            List<BufferedMidJoinPacket>? buffered;
+            lock (midJoinMarkerBuffer)
+            {
+                if (!midJoinMarkerBuffer.TryGetValue(player.id, out buffered)) return;
+                midJoinMarkerBuffer.Remove(player.id);
+                midJoinBufferOverflowLogged.Remove(player.id);
+            }
+            foreach (var entry in buffered)
+                player.conn.Send(entry.packet, reliable: true);
+        }
+
+        public void ClearMidJoinMarkerBuffer(int playerId)
+        {
+            lock (midJoinMarkerBuffer)
+            {
+                midJoinMarkerBuffer.Remove(playerId);
+                midJoinBufferOverflowLogged.Remove(playerId);
+            }
+        }
+
         public void SendToIngame<T>(T packet, bool reliable = true, ServerPlayer? excluding = null) where T : IPacket
         {
             var serialized = packet.Serialize();

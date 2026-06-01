@@ -76,6 +76,16 @@ public static class MpSettingsUI
         listing.CheckboxLabeled("MpEnablePingsSetting".Translate(), ref settings.enablePings);
         listing.CheckboxLabeled("MpEnableCrossPlanetLayerPings".Translate(), ref settings.enableCrossPlanetLayerPings,
             "MpEnableCrossPlanetLayerPingsDesc".Translate());
+        listing.CheckboxLabeled(MpPingWheelLabel(), ref settings.enablePingWheel, MpPingWheelDesc());
+
+        using (MpStyle.Set(TextAnchor.MiddleCenter))
+            if (listing.ButtonTextLabeled(MpPingPlaceModeLabel(), MpPingPlaceModeValue(settings.pingPlaceMode)))
+            {
+                settings.pingPlaceMode = settings.pingPlaceMode == PingPlaceMode.Ping
+                    ? PingPlaceMode.Marker
+                    : PingPlaceMode.Ping;
+            }
+
         listing.CheckboxLabeled("MpShowMainMenuAnimation".Translate(), ref settings.showMainMenuAnim);
 
         const string buttonOff = "Off";
@@ -227,6 +237,20 @@ public static class MpSettingsUI
 
         return false;
     }
+
+    private static string MpPingWheelLabel()
+        => "MpEnablePingWheel".Translate();
+
+    private static string MpPingWheelDesc()
+        => "MpEnablePingWheelDesc".Translate();
+
+    private static string MpPingPlaceModeLabel()
+        => "MpPingPlaceModeSetting".Translate();
+
+    private static string MpPingPlaceModeValue(PingPlaceMode mode)
+        => mode == PingPlaceMode.Marker
+            ? "MpPingMode_Marker".Translate()
+            : "MpPingMode_Ping".Translate();
 
     const string UsernameField = "UsernameField";
 

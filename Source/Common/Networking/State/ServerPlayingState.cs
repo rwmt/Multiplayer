@@ -170,8 +170,73 @@ namespace Multiplayer.Common
             Server.SendToPlaying(new ServerSelectedPacket(Player.id, packet), excluding: Player);
 
         [TypedPacketHandler]
-        public void HandlePing(ClientPingLocPacket packet) =>
-            Server.SendToPlaying(new ServerPingLocPacket(Player.id, packet));
+        public void HandlePing(ClientPingLocPacket packet)
+        {
+            if (Player.lastPingTick == Server.NetTimer) return;
+            // Common/ is RimWorld-blind so we can't validate the def-hash here - clients map an
+            // unknown hash back to Default at receive time (see PingCategoryExtensions.ResolveFromWire).
+            if (packet.label != null && packet.label.Length > PingCategoryWire.MaxLabelChars) return;
+            Player.lastPingTick = Server.NetTimer;
+
+            // Buffered for mid-handshake joiners. Replaceable: dropping this just loses the create on the joiner, no ghost marker.
+            Server.SendToPlayingAndBufferForLoading(new ServerPingLocPacket(
+                Player.id, Player.FactionId,
+                Player.Username ?? "",
+                Player.color.r, Player.color.g, Player.color.b,
+                packet), MultiplayerServer.MidJoinPacketTier.Replaceable);
+        }
+
+        [TypedPacketHandler]
+        public void HandleClearMarkers(ClientClearMarkersPacket packet)
+        {
+            if (Player.lastMarkerClearTick == Server.NetTimer) return;
+            if (!PingMarkerClearWire.IsValid(packet.mode)) return;
+            var mode = (PingMarkerClearMode)packet.mode;
+            // FromPlayer with empty target would silently no-op on every receiver.
+            if (mode == PingMarkerClearMode.FromPlayer && string.IsNullOrEmpty(packet.targetUsername))
+                return;
+            // FromPlayer: host or self only.
+            if (mode == PingMarkerClearMode.FromPlayer
+                && !Player.IsHost && packet.targetUsername != Player.Username)
+                return;
+            // AllMarkers / AllPings are host-only.
+            if ((mode == PingMarkerClearMode.AllMarkers || mode == PingMarkerClearMode.AllPings)
+                && !Player.IsHost)
+                return;
+            Player.lastMarkerClearTick = Server.NetTimer;
+
+            // Critical: losing a clear leaves the joiner with markers everyone else wiped.
+            Server.SendToPlayingAndBufferForLoading(new ServerClearMarkersPacket(Player.id, Player.Username ?? "", Player.IsHost, packet),
+                MultiplayerServer.MidJoinPacketTier.Critical);
+        }
+
+        [TypedPacketHandler]
+        public void HandleDeleteMarker(ClientDeleteMarkerPacket packet)
+        {
+            if (Player.lastMarkerDeleteTick == Server.NetTimer) return;
+            if (packet.markerIds == null || packet.markerIds.Length == 0
+                || packet.markerIds.Length > ClientDeleteMarkerPacket.MaxBatchSize) return;
+            Player.lastMarkerDeleteTick = Server.NetTimer;
+
+            // Critical: a missed delete is the ghost-marker scenario the buffer exists to prevent.
+            Server.SendToPlayingAndBufferForLoading(new ServerDeleteMarkerPacket(Player.id, Player.FactionId, Player.Username ?? "", Player.IsHost, packet),
+                MultiplayerServer.MidJoinPacketTier.Critical);
+        }
+
+        [TypedPacketHandler]
+        public void HandleRenameMarker(ClientRenameMarkerPacket packet)
+        {
+            if (Player.lastMarkerRenameTick == Server.NetTimer) return;
+            // markerId == 0 is the never-assigned sentinel.
+            if (packet.markerId == 0) return;
+            if (packet.label != null && packet.label.Length > PingCategoryWire.MaxLabelChars) return;
+            Player.lastMarkerRenameTick = Server.NetTimer;
+
+            // Per-marker ownership enforced on the receiver via PingInfo.CanBeModifiedBy.
+            // Replaceable: a missed rename = stale label, not a ghost marker.
+            Server.SendToPlayingAndBufferForLoading(new ServerRenameMarkerPacket(Player.id, Player.FactionId, Player.Username ?? "", Player.IsHost, packet),
+                MultiplayerServer.MidJoinPacketTier.Replaceable);
+        }
 
         [TypedPacketHandler]
         public void HandleClientKeepAlive(ClientKeepAlivePacket packet)

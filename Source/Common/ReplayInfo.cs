@@ -3,6 +3,7 @@ using System.IO;
 using System.Xml;
 using System.Xml.Schema;
 using System.Xml.Serialization;
+using Multiplayer.Common.Networking.Packet;
 
 namespace Multiplayer.Common;
 
@@ -22,6 +23,7 @@ public class ReplayInfo
 
     public XmlBool asyncTime;
     public bool multifaction;
+    public int markerCapPerPlayer = PingMarkerCap.Default;
 
     public static byte[] Write(ReplayInfo info)
     {
@@ -40,7 +42,10 @@ public class ReplayInfo
 
     public static ReplayInfo Read(byte[] xml)
     {
-        return (ReplayInfo)GetSerializer().Deserialize(new MemoryStream(xml))!;
+        var info = (ReplayInfo)GetSerializer().Deserialize(new MemoryStream(xml))!;
+        // Defend against hand-edited or corrupt headers; saves themselves clamp on LoadingVars.
+        info.markerCapPerPlayer = PingMarkerCap.Clamp(info.markerCapPerPlayer);
+        return info;
     }
 
     private static XmlSerializer GetSerializer()
