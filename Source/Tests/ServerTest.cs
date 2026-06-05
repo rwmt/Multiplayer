@@ -96,6 +96,35 @@ public class ServerTest
         }
     }
 
+    [Test]
+    public void StandaloneJoinWithExistingPlayer_DoesNotStartJoinPoint()
+    {
+        var server = MakeServer(out var port);
+        server.IsStandaloneServer = true;
+
+        var existingConn = new RecordingConnection("existing");
+        existingConn.ChangeState(ConnectionStateEnum.ServerPlaying);
+        var existingPlayer = new ServerPlayer(100, existingConn);
+        existingConn.serverPlayer = existingPlayer;
+        server.playerManager.Players.Add(existingPlayer);
+
+        ConnectClient(port, typeof(TestJoiningState));
+
+        var timeoutWatch = Stopwatch.StartNew();
+        while (true)
+        {
+            if (server.playerManager.Players.Count == 1)
+                break;
+
+            if (timeoutWatch.ElapsedMilliseconds > 2000)
+                Assert.Fail("Timeout");
+
+            Thread.Sleep(50);
+        }
+
+        Assert.That(server.worldData.CreatingJoinPoint, Is.False);
+    }
+
     private void ConnectClient(int port, Type joiningStateType)
     {
         var clientListener = new TestNetListener(joiningStateType);

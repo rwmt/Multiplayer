@@ -142,24 +142,6 @@ public class StandaloneMapStreamingTest
     }
 
     [Test]
-    public void StandaloneJoin_DoesNotCreateJoinPoint_WhenAnotherPlayerIsAlreadyActive()
-    {
-        AddPlayer("existing", 1);
-
-        Assert.That(ServerJoiningState.ShouldCreateJoinPointOnJoin(server), Is.False);
-    }
-
-    [Test]
-    public void StandaloneJoin_DoesNotCreateJoinPoint_WhenStreamingIsEnabled()
-    {
-        server.settings.multifaction = true;
-        server.settings.asyncTime = true;
-        AddPlayer("existing", 1);
-
-        Assert.That(ServerJoiningState.ShouldCreateJoinPointOnJoin(server), Is.False);
-    }
-
-    [Test]
     public void HandleDebug_IgnoredWhenDevModeDisabled()
     {
         server.gameTimer = 123;

@@ -29,7 +29,7 @@ public class ServerJoiningState : AsyncConnectionState
         if (Server.settings.pauseOnJoin)
             Server.commands.PauseAll();
 
-        if (ShouldCreateJoinPointOnJoin(Server))
+        if (!Server.IsStandaloneServer && Server.settings.autoJoinPoint.HasFlag(AutoJoinPointFlags.Join))
             Server.worldData.TryStartJoinPointCreation(sourcePlayer: Player);
 
         Server.playerManager.OnJoin(Player);
@@ -38,16 +38,6 @@ public class ServerJoiningState : AsyncConnectionState
         await Packet(Packets.Client_WorldRequest);
 
         connection.ChangeState(ConnectionStateEnum.ServerLoading);
-    }
-
-    public static bool ShouldCreateJoinPointOnJoin(MultiplayerServer server)
-    {
-        // Standalone joins always consume the persisted world state. Fresh join points are created
-        // by players already inside the game during save/refresh flows, not by the entering client.
-        if (server.IsStandaloneServer)
-            return false;
-
-        return server.settings.autoJoinPoint.HasFlag(AutoJoinPointFlags.Join);
     }
 
     private void HandleProtocol(ClientProtocolPacket packet)
