@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using HarmonyLib;
 using Multiplayer.Client.Patches;
 using Multiplayer.Common;
@@ -25,6 +26,9 @@ namespace Multiplayer.Client.Desyncs
 
         public static int acc;
 
+        private static bool SupportsDeferredStackTracing =>
+            RuntimeInformation.ProcessArchitecture is Architecture.X64 or Architecture.X86;
+
         public static void Postfix()
         {
             if (Native.LmfPtr == 0) return;
@@ -43,6 +47,7 @@ namespace Multiplayer.Client.Desyncs
 
         public static bool ShouldAddStackTraceForDesyncLog()
         {
+            if (!SupportsDeferredStackTracing) return false;
             if (Multiplayer.Client == null) return false;
             if (Multiplayer.settings.desyncTracingMode == DesyncTracingMode.None) return false;
             if (Multiplayer.game == null) return false;
