@@ -45,9 +45,21 @@ namespace Multiplayer.Client.Networking
         protected override void OnClose(ServerDisconnectPacket? goodbye)
         {
             if (goodbye.HasValue) Send(goodbye.Value);
-            // TODO this should probably include SteamNetworking.CloseP2PSessionWithUser to free up any leftover
-            //   resources in the Steam API. The API docs are not clear whether the connection is closed instantly, or
-            //   are the queued packets sent.
+            CloseSteamSession();
+        }
+
+        // Frees the underlying Steam P2P session. This is required so that a later reconnect from
+        // the same user produces a fresh P2PSessionRequest_t (and, on the host, a new accept prompt)
+        // instead of Steam silently reusing the still-open session, which left the peer stuck and the
+        // host without a prompt (#843).
+        //
+        // Note: a goodbye queued just before this (e.g. a kick reason) is best-effort. SendP2PPacket
+        // only queues, so closing here may drop it before Steam flushes; the peer then falls back to a
+        // timeout/generic reason. Freeing the session is worth that trade-off.
+        protected void CloseSteamSession()
+        {
+            ServerLog.Log($"Closing Steam P2P session with {remoteId}");
+            SteamNetworking.CloseP2PSessionWithUser(remoteId);
         }
 
         public override string ToString() => $"SteamP2P ({remoteId}:{username})";
@@ -108,6 +120,10 @@ namespace Multiplayer.Client.Networking
 
         private void OnDisconnect()
         {
+            // The P2P timeout/error path does not go through OnClose, so close the Steam session here
+            // too. Otherwise the host keeps a half-open session with the departed client and their
+            // reconnect reuses it without firing a new accept prompt (#843).
+            CloseSteamSession();
             serverPlayer.Server.playerManager.SetDisconnected(this, MpDisconnectReason.ClientLeft);
         }
     }
