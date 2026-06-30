@@ -86,7 +86,8 @@ namespace Multiplayer.Client.Patches
         {
             if (Multiplayer.reloading)
             {
-                pendingPreviousMapId = previous;
+                if (pendingPreviousMapId == InvalidMapId && pendingCurrentMapId == InvalidMapId)
+                    pendingPreviousMapId = previous;
                 pendingCurrentMapId = current;
                 return;
             }
