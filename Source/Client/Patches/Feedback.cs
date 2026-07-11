@@ -237,11 +237,15 @@ namespace Multiplayer.Client.Patches
         private static MethodInfo tryTakeOrderedJob =
             AccessTools.Method(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJob));
 
+        private static MethodInfo endCurrentJob =
+            AccessTools.Method(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.EndCurrentJob));
+
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {
             foreach (var inst in instructions)
             {
                 if (inst.Calls(tryTakeOrderedJob)) inst.operand = ((Delegate)CustomTryTakeOrderedJob).Method;
+                else if (inst.Calls(endCurrentJob)) inst.operand = ((Delegate)CustomEndCurrentJob).Method;
                 yield return inst;
             }
         }
@@ -253,6 +257,17 @@ namespace Multiplayer.Client.Patches
             if (self.TryTakeOrderedJob(job, tag, requestQueueing) && (TickPatch.currentExecutingCmdIssuedBySelf || Multiplayer.Client == null))
                 FleckMaker.Static(job.targetA.Cell, self.pawn.Map, FleckDefOf.FeedbackGoto);
             return false;
+        }
+
+        // PawnGotoAction can also stop a pawn without going through TryTakeOrderedJob: when the pawn is
+        // already standing on gotoLoc and its current job is Goto, it calls EndCurrentJob directly. That
+        // call isn't synced, so the pawn stops only for the player who issued the order while it keeps
+        // walking for everyone else, causing a desync. Sync it the same way as the TryTakeOrderedJob call.
+        [SyncMethod]
+        static void CustomEndCurrentJob(Pawn_JobTracker self, JobCondition condition,
+            bool startNewJob = true, bool canReturnToPool = true)
+        {
+            self.EndCurrentJob(condition, startNewJob, canReturnToPool);
         }
     }
 
