@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading.Tasks;
 using Multiplayer.Common;
 using Multiplayer.Common.Networking.Packet;
 using Steamworks;
@@ -16,6 +17,9 @@ namespace Multiplayer.Client.Networking
 
         public readonly ushort recvChannel = recvChannel; // currently only for client
         public readonly ushort sendChannel = sendChannel; // currently only for server
+
+        // Time given to Steam to flush a queued goodbye packet before the P2P session is freed (#843).
+        private static readonly TimeSpan SteamGoodbyeFlushDelay = TimeSpan.FromSeconds(3);
 
         protected override void SendRaw(byte[] raw, bool reliable = true)
         {
@@ -42,10 +46,35 @@ namespace Multiplayer.Client.Networking
 
         public abstract void OnError(EP2PSessionError error);
 
+        // A goodbye is only ever non-null server-side, and CloseP2PSessionWithUser discards queued unsent
+        // packets. Closing immediately would drop the just-queued goodbye (e.g. a wrong-password or kick
+        // reason) before Steam flushes it, so defer the close to let the reliable packet reach the client.
         protected override void OnClose(ServerDisconnectPacket? goodbye)
         {
-            if (goodbye.HasValue) Send(goodbye.Value);
-            CloseSteamSession();
+            if (!goodbye.HasValue)
+            {
+                CloseSteamSession();
+                return;
+            }
+
+            Send(goodbye.Value);
+
+            var server = serverPlayer.Server;
+            var id = remoteId;
+
+            Task.Delay(SteamGoodbyeFlushDelay).ContinueWith(_ => server.Enqueue(() =>
+            {
+                // A fast reconnect (SteamP2PNetManager.Tick) reuses this same remoteId on a fresh
+                // connection during the delay window. Closing then would tear that new session down, so
+                // skip the close if another connection already replaced this one (#843).
+                if (server.playerManager.Players.Any(p => p.conn is SteamBaseConn c && c != this && c.remoteId == id))
+                {
+                    ServerLog.Log($"Skipping delayed Steam P2P session close with {id}; a reconnect replaced it");
+                    return;
+                }
+
+                CloseSteamSession();
+            }));
         }
 
         // Frees the underlying Steam P2P session. This is required so that a later reconnect from
@@ -53,9 +82,8 @@ namespace Multiplayer.Client.Networking
         // instead of Steam silently reusing the still-open session, which left the peer stuck and the
         // host without a prompt (#843).
         //
-        // Note: a goodbye queued just before this (e.g. a kick reason) is best-effort. SendP2PPacket
-        // only queues, so closing here may drop it before Steam flushes; the peer then falls back to a
-        // timeout/generic reason. Freeing the session is worth that trade-off.
+        // Called immediately when no goodbye is queued; server-initiated disconnects that queue a goodbye
+        // defer it (see OnClose) so SendP2PPacket can flush the reason before the session is torn down.
         protected void CloseSteamSession()
         {
             ServerLog.Log($"Closing Steam P2P session with {remoteId}");
