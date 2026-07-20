@@ -96,6 +96,8 @@ namespace Multiplayer.Client
             }
 
             var remoteInfo = RemoteData.FromNet(packet);
+            // Captured before Complete runs: StopMultiplayerAndClearAllWindows nulls the session
+            var connector = Multiplayer.session.connector;
 
             // Delay showing the window for better UX
             OnMainThread.Schedule(Complete, 0.3f);
@@ -117,7 +119,7 @@ namespace Multiplayer.Client
                     .Take(10)
                     .Join(kv => $"{kv.name}: {kv.status}", "\n");
 
-                Find.WindowStack.Add(new JoinDataWindow(remoteInfo, Multiplayer.session.connector)
+                Find.WindowStack.Add(new JoinDataWindow(remoteInfo, connector)
                 {
                     connectAnywayDisabled = defDiff ? "MpMismatchDefsDiff".Translate() + defDiffStr : null,
                     connectAnywayCallback = StartDownloading
