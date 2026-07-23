@@ -57,6 +57,22 @@ public static class GravshipTravelUtils
         }
     }
 
+    // Closes every open GravshipTravelSession, independent of the local camera (Find.CurrentMap).
+    // Used by the prelaunch-cancel path, which runs as a synced command on all peers: closing by the
+    // local camera's tile is non-deterministic and leaves the session (and thus the map's pause) alive
+    // on peers looking at another map. There is only ever one such session while a launch is pending.
+    public static void CloseAllSessions()
+    {
+        foreach (var sessionManager in Multiplayer.game.mapComps.Select(mp => mp.sessionManager))
+        {
+            foreach (var session in sessionManager.AllSessions.OfType<GravshipTravelSession>().ToList())
+            {
+                session.Map.MpComp()?.sessionManager?.RemoveSession(session);
+                session.StopPausing();
+            }
+        }
+    }
+
     public static bool TryGetSessionAt(PlanetTile takeoffTile, out GravshipTravelSession session)
     {
         session = null;

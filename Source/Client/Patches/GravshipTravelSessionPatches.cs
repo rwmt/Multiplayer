@@ -38,7 +38,13 @@ namespace Multiplayer.Client.Patches
             if (Multiplayer.Client == null) return;
             if (!Multiplayer.ExecutingCmds) return;
 
-            GravshipTravelUtils.CloseSessionAt(Find.CurrentMap.Tile);
+            // Cancelling is a synced command, so this runs on every peer. Using Find.CurrentMap here is
+            // non-deterministic: it's the map each peer's camera happens to be on, not synchronized state.
+            // A peer whose camera is on another map would call CloseSessionAt with the wrong tile and never
+            // close the gravship session, leaving that map paused only for them -> the per-map tick counts
+            // diverge and the game desyncs. There is exactly one open GravshipTravelSession at prelaunch time,
+            // so close it by looking it up rather than by the local camera.
+            GravshipTravelUtils.CloseAllSessions();
             GravshipTravelUtils.CloseGravshipPrelaunchDialog();
         }
     }
