@@ -235,4 +235,34 @@ namespace Multiplayer.Client
         }
     }
 
+    [HarmonyPatch(typeof(RitualBehaviorWorker_GravshipLaunch), nameof(RitualBehaviorWorker_GravshipLaunch.CanReachGravship))]
+    static class SeedGravshipCanReachGravship
+    {
+        static void Prefix(ref bool __state)
+        {
+            if (Multiplayer.Client == null) return;
+
+            // The gravship launch confirmation dialog works out which pawns can board while it is being
+            // built: Dialog_BeginRitual's constructor calls CreateRitualRoleAssignments ->
+            // RitualRoleAssignments.PawnNotAssignableReason -> RitualBehaviorWorker_GravshipLaunch
+            // .PawnCanFillRole -> CanReachGravship -> GravshipUtility.TryFindSpotOnGravship ->
+            // Region.RandomCell, which consumes RNG. Building that dialog is UI work and, because the
+            // dialog is opened only by the issuing peer (see CancelDialogBeginRitual's
+            // currentExecutingCmdIssuedBySelf gate), it runs on just one peer - so this RNG must not
+            // advance the shared stream. Spamming the launch button repeats it and the divergence
+            // accumulates into a desync ("Random state from commands doesn't match").
+            // CanReachGravship returns a bool that does not depend on the RNG (it only searches for any
+            // allowed cell), and the real boarding calls TryFindSpotOnGravship outside this check, so
+            // isolating the RNG here leaves both the check result and determinism intact.
+            Rand.PushState();
+            __state = true;
+        }
+
+        static void Finalizer(bool __state)
+        {
+            if (__state)
+                Rand.PopState();
+        }
+    }
+
 }
