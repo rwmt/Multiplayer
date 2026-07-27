@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   build-test:
-    name: Build, Test (${{ matrix.os }}, ${{ matrix.configuration }}, .NET ${{ matrix.sdk }})
+    name: Build, Test (${{ matrix.os }}, .NET ${{ matrix.sdk }}, ${{ matrix.configuration }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     # '11' is preview-only right now, so let it fail without blocking the PR -
