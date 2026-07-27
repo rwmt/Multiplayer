@@ -63,3 +63,4 @@ jobs:
         name: test-results-${{ matrix.os }}
         path: '**/TestResults/**'
         retention-days: 7
+        if-no-files-found: error
