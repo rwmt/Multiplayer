@@ -22,12 +22,16 @@ jobs:
     name: Build, Test (${{ matrix.os }}, ${{ matrix.configuration }}, .NET ${{ matrix.sdk }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
+    # '11' is preview-only right now, so let it fail without blocking the PR -
+    # this leg exists to catch upcoming breaks early, not to gate on
+    # preview-SDK bugs unrelated to this repo's code.
+    continue-on-error: ${{ matrix.sdk == '11' }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         configuration: [Debug, Release]
-        # Add another major version (e.g. '11', '8') to test more SDKs.
-        sdk: [global.json, '10']
+        # Add another major version (e.g. '12', '8') to test more SDKs.
+        sdk: [global.json, '10', '11']
       fail-fast: false
     steps:
 
