@@ -139,3 +139,74 @@ jobs:
     - name: Check code formatting
       continue-on-error: true
       run: dotnet format ${{ env.SLN_PATH }} --verify-no-changes
+
+  package-artifacts:
+    name: Package mod, server artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+
+    # submodules: recursive is required here (unlike the other jobs) because
+    # Languages/ is a submodule and gets bundled directly into the mod
+    # artifact.
+    - name: Checkout repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+        submodules: recursive
+
+    - name: Set up .NET
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      with:
+        global-json-file: global.json
+        cache: true
+        cache-dependency-path: '**/*.csproj'
+
+    - name: Restore dependencies
+      run: dotnet restore ${{ env.SLN_PATH }}
+
+    # Multiplayer.csproj copies its build output into Assemblies/ and
+    # AssembliesCustom/ as a post-build step, alongside the static About/,
+    # Defs/, Languages/, and Textures/ content - together these are the
+    # complete mod folder.
+    - name: Build mod (Release)
+      run: dotnet build ${{ env.SLN_PATH }} --configuration Release --no-restore
+
+    # Server.csproj publish restores runtime-specific assets itself, so no
+    # --no-restore here.
+    - name: Publish server (Windows)
+      run: dotnet publish ${{ env.SLN_PATH }}Server/Server.csproj --configuration Release --runtime win-x64 --self-contained false -p:UseAppHost=true -o output/Server/Windows
+
+    - name: Publish server (Linux)
+      run: dotnet publish ${{ env.SLN_PATH }}Server/Server.csproj --configuration Release --runtime linux-x64 --self-contained false -p:UseAppHost=true -o output/Server/Linux
+
+    - name: Add server launcher script
+      run: |
+        cat > output/Server/Linux/Server.sh <<'EOF'
+        #!/usr/bin/env bash
+        set -euo pipefail
+        SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+        exec dotnet "$SCRIPT_DIR/Server.dll" "$@"
+        EOF
+        chmod +x output/Server/Linux/Server.sh
+
+    - name: Package mod files
+      run: |
+        mkdir -p output/Multiplayer
+        mv About/ Assemblies/ AssembliesCustom/ Defs/ Languages/ Textures/ output/Multiplayer/
+
+    - name: Upload mod artifact
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: Multiplayer-mod
+        path: output/Multiplayer/
+        retention-days: 7
+        if-no-files-found: error
+
+    - name: Upload server artifact
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: Multiplayer-server
+        path: output/Server/
+        retention-days: 7
+        if-no-files-found: error
