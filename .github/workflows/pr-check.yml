@@ -4,6 +4,8 @@ name: Validate Pull Request
 
 env:
   SLN_PATH: Source/
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
 
 permissions:
   contents: read
@@ -47,9 +49,6 @@ jobs:
         global-json-file: global.json
         cache: true
         cache-dependency-path: '**/*.csproj'
-      env:
-        DOTNET_NOLOGO: true
-        DOTNET_CLI_TELEMETRY_OPTOUT: true
 
     - name: Set up .NET (override)
       if: matrix.sdk != 'global.json'
@@ -58,9 +57,6 @@ jobs:
         dotnet-version: ${{ matrix.sdk }}.0.x
         cache: true
         cache-dependency-path: '**/*.csproj'
-      env:
-        DOTNET_NOLOGO: true
-        DOTNET_CLI_TELEMETRY_OPTOUT: true
 
     - name: Display SDK version
       run: dotnet --version
@@ -98,9 +94,6 @@ jobs:
         global-json-file: global.json
         cache: true
         cache-dependency-path: '**/*.csproj'
-      env:
-        DOTNET_NOLOGO: true
-        DOTNET_CLI_TELEMETRY_OPTOUT: true
 
     - name: Restore dependencies
       run: dotnet restore ${{ env.SLN_PATH }}
