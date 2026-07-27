@@ -16,8 +16,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  builds:
-    name: Builds (${{ matrix.os }}, ${{ matrix.configuration }}, .NET ${{ matrix.sdk }})
+  build-test:
+    name: Build, Test (${{ matrix.os }}, ${{ matrix.configuration }}, .NET ${{ matrix.sdk }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
@@ -29,17 +29,18 @@ jobs:
       fail-fast: false
     steps:
 
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - name: Checkout repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
     # The committed global.json pins a specific major version, which would
     # otherwise force every "dotnet" invocation on this leg (including
     # setup-dotnet's own internal calls) back to that version regardless of
     # which SDK we install below.
-    - name: Point global.json at this leg's SDK major version
+    - name: Pin global.json to override SDK
       if: matrix.sdk != 'global.json'
       run: echo '{"sdk":{"version":"${{ matrix.sdk }}.0.100","rollForward":"latestFeature"}}' > ./global.json
 
-    - name: Set up .NET (from global.json)
+    - name: Set up .NET (pinned)
       if: matrix.sdk == 'global.json'
       uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
       with:
@@ -50,7 +51,7 @@ jobs:
         DOTNET_NOLOGO: true
         DOTNET_CLI_TELEMETRY_OPTOUT: true
 
-    - name: Set up .NET (override SDK)
+    - name: Set up .NET (override)
       if: matrix.sdk != 'global.json'
       uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
       with:
@@ -67,7 +68,7 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore ${{ env.SLN_PATH }}
 
-    - name: Build
+    - name: Build solution
       run: dotnet build ${{ env.SLN_PATH }} --configuration ${{ matrix.configuration }} --no-restore
 
     - name: Run tests
@@ -83,12 +84,13 @@ jobs:
         if-no-files-found: error
 
   format-check:
-    name: Code formatting (informational)
+    name: Code formatting (non-blocking)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
 
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - name: Checkout repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
     - name: Set up .NET
       uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
