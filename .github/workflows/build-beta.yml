@@ -13,11 +13,8 @@ on:
 
 jobs:
   build:
-    name: Build beta (.NET ${{ matrix.dotnet }})
+    name: Build beta
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        dotnet: ['9.x', '10.x']
     env:
         GH_TOKEN: ${{ github.token }}
     steps:
@@ -26,19 +23,22 @@ jobs:
       with:
         submodules: recursive
 
-    - name: Setup .NET ${{ matrix.dotnet }}
+    - name: Setup .NET
       uses: actions/setup-dotnet@v4
-      id: setup-dotnet
       with:
-        dotnet-version: ${{ matrix.dotnet }}
-
-    - name: Override global.json for matrix testing
-      run: |
-        echo "{\"sdk\":{\"version\":\"${{ steps.setup-dotnet.outputs.dotnet-version }}\"}}" > global.json
+        dotnet-version: 9.x
 
     - name: Display SDK version
       run: dotnet --version
-      
+
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+
     - name: Install Mod Dependencies
       run: dotnet restore ${{ env.SLN_PATH }}
 
