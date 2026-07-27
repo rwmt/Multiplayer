@@ -23,7 +23,10 @@ jobs:
       env:
         DOTNET_NOLOGO: true
         DOTNET_CLI_TELEMETRY_OPTOUT: true
-        
+
+    - name: Display SDK version
+      run: dotnet --version
+
     - name: Restore dependencies
       run: dotnet restore ${{ env.SLN_PATH }}
 
