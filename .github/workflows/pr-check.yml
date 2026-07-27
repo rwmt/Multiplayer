@@ -42,9 +42,9 @@ jobs:
     # otherwise force every "dotnet" invocation on this leg (including
     # setup-dotnet's own internal calls) back to that version regardless of
     # which SDK we install below.
-    - name: Pin global.json to override SDK
+    - name: Remove committed global.json for SDK override leg
       if: matrix.sdk != 'global.json'
-      run: echo '{"sdk":{"version":"${{ matrix.sdk }}.0.100","rollForward":"latestFeature"}}' > ./global.json
+      run: rm global.json
 
     - name: Set up .NET (pinned)
       if: matrix.sdk == 'global.json'
@@ -56,14 +56,41 @@ jobs:
 
     - name: Set up .NET (override)
       if: matrix.sdk != 'global.json'
+      id: setup_dotnet_override
       uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
       with:
         dotnet-version: ${{ matrix.sdk }}.0.x
         cache: true
         cache-dependency-path: '**/*.csproj'
 
+    # A generic "major.0.100" anchor + rollForward doesn't reliably match a
+    # preview-only install (dotnet/sdk#12335, reproduced here for the "11"
+    # leg) - pin the exact resolved version instead, per
+    # https://github.com/actions/setup-dotnet#matrix-testing.
+    - name: Pin global.json to resolved override SDK
+      if: matrix.sdk != 'global.json'
+      run: echo '{"sdk":{"version":"${{ steps.setup_dotnet_override.outputs.dotnet-version }}","rollForward":"latestPatch"}}' > ./global.json
+
     - name: Display SDK version
       run: dotnet --version
+
+    # Catches a silent wrong-SDK regression: dotnet --version could report
+    # the global.json-pinned major instead of this leg's intended one
+    # without anything failing until the logs were read by hand.
+    - name: Verify resolved SDK matches this leg's expected major version
+      shell: bash
+      run: |
+        ACTUAL_MAJOR=$(dotnet --version | cut -d. -f1)
+        if [ "${{ matrix.sdk }}" = "global.json" ]; then
+          EXPECTED_MAJOR=$(grep -oE '"version": *"[0-9]+' global.json | grep -oE '[0-9]+$')
+        else
+          EXPECTED_MAJOR="${{ matrix.sdk }}"
+        fi
+        echo "Resolved SDK major: $ACTUAL_MAJOR, expected: $EXPECTED_MAJOR"
+        if [ "$ACTUAL_MAJOR" != "$EXPECTED_MAJOR" ]; then
+          echo "::error::Resolved .NET SDK major ($ACTUAL_MAJOR) does not match this leg's expected major ($EXPECTED_MAJOR)"
+          exit 1
+        fi
 
     - name: Restore dependencies
       run: dotnet restore ${{ env.SLN_PATH }}
