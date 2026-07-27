@@ -175,31 +175,34 @@ jobs:
     # Server.csproj publish restores runtime-specific assets itself, so no
     # --no-restore here.
     - name: Publish server (Windows)
-      run: dotnet publish ${{ env.SLN_PATH }}Server/Server.csproj --configuration Release --runtime win-x64 --self-contained false -p:UseAppHost=true -o output/Server/Windows
+      run: dotnet publish ${{ env.SLN_PATH }}Server/Server.csproj --configuration Release --runtime win-x64 --self-contained false -p:UseAppHost=true -o artifacts/server/Server/Windows
 
     - name: Publish server (Linux)
-      run: dotnet publish ${{ env.SLN_PATH }}Server/Server.csproj --configuration Release --runtime linux-x64 --self-contained false -p:UseAppHost=true -o output/Server/Linux
+      run: dotnet publish ${{ env.SLN_PATH }}Server/Server.csproj --configuration Release --runtime linux-x64 --self-contained false -p:UseAppHost=true -o artifacts/server/Server/Linux
 
     - name: Add server launcher script
       run: |
-        cat > output/Server/Linux/Server.sh <<'EOF'
+        cat > artifacts/server/Server/Linux/Server.sh <<'EOF'
         #!/usr/bin/env bash
         set -euo pipefail
         SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
         exec dotnet "$SCRIPT_DIR/Server.dll" "$@"
         EOF
-        chmod +x output/Server/Linux/Server.sh
+        chmod +x artifacts/server/Server/Linux/Server.sh
 
     - name: Package mod files
       run: |
-        mkdir -p output/Multiplayer
-        mv About/ Assemblies/ AssembliesCustom/ Defs/ Languages/ Textures/ output/Multiplayer/
+        mkdir -p artifacts/mod/Multiplayer
+        mv About/ Assemblies/ AssembliesCustom/ Defs/ Languages/ Textures/ artifacts/mod/Multiplayer/
 
+    # upload-artifact strips exactly the given "path" and keeps everything
+    # below it, so pointing at the parent of Multiplayer/ and Server/ (rather
+    # than at those folders directly) is what makes them the zip's root.
     - name: Upload mod artifact
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: Multiplayer-mod
-        path: output/Multiplayer/
+        path: artifacts/mod/
         retention-days: 7
         if-no-files-found: error
 
@@ -207,6 +210,6 @@ jobs:
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: Multiplayer-server
-        path: output/Server/
+        path: artifacts/server/
         retention-days: 7
         if-no-files-found: error
