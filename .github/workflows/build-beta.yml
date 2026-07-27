@@ -31,6 +31,14 @@ jobs:
     - name: Display SDK version
       run: dotnet --version
 
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+
     - name: Install Mod Dependencies
       run: dotnet restore ${{ env.SLN_PATH }}
 
