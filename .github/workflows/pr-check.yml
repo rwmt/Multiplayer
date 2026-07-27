@@ -24,11 +24,20 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         configuration: [Debug, Release]
-        sdk: [global.json, 10.0.x]
+        # Add another major version (e.g. '11', '8') to test more SDKs.
+        sdk: [global.json, '10']
       fail-fast: false
     steps:
 
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    # The committed global.json pins a specific major version, which would
+    # otherwise force every "dotnet" invocation on this leg (including
+    # setup-dotnet's own internal calls) back to that version regardless of
+    # which SDK we install below.
+    - name: Point global.json at this leg's SDK major version
+      if: matrix.sdk != 'global.json'
+      run: echo '{"sdk":{"version":"${{ matrix.sdk }}.0.100","rollForward":"latestFeature"}}' > ./global.json
 
     - name: Set up .NET (from global.json)
       if: matrix.sdk == 'global.json'
@@ -45,7 +54,7 @@ jobs:
       if: matrix.sdk != 'global.json'
       uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
       with:
-        dotnet-version: ${{ matrix.sdk }}
+        dotnet-version: ${{ matrix.sdk }}.0.x
         cache: true
         cache-dependency-path: '**/*.csproj'
       env:
