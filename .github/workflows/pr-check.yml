@@ -49,7 +49,7 @@ jobs:
       run: dotnet build ${{ env.SLN_PATH }} --configuration Release --no-restore
 
     - name: Run tests
-      run: dotnet test ${{ env.SLN_PATH }} --no-restore
+      run: dotnet test ${{ env.SLN_PATH }} --no-restore --logger "trx;logfilename=TestResults.trx"
 
     - name: Upload test results
       if: always()
