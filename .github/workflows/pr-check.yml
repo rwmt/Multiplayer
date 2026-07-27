@@ -103,6 +103,9 @@ jobs:
     - name: Run tests
       run: dotnet test ${{ env.SLN_PATH }} --configuration ${{ matrix.configuration }} --no-restore --logger "trx;logfilename=TestResults.trx"
 
+    # overwrite: true because this name is keyed by matrix values, not run
+    # attempt - re-running a flaky test leg without a new push would
+    # otherwise 409-conflict against the first attempt's artifact.
     - name: Upload test results
       if: always()
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -111,6 +114,7 @@ jobs:
         path: '**/TestResults/**'
         retention-days: 7
         if-no-files-found: error
+        overwrite: true
 
   format-check:
     name: Code formatting (non-blocking)
