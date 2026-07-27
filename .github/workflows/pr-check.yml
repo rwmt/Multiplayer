@@ -5,6 +5,9 @@ name: Validate Pull Request
 env:
   SLN_PATH: Source/
 
+permissions:
+  contents: read
+
 on:
   pull_request
 
