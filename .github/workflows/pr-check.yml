@@ -17,12 +17,13 @@ concurrency:
 
 jobs:
   builds:
-    name: Builds (${{ matrix.os }})
+    name: Builds (${{ matrix.os }}, ${{ matrix.configuration }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        configuration: [Debug, Release]
       fail-fast: false
     steps:
     
@@ -44,20 +45,17 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore ${{ env.SLN_PATH }}
 
-    - name: Build debug
-      run: dotnet build ${{ env.SLN_PATH }} --no-restore   
-             
-    - name: Build release
-      run: dotnet build ${{ env.SLN_PATH }} --configuration Release --no-restore
+    - name: Build
+      run: dotnet build ${{ env.SLN_PATH }} --configuration ${{ matrix.configuration }} --no-restore
 
     - name: Run tests
-      run: dotnet test ${{ env.SLN_PATH }} --no-restore --logger "trx;logfilename=TestResults.trx"
+      run: dotnet test ${{ env.SLN_PATH }} --configuration ${{ matrix.configuration }} --no-restore --logger "trx;logfilename=TestResults.trx"
 
     - name: Upload test results
       if: always()
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
-        name: test-results-${{ matrix.os }}
+        name: test-results-${{ matrix.os }}-${{ matrix.configuration }}
         path: '**/TestResults/**'
         retention-days: 7
         if-no-files-found: error
