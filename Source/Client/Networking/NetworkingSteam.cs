@@ -21,6 +21,16 @@ namespace Multiplayer.Client.Networking
         // Time given to Steam to flush a queued goodbye packet before the P2P session is freed (#843).
         private static readonly TimeSpan SteamGoodbyeFlushDelay = TimeSpan.FromSeconds(3);
 
+        public override object? RemoteIdentity => remoteId;
+
+        // Steam carries every connection with a peer over one P2P session keyed by their id, so a
+        // replacement from the same id arrived on this very session and closing would take it down too.
+        public override void CloseReplacedBy(ConnectionBase replacement, MpDisconnectReason reason)
+        {
+            if (replacement is SteamBaseConn conn && conn.remoteId == remoteId) return;
+            base.CloseReplacedBy(replacement, reason);
+        }
+
         protected override void SendRaw(byte[] raw, bool reliable = true)
         {
             byte[] full = new byte[1 + raw.Length];
@@ -176,25 +186,16 @@ namespace Multiplayer.Client.Networking
                 var player = playerManager.Players
                     .FirstOrDefault(p => p.conn is SteamBaseConn conn && conn.remoteId == packet.remote);
 
-                // A join packet from a remote we still consider connected means their previous
-                // session died and they are reconnecting on a fresh one (e.g. a quick rejoin before
-                // the old connection timed out). Drop the stale player so the join is accepted below
-                // instead of being discarded, which would otherwise leave them stuck on "waiting for
-                // host to accept" (#843).
-                //
-                // Use SetDisconnected, not Close/Disconnect: the new join packet just arrived on this
-                // same Steam P2P session, and Close -> OnClose -> CloseSteamSession would tear that
-                // shared session down and break the very connection we're about to accept.
-                if (packet.joinPacket && player != null)
-                {
-                    ServerLog.Log($"Reconnect from {packet.remote}; replacing stale connection {player.conn}");
-                    playerManager.SetDisconnected(player.conn, MpDisconnectReason.ClientLeft);
-                    player = null;
-                }
-
-                if (packet.joinPacket && player == null)
+                if (packet.joinPacket)
                 {
                     ConnectionBase conn = new SteamServerConn(packet.remote, packet.channel);
+
+                    // A join packet from a remote we still consider connected means their previous
+                    // session died and they are reconnecting on a fresh one (e.g. a quick rejoin before
+                    // the old connection timed out). Without replacing the stale player the join would be
+                    // discarded, leaving them stuck on "waiting for host to accept" (#843).
+                    if (player != null)
+                        playerManager.ReplaceStale(player, conn);
 
                     var preConnect = playerManager.OnPreConnect(packet.remote);
                     if (preConnect != null)
@@ -215,14 +216,13 @@ namespace Multiplayer.Client.Networking
 
                     conn.Send(Packets.Server_SteamAccept);
                 }
-                else if (!packet.joinPacket && player != null)
+                else if (player != null)
                 {
                     player.HandleReceive(packet.data, packet.reliable);
                 }
                 else
                 {
-                    ServerLog.Error(
-                        $"Received a join packet: {packet.joinPacket} for player: {player} (player should only be null when joinPacket is true)");
+                    ServerLog.Error($"Received a data packet from {packet.remote}, who has no connection");
                 }
             }
         }
