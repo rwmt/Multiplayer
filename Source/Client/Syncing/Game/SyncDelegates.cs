@@ -105,7 +105,9 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(CompPilotConsole), nameof(CompPilotConsole.StartChoosingDestination_NewTemp), 4);  // Cancel gravship tile picker
             SyncDelegate.Lambda(typeof(CompPilotConsole), nameof(CompPilotConsole.StartChoosingDestination_NewTemp), 5);  // Confirm gravship landing tile
             SyncDelegate.Lambda(typeof(RitualOutcomeEffectWorker_GravshipLaunch), nameof(RitualOutcomeEffectWorker_GravshipLaunch.Apply), 0); // Confirm gravship prelaunch dialog
-            SyncDelegate.Lambda(typeof(GravshipUtility), nameof(GravshipUtility.PreLaunchConfirmation), 4); // Cancel gravship prelaunch dialog
+            // The cancel callback is a capture-less lambda, so without a context the command has no map to bind to and
+            // goes out as a world command, leaving Find.CurrentMap (used to close the session) up to each peer's camera.
+            SyncDelegate.Lambda(typeof(GravshipUtility), nameof(GravshipUtility.PreLaunchConfirmation), 4).SetContext(SyncContext.MapSelected); // Cancel gravship prelaunch dialog
 
             // Biosculpter pod
             SyncMethod.Lambda(typeof(CompBiosculpterPod), nameof(CompBiosculpterPod.CompGetGizmosExtra), 1);                // Interrupt cycle (eject contents)
