@@ -15,6 +15,10 @@ public class RecordingConnection : ConnectionBase
 
     public override int Latency { get => 0; set { } }
 
+    public object? remoteIdentity;
+
+    public override object? RemoteIdentity => remoteIdentity;
+
     protected override void SendRaw(byte[] raw, bool reliable)
     {
         if (raw.Length == 0)
