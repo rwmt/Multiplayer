@@ -1,3 +1,4 @@
+using Multiplayer.Client.Persistent;
 using RimWorld;
 using Verse;
 
@@ -17,6 +18,7 @@ public class FactionWorldData : IExposable
     public Storyteller storyteller;
     public StoryWatcher storyWatcher;
 
+    public GravshipCache gravshipCache;
     public FactionWorldData() { }
 
     public void ExposeData()
@@ -74,7 +76,9 @@ public class FactionWorldData : IExposable
 
             history = new History(),
             storyteller = new Storyteller(Find.Storyteller.def, Find.Storyteller.difficultyDef, Find.Storyteller.difficulty),
-            storyWatcher = new StoryWatcher()
+            storyWatcher = new StoryWatcher(),
+
+            gravshipCache = new GravshipCache(),
         };
     }
 
@@ -92,7 +96,9 @@ public class FactionWorldData : IExposable
 
             history = Find.History,
             storyteller = Find.Storyteller,
-            storyWatcher = Find.StoryWatcher
+            storyWatcher = Find.StoryWatcher,
+
+            gravshipCache = new GravshipCache()
         };
     }
 }

@@ -136,6 +136,8 @@ namespace Multiplayer.Client
             map.resourceCounter = data.resourceCounter;
             map.listerFilthInHomeArea = data.listerFilthInHomeArea;
             map.listerMergeables = data.listerMergeables;
+
+            data?.gravshipCache.Apply();
         }
 
         public CustomFactionMapData GetCurrentCustomFactionData()
