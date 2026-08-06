@@ -15,6 +15,8 @@ namespace Multiplayer.Client.Patches
             if (Multiplayer.Client == null)
                 return true;
 
+            VTRSync.FlushPendingViewedMapUpdate();
+
             // Keep the synchronized update rate until animation timing can be
             // brought back in line with the vanilla value.
             __result = VTRSync.GetSynchronizedUpdateRate(thing);
@@ -55,6 +57,8 @@ namespace Multiplayer.Client.Patches
         public const int InvalidMapId = -1;
         public static int lastMovedToMapId = InvalidMapId;
         public static int lastSentAtTick = -1;
+        private static int pendingPreviousMapId = InvalidMapId;
+        private static int pendingCurrentMapId = InvalidMapId;
 
         // Vtr rates
         public const int MaximumVtr = 15;
@@ -62,11 +66,39 @@ namespace Multiplayer.Client.Patches
 
         public static int GetSynchronizedUpdateRate(Thing thing) => thing?.MapHeld?.AsyncTime()?.VTR ?? MaximumVtr;
 
-        public static void SendViewedMapUpdate(int previous, int current)
+        public static void FlushPendingViewedMapUpdate()
         {
             if (Multiplayer.reloading)
                 return;
 
+            if (pendingPreviousMapId == InvalidMapId && pendingCurrentMapId == InvalidMapId)
+                return;
+
+            int previous = pendingPreviousMapId;
+            int current = pendingCurrentMapId;
+            pendingPreviousMapId = InvalidMapId;
+            pendingCurrentMapId = InvalidMapId;
+
+            SendViewedMapUpdateCore(previous, current);
+        }
+
+        public static void SendViewedMapUpdate(int previous, int current)
+        {
+            if (Multiplayer.reloading)
+            {
+                if (pendingPreviousMapId == InvalidMapId && pendingCurrentMapId == InvalidMapId)
+                    pendingPreviousMapId = previous;
+                pendingCurrentMapId = current;
+                return;
+            }
+
+            FlushPendingViewedMapUpdate();
+
+            SendViewedMapUpdateCore(previous, current);
+        }
+
+        private static void SendViewedMapUpdateCore(int previous, int current)
+        {
             string warn = string.Empty;
             if (previous != lastMovedToMapId)
                 warn = $" mismatch between expected previous map {previous} and last moved to map {lastMovedToMapId}";
@@ -81,6 +113,8 @@ namespace Multiplayer.Client.Patches
         {
             lastMovedToMapId = InvalidMapId;
             lastSentAtTick = -1;
+            pendingPreviousMapId = InvalidMapId;
+            pendingCurrentMapId = InvalidMapId;
         }
     }
 
@@ -90,6 +124,8 @@ namespace Multiplayer.Client.Patches
         static void Prefix(Map value)
         {
             if (Multiplayer.Client == null) return;
+
+            VTRSync.FlushPendingViewedMapUpdate();
 
             try
             {
@@ -132,6 +168,8 @@ namespace Multiplayer.Client.Patches
         static void Postfix(WorldRenderMode __result)
         {
             if (Multiplayer.Client == null) return;
+
+            VTRSync.FlushPendingViewedMapUpdate();
 
             try
             {
