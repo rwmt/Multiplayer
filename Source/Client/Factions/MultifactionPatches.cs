@@ -862,6 +862,12 @@ static class Map_IsPlayerHome_Spectator_Patch
 {
     static bool Prefix(Map __instance, ref bool __result)
     {
+        // Spectator override shapes UI only: in sim contexts OfPlayer can be
+        // the spectator faction on one client but not others, and IsPlayerHome
+        // feeds sim-side consumers - all clients must take vanilla there
+        if (Multiplayer.Ticking || Multiplayer.ExecutingCmds)
+            return true;
+
         if (Multiplayer.Client == null || !Multiplayer.GameComp.multifaction ||
             Faction.OfPlayer != Multiplayer.WorldComp.spectatorFaction)
             return true;

@@ -34,9 +34,15 @@ public static class IngameDebug
             text.AppendLine($"Avg Delta: {avgDelta = (avgDelta * 59.0 + Time.deltaTime * 60.0) / 60.0:0.0000}");
             text.AppendLine($"Game Ticks: {Find.TickManager.TicksGame}");
             text.AppendLine($"Time Speed: {Find.TickManager.CurTimeSpeed}");
+            // Paused comes from the current map, TickRateMultiplier from the global
+            // time speed. In vanilla they cannot disagree; if they do here, something
+            // left a foreign speed installed in the global TickManager.
+            text.AppendLine($"Tick Rate Mult: {Find.TickManager.TickRateMultiplier:0.##}{separator}Paused: {Find.TickManager.Paused}");
             text.AppendLine($"Tick Until: {TickPatch.tickUntil}{separator}Remote: {Multiplayer.session?.remoteTickUntil ?? 0}");
             text.AppendLine($"Received Commands: {Multiplayer.session?.receivedCmds ?? 0}");
             text.AppendLine($"Sent Commands: {Multiplayer.session?.remoteSentCmds ?? 0}");
+            text.AppendLine($"Sim Failures: {Multiplayer.session?.simulationFailures ?? 0}" +
+                (Multiplayer.session?.firstSimulationFailure is { } first ? $"{separator}First: {first}" : ""));
 
             text.AppendLine($"\nFaction ID: {Faction.OfPlayer.loadID} ({FactionContext.stack.Count}){separator}Real Faction ID: {Multiplayer.RealPlayerFaction?.loadID ?? -1}");
             text.AppendLine($"Next Thing ID: {Find.UniqueIDsManager.nextThingID}{separator}Next Job ID: {Find.UniqueIDsManager.nextJobID}");
@@ -52,6 +58,7 @@ public static class IngameDebug
                 text.AppendLine($"Server TPT: {TickPatch.serverTimePerTick:0.0}ms");
                 text.AppendLine($"Calculated TPT: {(TickPatch.tickUntil - TickPatch.Timer <= 3 ? TickPatch.serverTimePerTick * 1.2f : TickPatch.tickUntil - TickPatch.Timer >= 7 ? TickPatch.serverTimePerTick * 0.8f : TickPatch.serverTimePerTick):0.0}ms");
                 text.AppendLine($"Map Ticks: {async.mapTicks}{separator}Frozen: {TickPatch.serverFrozen} @ {TickPatch.frozenAt}");
+                text.AppendLine($"Map Speed: {async.DesiredTimeSpeed}{separator}World Speed: {Multiplayer.AsyncWorldTime?.DesiredTimeSpeed}");
                 text.AppendLine($"Client Opinions: {Multiplayer.game.sync.knownClientOpinions.Count}{separator}Opinion Start Tick: {Multiplayer.game.sync.knownClientOpinions.FirstOrDefault()?.startTick ?? 0}");
                 text.AppendLine($"Opinion Start Tick: {Multiplayer.game.sync.knownClientOpinions.FirstOrDefault()?.startTick ?? 0}");
                 text.AppendLine($"Force Normal Speed Until: {async.slower.forceNormalSpeedUntil}");

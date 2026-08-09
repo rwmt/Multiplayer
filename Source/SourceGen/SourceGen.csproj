@@ -10,8 +10,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.3.0" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="5.3.0" PrivateAssets="all" />
+    <!-- 4.13.0, not 5.3.0: an analyzer referencing a newer Roslyn than the running
+         compiler is silently skipped (CS9057) and the generated partials go missing
+         (CS8795). SDK 9.x bundles Roslyn 4.14, so 5.3.0 broke every SDK-9 build
+         (rwmt #970); newer compilers load the older reference fine. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.13.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="4.13.0" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>

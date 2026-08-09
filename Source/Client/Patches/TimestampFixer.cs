@@ -33,6 +33,11 @@ public static class TimestampFixer
 
     public static void FixPawn(Pawn p, Map oldMap, Map newMap)
     {
+        // Destroyed pawns don't need fixing, and deep-scribing them warns
+        // "Deep-saving destroyed thing" on every predator kill
+        if (p.Destroyed)
+            return;
+
         var oldTime = oldMap?.AsyncTime().mapTicks ?? Multiplayer.AsyncWorldTime.worldTicks;
         var newTime = newMap?.AsyncTime().mapTicks ?? Multiplayer.AsyncWorldTime.worldTicks;
         currentOffset = newTime - oldTime;

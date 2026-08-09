@@ -1,4 +1,5 @@
-﻿using Verse;
+using RimWorld;
+using Verse;
 using Verse.Profile;
 
 namespace Multiplayer.Client.Saving;
@@ -30,6 +31,15 @@ public class ConvertToSp
         var spectator = Multiplayer.WorldComp.spectatorFaction;
         if (spectator != null)
         {
+            // Purge faction-keyed state first or the save writes dangling Faction_N refs
+            foreach (var map in Find.Maps)
+                map.pawnDestinationReservationManager.reservedDestinations.Remove(spectator);
+
+            // Pawns stranded in the spectator faction would keep a dangling reference
+            foreach (var pawn in PawnsFinder.All_AliveOrDead)
+                if (pawn.Faction == spectator)
+                    pawn.SetFaction(Faction.OfPlayer);
+
             spectator.RemoveAllRelations();
             Find.FactionManager.allFactions.Remove(spectator);
         }

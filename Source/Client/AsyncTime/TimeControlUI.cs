@@ -19,6 +19,11 @@ public static class TimeControlPatch
 {
     private static TimeVote[] GameSpeeds = { TimeVote.Paused, TimeVote.Normal, TimeVote.Fast, TimeVote.Superfast };
 
+    // Vanilla parity: show the Ultrafast button in dev mode (the vote enum,
+    // tick rates and hotkey already support it)
+    private static TimeVote[] GameSpeedsDev =
+        { TimeVote.Paused, TimeVote.Normal, TimeVote.Fast, TimeVote.Superfast, TimeVote.Ultrafast };
+
     private static bool ShouldReset => Event.current.shift && Multiplayer.GameComp.IsLowestWins;
 
     private static ITickable Tickable =>
@@ -84,7 +89,7 @@ public static class TimeControlPatch
                 SendTimeVote(TimeVote.ResetTickable);
         }
 
-        foreach (var speed in GameSpeeds)
+        foreach (var speed in Prefs.DevMode ? GameSpeedsDev : GameSpeeds)
         {
             if (Widgets.ButtonImage(rect, TexButton.SpeedButtonTextures[(uint)speed]))
             {

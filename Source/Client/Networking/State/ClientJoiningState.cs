@@ -55,6 +55,7 @@ namespace Multiplayer.Client
         public static ClientInitDataPacket CreateInitDataPacket(bool includeConfigs) => new()
         {
             rwVersion = VersionControl.CurrentVersionString,
+            language = LanguageDatabase.activeLanguage.folderName,
             debugOnlySyncCmds = Sync.handlers.Where(h => h.debugOnly).Select(h => h.syncId).ToHashSet().ToArray(),
             hostOnlySyncCmds = Sync.handlers.Where(h => h.hostOnly).Select(h => h.syncId).ToHashSet().ToArray(),
             modCtorRoundMode = MultiplayerData.modCtorRoundMode,

@@ -34,9 +34,12 @@ public static class VersionChecker
         });
     }
 
+    // Exact match: git describe on any branch CONTAINING the continuous tag
+    // yields "continuous-N-g<sha>" - those are downstream builds, not the
+    // continuous release, and must not be told to "update" to upstream
     public static bool IsContinuousRelease =>
         Multiplayer.modContentPack.ModMetaData.Source == ContentSource.ModsFolder &&
-        MpVersion.GitDescription?.StartsWith("continuous") == true &&
+        MpVersion.GitDescription == "continuous" &&
         MpVersion.GitHash?.EndsWith("dirty") == false;
 
     public static bool IsLocalBuild =>

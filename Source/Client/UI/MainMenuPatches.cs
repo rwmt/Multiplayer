@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using HarmonyLib;
 using Multiplayer.Client.Saving;
@@ -29,6 +30,28 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]
     public static class MainMenuPatch
     {
+        // Playing with failed patches/registrations near-guarantees desyncs or
+        // broken features - confirm before hosting/browsing
+        internal static void OpenWithInitErrorCheck(Action open)
+        {
+            if (!Multiplayer.loadingErrors)
+            {
+                open();
+                return;
+            }
+
+            const int maxShown = 8;
+            var errors = Multiplayer.loadingErrorsList;
+            var shown = errors.Take(maxShown).Select(e => "  - " + e.Split('\n')[0].Trim());
+            var text = $"Multiplayer failed to initialize {errors.Count} of its patches or sync registrations. " +
+                "Playing multiplayer in this state is likely to desync or break features.\n\n" +
+                string.Join("\n", shown) +
+                (errors.Count > maxShown ? $"\n  ...and {errors.Count - maxShown} more" : "") +
+                "\n\nFull stack traces are in the log. Continue anyway?";
+
+            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(text, open, true, layer: WindowLayer.Super));
+        }
+
         static void Prefix(Rect rect, List<ListableOption> optList)
         {
             if (!MainMenuMarker.drawing) return;
@@ -55,8 +78,11 @@ namespace Multiplayer.Client
                                 GUIUtility.systemCopyBuffer = version;
                             else
                             {
-                                Find.WindowStack.Add(new ServerBrowser());
-                                VersionChecker.OpenNewVersionDialogIfApplicable();
+                                OpenWithInitErrorCheck(() =>
+                                {
+                                    Find.WindowStack.Add(new ServerBrowser());
+                                    VersionChecker.OpenNewVersionDialogIfApplicable();
+                                });
                             }
                         }));
                 }
@@ -67,7 +93,8 @@ namespace Multiplayer.Client
                 if (Multiplayer.session == null)
                     optList.Insert(0, new ListableOption(
                         "MpHostServer".Translate(),
-                        () => Find.WindowStack.Add(new HostWindow() { layer = WindowLayer.Super })
+                        () => OpenWithInitErrorCheck(() =>
+                            Find.WindowStack.Add(new HostWindow() { layer = WindowLayer.Super }))
                     ));
 
                 if (MpVersion.IsDebug && Multiplayer.IsReplay)

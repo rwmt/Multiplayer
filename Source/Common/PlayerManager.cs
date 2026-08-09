@@ -79,10 +79,12 @@ namespace Multiplayer.Common
 
             if (player.hasJoined)
             {
-                // Send PlayerCount command to remove the player from their last known map
+                // Remove the leaver from the clients' synced view table
+                // (viewedMapId -1 removes the entry) so their map doesn't keep
+                // a phantom viewer until the next reload
                 if (player.currentMapId != -1)
                 {
-                    byte[] playerCountData = ByteWriter.GetBytes(player.currentMapId, -1); // previousMap: player's map, newMap: -1 (disconnected)
+                    byte[] playerCountData = ByteWriter.GetBytes(player.id, -1);
                     server.commands.Send(CommandType.PlayerCount, ScheduledCommand.NoFaction, ScheduledCommand.Global, playerCountData);
                 }
                 // todo check player.IsPlaying?

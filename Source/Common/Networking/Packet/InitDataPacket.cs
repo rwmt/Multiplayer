@@ -20,6 +20,7 @@ public record struct ClientInitDataPacket : IPacket
     private const int MaxRawDataLength = 1 << 20;
 
     public string rwVersion;
+    public string language;
     public int[] debugOnlySyncCmds;
     public int[] hostOnlySyncCmds;
     public RoundModeEnum modCtorRoundMode;
@@ -37,6 +38,7 @@ public record struct ClientInitDataPacket : IPacket
     public void Bind(PacketBuffer buf)
     {
         buf.Bind(ref rwVersion);
+        buf.Bind(ref language);
         buf.Bind(ref debugOnlySyncCmds, BinderOf.Int());
         buf.Bind(ref hostOnlySyncCmds, BinderOf.Int());
         buf.BindEnum(ref modCtorRoundMode);

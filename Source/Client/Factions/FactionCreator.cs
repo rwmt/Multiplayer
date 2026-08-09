@@ -110,6 +110,20 @@ public static class FactionCreator
     {
         // This has to be null, otherwise, during map generation, Faction.OfPlayer returns it which breaks FactionContext
         Find.GameInitData.playerFaction = null;
+
+        // PrepForMapGen's Biotech tail reads the CLIENT-LOCAL static
+        // StartingPawnUtility generation requests to add custom xenotypes to
+        // the game-global customXenotypeDatabase - only the issuer's client
+        // has them populated, so the database (and later factionless-pawn
+        // xenotype Rand rolls) would diverge across clients. Clear the
+        // requests on every client so the loop no-ops identically everywhere.
+        // Accepted cost: custom xenotypes of faction-creation starting pawns
+        // aren't registered in the database (the pawns keep their xenotype;
+        // the entry only feeds the UI list and factionless spawn weighting).
+        if (StartingPawnUtility.StartingAndOptionalPawnGenerationRequests.Any(r => r.ForcedCustomXenotype != null))
+            Log.Message("MP: faction creation dropped custom-xenotype database registration (kept deterministic)");
+        StartingPawnUtility.StartingAndOptionalPawnGenerationRequests.Clear();
+
         Find.GameInitData.PrepForMapGen();
 
         // ScenPart_PlayerFaction --> PreMapGenerate
@@ -223,13 +237,16 @@ public static class FactionCreator
 
         faction.ideos = new FactionIdeosTracker(faction);
 
-        if (!ModsConfig.IdeologyActive || Find.IdeoManager.classicMode || chooseIdeoInfo.SelectedIdeo == null)
+        if (!ModsConfig.IdeologyActive || Find.IdeoManager.classicMode ||
+            (chooseIdeoInfo.SelectedIdeo == null && chooseIdeoInfo.CustomIdeoData == null))
         {
             faction.ideos.SetPrimary(Faction.OfPlayer.ideos.PrimaryIdeo);
         }
         else
         {
-            var newIdeo = GenerateIdeo(chooseIdeoInfo);
+            var newIdeo = chooseIdeoInfo.CustomIdeoData != null
+                ? ReconstructCustomIdeo(chooseIdeoInfo.CustomIdeoData)
+                : GenerateIdeo(chooseIdeoInfo);
             faction.ideos.SetPrimary(newIdeo);
             Find.IdeoManager.Add(newIdeo);
         }
@@ -252,6 +269,29 @@ public static class FactionCreator
                 faction.SetRelation(new FactionRelation(f, FactionRelationKind.Neutral));
 
         return faction;
+    }
+
+    // Deserializes a player-provided custom ideo (.rid file) inside the synced
+    // creation command; ids from the issuer's local game are reassigned here,
+    // where allocation is deterministic across clients
+    private static Ideo ReconstructCustomIdeo(byte[] data)
+    {
+        var ideo = ScribeUtil.ReadExposable<Ideo>(data);
+
+        ideo.id = Find.UniqueIDsManager.GetNextIdeoID();
+        foreach (var precept in ideo.PreceptsListForReading)
+        {
+            precept.ID = Find.UniqueIDsManager.GetNextPreceptID();
+            precept.ideo = ideo;
+        }
+
+        // Same back-reference fixups as FixIdeoAfterCopy. development is null
+        // for non-fluid ideos; style always exists
+        if (ideo.development != null)
+            ideo.development.ideo = ideo;
+        ideo.style.ideo = ideo;
+
+        return ideo;
     }
 
     private static Ideo GenerateIdeo(IdeologyData chooseIdeoInfo)

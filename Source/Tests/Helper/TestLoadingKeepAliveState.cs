@@ -25,6 +25,7 @@ public class TestLoadingKeepAliveState : AsyncConnectionState
         connection.Send(new ClientInitDataPacket
         {
             rwVersion = RwVersion,
+            language = "English",
             debugOnlySyncCmds = [],
             hostOnlySyncCmds = [],
             modCtorRoundMode = RoundModeEnum.ToNearest,

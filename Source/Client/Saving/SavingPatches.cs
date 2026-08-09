@@ -66,6 +66,7 @@ namespace Multiplayer.Client.Saving
         static void Postfix()
         {
             CacheAverageTileTemperature.Clear();
+            Patches.ItemAccessibilityCacheInvalidation.Reset();
             Multiplayer.game?.OnDestroy();
             Multiplayer.game = null;
         }
@@ -170,8 +171,15 @@ namespace Multiplayer.Client.Saving
             {
                 text = reffable.GetUniqueLoadID();
             }
-            catch
+            catch (Exception e)
             {
+                // Tolerated so one broken object doesn't abort the load, but a
+                // throwing object silently never registers (vanilla's per-object
+                // try/catch skips it; "[excepted]" is only a message placeholder)
+                // - that shouldn't stay silent
+                Log.WarningOnce(
+                    $"MP: GetUniqueLoadID threw for {reffable?.GetType().FullName ?? "null"}; object may not resolve cross-references: {e.Message}",
+                    reffable?.GetType().GetHashCode() ?? 0);
             }
 
             return !__instance.allObjectsByLoadID.ContainsKey(text);

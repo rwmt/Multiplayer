@@ -9,6 +9,7 @@ public record struct ServerJoinDataPacket : IPacket
     public int playerId;
     public string rwVersion;
     public string mpVersion;
+    public string language;
     public DefCheckStatus[] defStatus;
     public bool configsIncluded;
     public byte[] rawServerInitData;
@@ -25,6 +26,7 @@ public record struct ServerJoinDataPacket : IPacket
         buf.Bind(ref playerId);
         buf.Bind(ref rwVersion);
         buf.Bind(ref mpVersion);
+        buf.Bind(ref language);
         buf.Bind(ref defStatus, BinderOf.Enum<DefCheckStatus>());
         buf.Bind(ref configsIncluded);
         // Max 512KiB. Should be way more than enough. As an example, one game with ~100 mods used ~35KiB.

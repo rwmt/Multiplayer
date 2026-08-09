@@ -73,7 +73,12 @@ namespace Multiplayer.Client.Patches
             else if (previous == current) return;
             int currentTick = Find.TickManager?.TicksGame ?? 0;
             MpLog.Debug($"VTR MapSwitchPatch: {lastMovedToMapId}->{current} @ tick {currentTick}{warn}");
-            Multiplayer.Client.SendCommand(CommandType.PlayerCount, ScheduledCommand.Global, ByteWriter.GetBytes(previous, current));
+            // Payload is an absolute announce (playerId, viewedMapId) into the
+            // synced view table, not a delta - re-announcing the same view is
+            // idempotent, so ResendCurrentView after a reload can never
+            // double-count and command ordering around join points can't
+            // drift the counts
+            Multiplayer.Client.SendCommand(CommandType.PlayerCount, ScheduledCommand.Global, ByteWriter.GetBytes(Multiplayer.session.playerId, current));
             lastMovedToMapId = current;
         }
 
@@ -81,6 +86,32 @@ namespace Multiplayer.Client.Patches
         {
             lastMovedToMapId = InvalidMapId;
             lastSentAtTick = -1;
+        }
+
+        // Re-announce the local view after every SaveAndReload. The view
+        // table is scribed and the counts derive from it, so unlike the old
+        // incremental counts nothing is lost across a reload - but sends are
+        // suppressed while reloading and a view change during that window
+        // (or a fresh host with an empty table) would otherwise go
+        // unannounced. The announce is an absolute (playerId, mapId) write,
+        // so repeating an unchanged view is a no-op. Called by
+        // SaveAndReloadCore after the reloading flag clears.
+        public static void ResendCurrentView()
+        {
+            if (Multiplayer.Client == null) return;
+
+            lastMovedToMapId = InvalidMapId;
+            lastSentAtTick = -1;
+
+            // wantedMode, not the CurrentWorldRenderMode getter: the getter
+            // is patched (WorldRenderModePatch) and must not run mid-install
+            int viewedId = Find.World?.renderer?.wantedMode == WorldRenderMode.Planet
+                ? WorldMapId
+                : Find.CurrentMap?.uniqueID ?? InvalidMapId;
+
+            if (viewedId == InvalidMapId) return;
+
+            SendViewedMapUpdate(InvalidMapId, viewedId);
         }
     }
 

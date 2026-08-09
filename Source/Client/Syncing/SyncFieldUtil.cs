@@ -163,8 +163,7 @@ namespace Multiplayer.Client
                     {
                         Multiplayer.harmony.PatchMeasure(attr.Method, prefix, postfix);
                     } catch (Exception e) {
-                        Log.Error($"FAIL: {attr.Method.DeclaringType.FullName}:{attr.Method.Name} with {e}");
-                        Multiplayer.loadingErrors = true;
+                        Multiplayer.LoadingError($"FAIL: {attr.Method.DeclaringType.FullName}:{attr.Method.Name} with {e}");
                     }
                 }
             }

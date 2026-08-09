@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using HarmonyLib;
 using Multiplayer.Client.Comp;
+using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.Factions;
 using Multiplayer.Client.Patches;
 using Multiplayer.Client.Saving;
@@ -64,18 +65,17 @@ namespace Multiplayer.Client
 
         public int TickableId => map.uniqueID;
 
-        public int GameStartAbsTick
-        {
-            get
-            {
-                if (gameStartAbsTickMap == 0)
-                {
-                    gameStartAbsTickMap = Find.TickManager?.gameStartAbsTick ?? 0;
-                }
-
-                return gameStartAbsTickMap;
-            }
-        }
+        // Pure: this is read from UI-reachable context installs
+        // (TimeSnapshot.GetAndSetFromMap), and a read that wrote the ambient
+        // global into the scribed field made render order and viewer identity
+        // inputs to TicksAbs - an RNG seed in pawn think trees
+        // (RandSeedForHour), wind and sky glow - so a render bug could become
+        // a desync and a save diff. The scribed field is resolved once in
+        // FinalizeInit instead; the fallback covers reads before that point
+        // without writing anything.
+        public int GameStartAbsTick => gameStartAbsTickMap != 0
+            ? gameStartAbsTickMap
+            : Find.TickManager?.gameStartAbsTick ?? 0;
 
         public Map map;
         public int mapTicks;
@@ -95,7 +95,31 @@ namespace Multiplayer.Client
 
         public Queue<ScheduledCommand> cmds = new();
 
-        public int CurrentPlayerCount { get; private set; }
+        private int cachedPlayerCount;
+        private int cachedPlayerCountVersion = -1;
+
+        // Derived from the synced view table on demand, never incremented.
+        // The version gate makes the count self-healing: comps recreated by a
+        // reload start stale and re-derive on first read, so there is no
+        // window where a viewed map sits at the no-viewer rate.
+        public int CurrentPlayerCount
+        {
+            get
+            {
+                var gameComp = Multiplayer.GameComp;
+                if (cachedPlayerCountVersion != gameComp.playerViewsVersion)
+                {
+                    cachedPlayerCount = 0;
+                    foreach (var viewedMapId in gameComp.playerViewedMaps.Values)
+                        if (viewedMapId == map.uniqueID)
+                            cachedPlayerCount++;
+                    cachedPlayerCountVersion = gameComp.playerViewsVersion;
+                }
+
+                return cachedPlayerCount;
+            }
+        }
+
         public int VTR => CurrentPlayerCount > 0 ? VTRSync.MinimumVtr : VTRSync.MaximumVtr;
 
         public AsyncTimeComp(Map map, int gameStartAbsTick = 0)
@@ -174,7 +198,17 @@ namespace Multiplayer.Client
             map.glowGrid.GlowGridUpdate_First();
         }
 
-        private TimeSnapshot? prevTime;
+        // Contexts nest on the same comp by design (the quest brackets in
+        // MultiplayerAsyncQuest run inside Tick(), SetContextForAccept inside
+        // ExecuteCmd), so the restore state is a stack like the Rand and
+        // faction state around it: a single field let an inner bracket clobber
+        // the outer snapshot, leaking the inner clock for the rest of the frame.
+        private readonly Stack<TimeSnapshot?> prevTimes = new();
+
+        // Expected faction stack depth per nested bracket, recorded at
+        // PreContext exit - PostContext unwinds any entries stranded above it
+        // by an exception before doing its own pop (see UnwindFactionStack)
+        private readonly Stack<int> prevFactionDepths = new();
 
         public void PreContext()
         {
@@ -184,7 +218,9 @@ namespace Multiplayer.Client
                     : Multiplayer.WorldComp.spectatorFaction,
                 force: true);
 
-            prevTime = TimeSnapshot.GetAndSetFromMap(map);
+            prevFactionDepths.Push(FactionContext.stack.Count);
+
+            prevTimes.Push(TimeSnapshot.GetAndSetFromMap(map));
 
             Rand.PushState();
             Rand.StateCompressed = randState;
@@ -195,10 +231,18 @@ namespace Multiplayer.Client
 
         public void PostContext()
         {
-            prevTime?.Set();
+            if (prevTimes.Count == 0)
+                Log.Error($"MP: unbalanced PostContext on {this}");
+            else
+                prevTimes.Pop()?.Set();
 
             randState = Rand.StateCompressed;
             Rand.PopState();
+
+            if (prevFactionDepths.Count == 0)
+                Log.Error($"MP: unbalanced faction depth on {this}");
+            else
+                FactionExtensions.UnwindFactionStack(map, prevFactionDepths.Pop(), $"map {map.uniqueID} bracket");
 
             map.PopFaction();
         }
@@ -208,18 +252,24 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref mapTicks, "mapTicks");
             Scribe_Values.Look(ref timeSpeedInt, "timeSpeed");
 
-            Scribe_Values.Look(ref gameStartAbsTickMap, "gameStartAbsTickMap");
+            Scribe_Values.Look(ref gameStartAbsTickMap, "gameStartAbsTickMap", 0);
 
             Scribe_Custom.LookULong(ref randState, "randState", 1);
         }
 
-        public int IncreasePlayerCount() => CurrentPlayerCount += 1;
-        // This should never go below 0, this is just defensive programming. Hopefully not needed anymore, but
-        // nevertheless still left.
-        public int DecreasePlayerCount() => CurrentPlayerCount = Math.Max(0, CurrentPlayerCount - 1);
-
         public void FinalizeInit()
         {
+            // Only saves predating the per-map field (3bfa487) and the
+            // comp-missing error path in SavingPatches can still hold 0 here.
+            // Both are load-time, and this runs at a fixed point of the load
+            // path on every client (Map.FinalizeLoading -> Map.FinalizeInit ->
+            // MapComponentUtility.FinalizeInit), where the ambient
+            // gameStartAbsTick is the scribed global - the correct value for
+            // those saves. Normal play never constructs a comp with 0
+            // (MapSetup always passes a non-zero source).
+            if (gameStartAbsTickMap == 0)
+                gameStartAbsTickMap = Find.TickManager?.gameStartAbsTick ?? 0;
+
             cmds = new Queue<ScheduledCommand>(
                 Multiplayer.session.dataSnapshot?.MapCmds.GetValueSafe(map.uniqueID) ?? new List<ScheduledCommand>()
             );
@@ -290,7 +340,7 @@ namespace Multiplayer.Client
             }
             catch (Exception e)
             {
-                MpLog.Error($"Map cmd exception ({cmdType}): {e}");
+                SimulationFailures.Handle($"Map cmd exception ({cmdType})", e);
             }
             finally
             {

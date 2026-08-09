@@ -120,7 +120,8 @@ namespace Multiplayer.Client
                                 toPatch,
                                 (attr is MpPrefix) ? patch : null,
                                 (attr is MpPostfix) ? patch : null,
-                                (attr is MpTranspiler) ? patch : null
+                                (attr is MpTranspiler) ? patch : null,
+                                (attr is MpFinalizer) ? patch : null
                             );
                         }
 
@@ -129,8 +130,7 @@ namespace Multiplayer.Client
                     }
                     catch (Exception e)
                     {
-                        Log.Error($"MpPatch {m.DeclaringType}.{m.Name} failed with exception: {e}");
-                        Multiplayer.loadingErrors = true;
+                        Multiplayer.LoadingError($"MpPatch {m.DeclaringType}.{m.Name} failed with exception: {e}");
                     }
                 }
             }
@@ -185,6 +185,30 @@ namespace Multiplayer.Client
         }
 
         public MpPostfix(Type parentType, string parentMethod, int lambdaOrdinal) : base(parentType, parentMethod, lambdaOrdinal)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Finalizer method attribute. Runs even when the patched method throws,
+    /// unlike a postfix - use for cleanup of global state set in a prefix.
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
+    public class MpFinalizer : MpPatch
+    {
+        public MpFinalizer(string typeName, string method) : base(typeName, method)
+        {
+        }
+
+        public MpFinalizer(Type type, string method, Type[] argTypes = null) : base(type, method, argTypes)
+        {
+        }
+
+        public MpFinalizer(Type type, string innerType, string method) : base(type, innerType, method)
+        {
+        }
+
+        public MpFinalizer(Type parentType, string parentMethod, int lambdaOrdinal) : base(parentType, parentMethod, lambdaOrdinal)
         {
         }
     }

@@ -250,6 +250,20 @@ namespace Multiplayer.Client
             if (connectAnyway)
             {
                 Log.Message($"Multiplayer: Connecting anyway ({DiffString()})");
+
+                // Remember what was mismatched for the desync report, and make
+                // the risk visible in chat - a mid-rejoin click-through is easy
+                // to wave past and mismatched files mean divergent simulations
+                if (Multiplayer.session != null)
+                {
+                    Multiplayer.session.joinDataDiff = DiffString();
+
+                    if (filesRoot.children.Any() || modListDiff != ModListDiff.None)
+                        Multiplayer.session.AddMsg(
+                            $"Connected with mismatched mod files ({DiffString()}) - desyncs are likely until everyone runs the same build.",
+                            rawMessage: true);
+                }
+
                 connectAnywayCallback();
                 Close(false);
             }
@@ -269,7 +283,9 @@ namespace Multiplayer.Client
         private string DiffString()
         {
             var str = "";
-            str += $"RW version match: {remote.remoteMpVersion == MpVersion.Version}, ";
+            // remoteMpVersion is the MP mod version, not the RimWorld version
+            str += $"MP version match: {remote.remoteMpVersion == MpVersion.Version}, ";
+            str += $"Language match: {remote.remoteLanguage == LanguageDatabase.activeLanguage.folderName}, ";
             str += $"Mod list diff: {modListDiff}, ";
             str += $"Files match: {!filesRoot.children.Any()}, ";
             str += $"Config sync enabled: {remote.hasConfigs}, ";
@@ -352,7 +368,18 @@ namespace Multiplayer.Client
                 bool mpVersionCheck = remote.remoteMpVersion == MpVersion.Version;
                 Widgets.Checkbox(new Rect(0, 0, 24, 24).CenterOn(checkboxColumn.Down(2 * rowHeight)).min, ref mpVersionCheck);
 
-                inRect.yMin += rowHeight * 3 + 30f;
+                var languageRect = mpVersionRect.Down(rowHeight).Width(rowLabelWidth);
+                Widgets.DrawHighlightIfMouseover(languageRect);
+                Widgets.DrawAltRect(headerRect.Down(3 * rowHeight));
+                Widgets.Label(languageRect,
+                    "MpMismatchLanguage".TryTranslate(out var languageLabel) ? languageLabel.ToString() : "Game language");
+                Widgets.Label(serverColumn.Down(3 * rowHeight), remote.remoteLanguage);
+                Widgets.Label(clientColumn.Down(3 * rowHeight), LanguageDatabase.activeLanguage.folderName);
+
+                bool languageCheck = remote.remoteLanguage == LanguageDatabase.activeLanguage.folderName;
+                Widgets.Checkbox(new Rect(0, 0, 24, 24).CenterOn(checkboxColumn.Down(3 * rowHeight)).min, ref languageCheck);
+
+                inRect.yMin += rowHeight * 4 + 30f;
             }
         }
 

@@ -29,6 +29,17 @@ public static class MapSetup
         var async = CreateAsyncTimeCompForMap(map, usingMapTimeFromSingleplayer);
         Multiplayer.game.asyncTimeComps.Add(async);
 
+        // Ask the world, not the global TickManager: the global is viewer-dependent
+        // and this value is scribed onto the new map. Not on the singleplayer-
+        // conversion path (no client exists there; the world would read Paused and
+        // stomp the singleplayer speed). Runs after the comp is registered: the world
+        // getter walks every map's comp, and reading it while this map is comp-less
+        // is what let an exception here abort SetupMap and leave the map comp-less
+        // forever. The fresh comp sits at Paused, which the running-map filter
+        // ignores, so the value is unchanged.
+        if (!usingMapTimeFromSingleplayer && !Multiplayer.GameComp.asyncTime)
+            async.DesiredTimeSpeed = Multiplayer.AsyncWorldTime?.DesiredTimeSpeed ?? Find.TickManager.CurTimeSpeed;
+
         // Store all current managers for Faction.OfPlayer
         InitFactionDataFromMap(map, Faction.OfPlayer);
 
@@ -68,9 +79,8 @@ public static class MapSetup
             startingTimeSpeed = TimeSpeed.Paused;
         }
 
-        if (!Multiplayer.GameComp.asyncTime)
-            startingTimeSpeed = Find.TickManager.CurTimeSpeed;
-
+        // The non-async world-speed override happens in SetupMap AFTER this comp is
+        // registered - see the comment there.
         var asyncTimeCompForMap = new AsyncTimeComp(map, gameStartAbsTick)
         {
             mapTicks = startingMapTicks,

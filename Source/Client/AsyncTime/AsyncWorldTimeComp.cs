@@ -44,13 +44,16 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         };
     }
 
-    // Run at the speed of the fastest map or at chosen speed if there are no maps
+    // Run at the speed of the fastest map or at chosen speed if there are no maps.
+    // A map can be in Find.Maps before its AsyncTimeComp is registered (map
+    // generation, singleplayer conversion) - a comp-less map isn't a running map,
+    // so skip it rather than throw.
     public TimeSpeed DesiredTimeSpeed
     {
         get => !Find.Maps.Any()
             ? timeSpeedInt
             : Find.Maps.Select(m => m.AsyncTime())
-                .Where(a => a.ActualRateMultiplier(a.DesiredTimeSpeed) != 0f)
+                .Where(a => a != null && a.ActualRateMultiplier(a.DesiredTimeSpeed) != 0f)
                 .Max(a => a?.DesiredTimeSpeed) ?? TimeSpeed.Paused;
         set => timeSpeedInt = value;
     }
@@ -58,8 +61,40 @@ public class AsyncWorldTimeComp : IExposable, ITickable
     public Queue<ScheduledCommand> Cmds => cmds;
     public Queue<ScheduledCommand> cmds = new();
 
-    public int CurrentPlayerCount { get; private set; }
-    public int VTR => CurrentPlayerCount > 0 ? VTRSync.MinimumVtr : VTRSync.MaximumVtr;
+    private int cachedPlanetViewerCount;
+    private int cachedPlayerCountVersion = -1;
+
+    // Players currently in the planet view, derived from the synced view
+    // table (see MultiplayerGameComp.playerViewedMaps). The old incremental
+    // count had no floor on this comp and a post-reload disconnect could
+    // drive it negative, pinning world objects at the no-viewer rate even
+    // with the planet view open.
+    public int CurrentPlayerCount
+    {
+        get
+        {
+            var gameComp = Multiplayer.GameComp;
+            if (cachedPlayerCountVersion != gameComp.playerViewsVersion)
+            {
+                cachedPlanetViewerCount = 0;
+                foreach (var viewedMapId in gameComp.playerViewedMaps.Values)
+                    if (viewedMapId == VTRSync.WorldMapId)
+                        cachedPlanetViewerCount++;
+                cachedPlayerCountVersion = gameComp.playerViewsVersion;
+            }
+
+            return cachedPlanetViewerCount;
+        }
+    }
+
+    // World objects run at full rate while anyone is connected, not only
+    // while someone has the planet view open. Vanilla's rate-15 default for
+    // an unwatched world assumes nobody can see it; in multiplayer caravans
+    // and world motion are visible from map view edges and the session is
+    // always watched by someone, and a permanently lumping world was field-
+    // reported as "world rendering strangeness". Derived from synced state,
+    // identical on every client.
+    public int VTR => Multiplayer.GameComp.playerViewedMaps.Count > 0 ? VTRSync.MinimumVtr : VTRSync.MaximumVtr;
 
     public int TickableId => -1;
 
@@ -68,6 +103,15 @@ public class AsyncWorldTimeComp : IExposable, ITickable
 
     public int worldTicks;
 
+    // The global slot fields the world previously had no owner for. TimeSlower
+    // is transient in vanilla (never scribed), so a fresh instance is correct;
+    // gameStartAbsTick is captured at construction, which runs after
+    // ExposeSmallComponents has loaded the TickManager on every path
+    // (deserialization via SaveWorldComp, its comp-missing fallback, and the
+    // singleplayer conversion in HostUtil).
+    public TimeSlower slower = new();
+    public int worldGameStartAbsTick;
+
     public AsyncWorldTimeComp(World world)
     {
         this.world = world;
@@ -75,6 +119,8 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         // Use the world's constant rand seed as our initial randState.
         // Only fill the seed part, leave the iterations out.
         randState = (uint)world.ConstantRandSeed;
+
+        worldGameStartAbsTick = Find.TickManager?.gameStartAbsTick ?? 0;
     }
 
     public void ExposeData()
@@ -86,18 +132,34 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         Scribe_Values.Look(ref timeSpeedInt, "timeSpeed");
         Scribe_Custom.LookULong(ref randState, "randState", 2);
 
-        TimeSpeed timeSpeed = Find.TickManager.CurTimeSpeed;
-        Scribe_Values.Look(ref timeSpeed, "timeSpeed");
+        // Read the world's own speed, not the global TickManager - the global only
+        // held it because PreContext used to leave it installed, so a save taken from
+        // a UI context would persist the viewed map's speed instead. Guarded on
+        // Saving: DesiredTimeSpeed walks Find.Maps, empty during LoadingVars.
+        // Own node: sharing "timeSpeed" with the field above made this a no-op, since
+        // Look resolves a label to the first matching child. timeSpeedInt is the
+        // default, so saves without the node fall back to the speed loaded above.
+        TimeSpeed globalTimeSpeed = Scribe.mode == LoadSaveMode.Saving ? DesiredTimeSpeed : timeSpeedInt;
+        Scribe_Values.Look(ref globalTimeSpeed, "globalTimeSpeed", timeSpeedInt);
         if (Scribe.mode == LoadSaveMode.LoadingVars)
-            Find.TickManager.CurTimeSpeed = timeSpeed;
+            Find.TickManager.CurTimeSpeed = globalTimeSpeed;
 
         if (Scribe.mode == LoadSaveMode.LoadingVars)
             Multiplayer.game.worldComp = new MultiplayerWorldComp(world);
 
         Multiplayer.game.worldComp.ExposeData();
 
-        if (Scribe.mode == LoadSaveMode.LoadingVars)
+        // World-basis tick stamps (CooldownClockPatches) survive reload only if
+        // the world clock itself does; absent node (older saves) falls back to
+        // the old rebuild-from-TicksGame behavior
+        Scribe_Values.Look(ref worldTicks, "worldTicks", -1);
+        if (Scribe.mode == LoadSaveMode.LoadingVars && worldTicks < 0)
             worldTicks = Find.TickManager.TicksGame;
+
+        // Not scribed - always the global TickManager's value, re-derived on
+        // load in case the ctor ran before the meta components were current
+        if (Scribe.mode == LoadSaveMode.LoadingVars)
+            worldGameStartAbsTick = Find.TickManager.gameStartAbsTick;
     }
 
     public void Tick()
@@ -109,6 +171,13 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         {
             Find.TickManager.DoSingleTick();
             worldTicks++;
+
+            // PreContext installed worldTicks and DoSingleTick incremented the
+            // ambient, so the two can only disagree if something else moved one
+            // of them - which would silently shift every world-clock read
+            if (MpVersion.IsDebug && Find.TickManager.ticksGameInt != worldTicks)
+                Log.Error($"MP: world clock mismatch: ambient {Find.TickManager.ticksGameInt} != worldTicks {worldTicks}");
+
             Multiplayer.WorldComp.TickWorldSessions();
 
             if (ModsConfig.BiotechActive)
@@ -141,9 +210,21 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         }
     }
 
+// The world's clock lives on the global TickManager only while installed
+    // here; the world tick is self-contained. PreContext installs the full
+    // world snapshot - ticksGameInt = worldTicks, the scribed mirror that
+    // DoSingleTick's increment tracks - and PostContext restores whatever the
+    // frame had. Readers that want world time between ticks (letters, alerts,
+    // world render, saving) install it explicitly. A stack because world
+    // commands can nest a world context inside the world tick.
+    private readonly Stack<TimeSnapshot?> prevTimes = new();
+
+    // Expected faction stack depth per nested bracket - see AsyncTimeComp
+    private readonly Stack<int> prevFactionDepths = new();
+
     public void PreContext()
     {
-        Find.TickManager.CurTimeSpeed = DesiredTimeSpeed;
+        prevTimes.Push(TimeSnapshot.GetAndSetFromWorld());
         Rand.PushState();
         Rand.StateCompressed = randState;
 
@@ -153,19 +234,45 @@ public class AsyncWorldTimeComp : IExposable, ITickable
             foreach (var map in Find.Maps)
                 map.MpComp().SetFaction(Multiplayer.WorldComp.spectatorFaction);
         }
+
+        // Recorded unconditionally: the command path pushes the command's
+        // faction after PreContext even outside multifaction, and a throw in
+        // the handler must not strand it
+        prevFactionDepths.Push(FactionContext.stack.Count);
     }
 
     public void PostContext()
     {
+        if (prevFactionDepths.Count == 0)
+            Log.Error("MP: unbalanced faction depth on the world clock");
+        else
+            FactionExtensions.UnwindFactionStack(null, prevFactionDepths.Pop(), "world bracket");
+
         if (Multiplayer.GameComp.multifaction)
         {
-            var f = FactionExtensions.PopFaction();
+            // Restore must be unconditional: PreContext swapped EVERY map onto
+            // the spectator faction's data (resourceCounter, zone/area/
+            // designation managers), and leaving any map on it corrupts every
+            // UI read until something else swaps it back (alternating only on
+            // frames that ran a world tick - a per-frame flicker/re-ping
+            // shape). A balanced pop returns the pre-world-tick OfPlayer,
+            // which is the client-local faction, so falling back to
+            // RealPlayerFaction on an unbalanced pop restores the same thing
+            // the balanced path would have. This is the faction half of the
+            // same PreContext/PostContext imbalance whose speed half caused
+            // the paused-map time-context bug.
+            var f = FactionExtensions.PopFaction() ?? Multiplayer.RealPlayerFaction;
             foreach (var map in Find.Maps)
                 map.MpComp().SetFaction(f);
         }
 
         randState = Rand.StateCompressed;
         Rand.PopState();
+
+        if (prevTimes.Count == 0)
+            Log.Error("MP: unbalanced PostContext on the world clock");
+        else
+            prevTimes.Pop()?.Set();
     }
 
     public void ExecuteCmd(ScheduledCommand cmd)
@@ -231,28 +338,20 @@ public class AsyncWorldTimeComp : IExposable, ITickable
 
             if (cmdType == CommandType.PlayerCount)
             {
-                int previousMapId = data.ReadInt32();
-                int newMapId = data.ReadInt32();
-                int mapCount = Find.Maps.Count;
+                // Payload: (playerId, viewedMapId). InvalidMapId removes the
+                // entry (server-sent when the player disconnects). The VTR
+                // counts derive from the table - see
+                // MultiplayerGameComp.playerViewedMaps.
+                int playerId = data.ReadInt32();
+                int viewedMapId = data.ReadInt32();
+                Multiplayer.GameComp.SetPlayerViewedMap(playerId, viewedMapId);
 
-                var prev = -1;
-                if (previousMapId >= 0)
-                    prev = Find.Maps.FirstOrDefault(x => x.uniqueID == previousMapId)?.AsyncTime()?.DecreasePlayerCount() ?? -1;
-                else if (previousMapId == VTRSync.WorldMapId)
-                    prev = Multiplayer.AsyncWorldTime.CurrentPlayerCount -= 1;
-
-                var curr = -1;
-                if (newMapId >= 0)
-                    curr = Find.Maps.FirstOrDefault(x => x.uniqueID == newMapId)?.AsyncTime()?.IncreasePlayerCount() ?? -1;
-                else if (newMapId == VTRSync.WorldMapId)
-                    curr = Multiplayer.AsyncWorldTime.CurrentPlayerCount += 1;
-
-                MpLog.Debug($"[{worldTicks}|{Multiplayer.session.remoteTickUntil}] Player count change: previousMapId={previousMapId} ({prev}), newMapId={newMapId} ({curr}), mapCount={mapCount}");
+                MpLog.Debug($"[{worldTicks}|{Multiplayer.session.remoteTickUntil}] Player view: player={playerId}, map={viewedMapId}, views={Multiplayer.GameComp.playerViewedMaps.Count}");
             }
         }
         catch (Exception e)
         {
-            Log.Error($"World cmd exception ({cmdType}): {e}");
+            SimulationFailures.Handle($"World cmd exception ({cmdType})", e);
         }
         finally
         {

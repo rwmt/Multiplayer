@@ -15,8 +15,7 @@ namespace Multiplayer.Client
                 }
                 catch (Exception e)
                 {
-                    Log.Error($"Exception during {name} initialization: {e}");
-                    Multiplayer.loadingErrors = true;
+                    Multiplayer.LoadingError($"Exception during {name} initialization: {e}");
                 }
             }
 

@@ -5,6 +5,7 @@ using System.Linq;
 using HarmonyLib;
 using LudeonTK;
 using Multiplayer.Client.AsyncTime;
+using Multiplayer.Client.Desyncs;
 using Multiplayer.Common;
 using Multiplayer.Common.Networking.Packet;
 using RimWorld.Planet;
@@ -51,7 +52,15 @@ namespace Multiplayer.Client
 
                 var maps = Find.Maps;
                 for (int i = maps.Count - 1; i >= 0; i--)
-                    yield return maps[i].AsyncTime();
+                {
+                    // Skip maps whose AsyncTimeComp isn't registered yet
+                    // (mid-session map generation) - every consumer derefs the
+                    // tickable, and a command aimed at such a map already
+                    // fails loud through RunCmds' TickableById null path.
+                    var comp = maps[i].AsyncTime();
+                    if (comp != null)
+                        yield return comp;
+                }
             }
         }
 
@@ -161,8 +170,47 @@ namespace Multiplayer.Client
 
         static void Postfix()
         {
-            if (Multiplayer.Client == null || Find.CurrentMap == null) return;
-            Shader.SetGlobalFloat(ShaderPropertyIDs.GameSeconds, Find.CurrentMap.AsyncTime().mapTicks.TicksToSeconds());
+            if (Multiplayer.Client == null) return;
+
+            InstallViewerTimeContext();
+            Patches.FactionResidueGuard.HealAfterTicks();
+
+            // AsyncTime() can be null while a join or load is mid-flight
+            // (Multiplayer.game lags Client in that window)
+            if (Find.CurrentMap?.AsyncTime() is not { } viewerTime) return;
+            Shader.SetGlobalFloat(ShaderPropertyIDs.GameSeconds, viewerTime.mapTicks.TicksToSeconds());
+        }
+
+// Nothing owns the global clock between ticks, so rendering and the
+        // UI read whatever the last tickable left installed. Give the rest of
+        // the frame one defined context instead: the full snapshot (tick
+        // count, speed, slower, gameStartAbsTick) of what the player is
+        // actually looking at, so every unwrapped per-frame reader sees a
+        // single consistent clock instead of alternating between the viewer's
+        // clock inside SetMapTime brackets and the world clock outside them.
+        //
+        // Between-tick readers that genuinely want world time have explicit
+        // world wraps: LetterStackUpdate, AlertsReadout, World.WorldUpdate
+        // and - load-bearing for determinism - SaveLoad.SaveGameData, which
+        // would otherwise scribe each client's viewer clock into join-point
+        // saves.
+        //
+        // Safe for the sim: this runs after the entire tick and command loop,
+        // and every sim path installs its own context on entry (the world
+        // tick installs its own count), so this value is never a simulation
+        // input.
+        internal static void InstallViewerTimeContext()
+        {
+            // Null checks cover the join/load window where Multiplayer.game
+            // (and with it the async comps) lags Multiplayer.Client
+            if (Multiplayer.game == null || Find.TickManager == null) return;
+
+            // The previous snapshots are deliberately discarded: this installs
+            // the frame's owner, it doesn't bracket a scope
+            if (WorldRendererUtility.WorldSelected)
+                TimeSnapshot.GetAndSetFromWorld();
+            else if (Find.CurrentMap is { } map && map.AsyncTime() != null)
+                TimeSnapshot.GetAndSetFromMap(map);
         }
 
         private static bool RunCmds()
@@ -258,7 +306,7 @@ namespace Multiplayer.Client
                 }
                 catch (Exception e)
                 {
-                    Log.Error($"Exception during ticking {tickable}: {e}");
+                    SimulationFailures.Handle($"Exception during ticking {tickable}", e);
                 }
             }
         }
@@ -291,7 +339,14 @@ namespace Multiplayer.Client
 
             var rate = Multiplayer.AsyncWorldTime.TickRateMultiplier(speed);
             foreach (var map in Find.Maps)
-                rate = Math.Min(rate, map.AsyncTime().TickRateMultiplier(speed));
+            {
+                // A map can sit in Find.Maps before its AsyncTimeComp is
+                // registered (mid-session map generation). A comp-less map
+                // isn't a running map, so it can't bound the rate.
+                var comp = map.AsyncTime();
+                if (comp != null)
+                    rate = Math.Min(rate, comp.TickRateMultiplier(speed));
+            }
 
             return rate;
         }
@@ -315,6 +370,23 @@ namespace Multiplayer.Client
         public static void SetTimer(int value) => Timer = value;
 
         public static ITickable TickableById(int tickableId) => AllTickables.FirstOrDefault(t => t.TickableId == tickableId);
+    }
+
+    // Root_Play.Update runs RealTime.Update, PortraitsCache and UIRootUpdate
+    // BEFORE TickManagerUpdate, where the frame's viewer context is normally
+    // installed - so those consumers read the PREVIOUS frame's residual
+    // ambient (e.g. unpausedTime advances by a stale TickRateMultiplier,
+    // making pausable-animated materials move in bursts). Install the viewer
+    // context at the top of the frame too; the sim still installs its own
+    // contexts on entry, so this is render/UI-only like the post-tick install.
+    [HarmonyPatch(typeof(Root_Play), nameof(Root_Play.Update))]
+    static class FrameStartViewerContext
+    {
+        static void Prefix()
+        {
+            if (Multiplayer.Client == null) return;
+            TickPatch.InstallViewerTimeContext();
+        }
     }
 
     public class SimulatingData

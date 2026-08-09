@@ -19,6 +19,9 @@ namespace Multiplayer.Common
         public int ticksBehindReceivedAt;
         public int ExtrapolatedTicksBehind => ticksBehind + (Server.gameTimer - ticksBehindReceivedAt);
 
+        // NetTimer value when this player first exceeded the pause gate, -1 while keeping up
+        public int behindSinceNetTimer = -1;
+
         public ulong steamId;
         public string steamPersonaName = "";
 

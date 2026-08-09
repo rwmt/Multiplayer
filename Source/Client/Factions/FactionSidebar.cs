@@ -360,6 +360,44 @@ namespace Multiplayer.Client
             {
                 Find.WindowStack.Add(new Dialog_FactionDuringLanding());
             }
+
+            // Multifaction creation skips the vanilla naming prompts - offer them
+            // here (the dialogs' accept paths are synced in SyncMethods)
+            if (Multiplayer.RealPlayerFaction is { } myFaction &&
+                myFaction != Multiplayer.WorldComp.spectatorFaction)
+            {
+                Rect renameFactionRect = new Rect(
+                    viewRect.x,
+                    worldFactionsRect.yMax + spacing,
+                    viewRect.width,
+                    buttonHeight
+                );
+                if (Widgets.ButtonText(renameFactionRect, "Rename faction"))
+                    Find.WindowStack.Add(new Dialog_NamePlayerFaction());
+
+                var mySettlements = Find.WorldObjects.Settlements
+                    .Where(s => s.Faction == myFaction).ToList();
+
+                if (mySettlements.Any())
+                {
+                    Rect nameColonyRect = new Rect(
+                        viewRect.x,
+                        renameFactionRect.yMax + spacing,
+                        viewRect.width,
+                        buttonHeight
+                    );
+                    if (Widgets.ButtonText(nameColonyRect, "Name colony"))
+                    {
+                        if (mySettlements.Count == 1)
+                            Find.WindowStack.Add(new Dialog_NamePlayerSettlement(mySettlements[0]));
+                        else
+                            Find.WindowStack.Add(new FloatMenu(mySettlements
+                                .Select(s => new FloatMenuOption(s.Name,
+                                    () => Find.WindowStack.Add(new Dialog_NamePlayerSettlement(s))))
+                                .ToList()));
+                    }
+                }
+            }
             // END Buttons
         }
 

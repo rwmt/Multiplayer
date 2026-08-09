@@ -5,6 +5,7 @@ using HarmonyLib;
 using Multiplayer.Client.Factions;
 using Multiplayer.Client.Persistent;
 using Multiplayer.Client.Saving;
+using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
@@ -110,9 +111,20 @@ namespace Multiplayer.Client
                 foreach (var data in factionData)
                 {
                     map.PushFaction(data.Key);
-                    data.Value.listerHaulables.ListerHaulablesTick();
-                    data.Value.resourceCounter.ResourceCounterTick();
-                    map.PopFaction();
+                    try
+                    {
+                        data.Value.listerHaulables.ListerHaulablesTick();
+                        data.Value.resourceCounter.ResourceCounterTick();
+                    }
+                    finally
+                    {
+                        // A throw here still aborts the remaining factions
+                        // (caught and surfaced at the tickable level), but it
+                        // must not strand this faction's data as the map's
+                        // installed managers - that shifts the faction context
+                        // stack and corrupts UI reads for the whole session
+                        map.PopFaction();
+                    }
                 }
             }
             finally
@@ -121,10 +133,22 @@ namespace Multiplayer.Client
             }
         }
 
+        private static readonly HashSet<long> warnedMissingFactionData = new();
+
         public void SetFaction(Faction faction)
         {
             if (!factionData.TryGetValue(faction.loadID, out FactionMapData data))
+            {
+                // Skipping the swap leaves the map on whatever faction's data
+                // is currently installed - if that was a transient context
+                // (e.g. the world tick's spectator swap), the map stays wrong
+                // until the next successful SetFaction. Never fail this
+                // silently: name the map and faction once so a leak is
+                // attributable.
+                if (warnedMissingFactionData.Add(((long)map.uniqueID << 32) | (uint)faction.loadID))
+                    MpLog.Warn($"SetFaction skipped: map {map.uniqueID} has no FactionMapData for faction {faction.loadID} ({faction.Name}) - map keeps the previously installed faction data");
                 return;
+            }
 
             map.designationManager = data.designationManager;
             map.areaManager = data.areaManager;

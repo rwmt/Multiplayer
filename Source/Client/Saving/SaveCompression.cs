@@ -383,4 +383,32 @@ namespace Multiplayer.Client
             return t.Map?.compressor?.compressibilityDecider.IsReferenced(t) ?? false;
         }
     }
+
+    // Vanilla 1.6 bug: Ideology TreeSighting refs aren't declared to the
+    // compressor, so sighted wild trees compress away and every save warns.
+    // Declare them like job/designation targets; also fixes SP saves.
+    [HarmonyPatch(typeof(CompressibilityDecider), nameof(CompressibilityDecider.DetermineReferences))]
+    static class DeclareTreeSightingRefs
+    {
+        static void Postfix(CompressibilityDecider __instance)
+        {
+            foreach (var pawn in __instance.map.mapPawns.AllPawnsSpawned)
+            {
+                var surroundings = pawn.surroundings;
+                if (surroundings == null) continue;
+
+                Declare(__instance, surroundings.miniTreeSightings);
+                Declare(__instance, surroundings.fullTreeSightings);
+            }
+        }
+
+        static void Declare(CompressibilityDecider decider, List<TreeSighting> sightings)
+        {
+            if (sightings == null) return;
+
+            foreach (var sighting in sightings)
+                if (sighting.tree != null)
+                    decider.referencedThings.Add(sighting.tree);
+        }
+    }
 }
