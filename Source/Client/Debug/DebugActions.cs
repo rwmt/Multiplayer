@@ -11,6 +11,7 @@ using System.Text;
 using HarmonyLib;
 using LudeonTK;
 using Multiplayer.Client.Desyncs;
+using Multiplayer.Common;
 using Multiplayer.Client.Util;
 using Multiplayer.Client.Windows;
 using RimWorld;
@@ -335,17 +336,31 @@ namespace Multiplayer.Client
         [DebugAction(MultiplayerCategory, allowedGameStates = AllowedGameStates.Playing)]
         static void LogAllPatch()
         {
+            var logger = new HarmonyMethod(typeof(MpDebugActions), nameof(MultiplayerMethodCallLogger));
+            var refused = 0;
+
             foreach (var method in Assembly.GetExecutingAssembly().DefinedTypes.SelectMany(t => t.DeclaredMethods))
-                if (method.Name != "MultiplayerMethodCallLogger" &&
-                    !method.Name.StartsWith("get_") &&
-                    !method.IsGenericMethod &&
-                    method.DeclaringType?.IsGenericType is false &&
-                    method.DeclaringType?.BaseType != typeof(MulticastDelegate) &&
-                    !method.IsAbstract)
-                    Multiplayer.harmony.Patch(
-                        method,
-                        prefix: new HarmonyMethod(typeof(MpDebugActions), nameof(MultiplayerMethodCallLogger))
-                    );
+            {
+                if (!InstrumentationTargets.ShouldInstrument(method))
+                    continue;
+
+                try
+                {
+                    Multiplayer.harmony.Patch(method, prefix: logger);
+                }
+                catch (Exception e)
+                {
+                    // The filter cannot anticipate every reason Harmony may refuse a method, and a trace
+                    // missing one entry is worth far more than no trace at all. Counted rather than logged
+                    // per method, so a systematic refusal does not bury the trace this action exists for.
+                    refused++;
+                    if (refused == 1)
+                        Log.Warning($"MP: could not instrument {method.FullDescription()}: {e.GetBaseException().Message}");
+                }
+            }
+
+            if (refused > 0)
+                Log.Warning($"MP: {refused} method(s) could not be instrumented; the trace below is incomplete");
         }
 
         [DebugAction(MultiplayerCategory, allowedGameStates = AllowedGameStates.Entry)]
