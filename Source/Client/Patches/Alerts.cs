@@ -38,7 +38,7 @@ public static class Patch_Alert_SlavesUnsuppressed_Targets
 // You will not get abandoned warning: (baby from other faction without the same faction adult)
 // for (other) player owned babies at all, unless it's happened directly on YOUR base.
 // Example: someone catapulted their baby on your map. Your own babies get a different set of warning, which works fine.
-[HarmonyPatch(typeof(Alert_AbandonedBaby), "AbandonedBabies")]
+[HarmonyPatch(typeof(Alert_AbandonedBaby), nameof(Alert_AbandonedBaby.AbandonedBabies))]
 public static class Patch_Alert_AbandonedBaby_MultifactionWarning
 {
 	[HarmonyPostfix]
