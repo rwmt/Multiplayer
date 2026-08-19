@@ -8,7 +8,7 @@ namespace Multiplayer.Client;
 
 // Add faction check to "slaves unattended" warning
 [HarmonyPatch(typeof(SlaveRebellionUtility), nameof(SlaveRebellionUtility.IsUnattendedByColonists))]
-public static class Patch_SlaveRebellionUtility_IsUnattendedByColonists
+public static class SlaveRebellionUtility_IsUnattendedByColonists_Patch
 {
 	[HarmonyPostfix]
 	public static void Postfix(Map map, ref bool __result)
@@ -23,7 +23,7 @@ public static class Patch_SlaveRebellionUtility_IsUnattendedByColonists
 
 // Add faction check to "slaves unsuppressed" warning
 [HarmonyPatch(typeof(Alert_SlavesUnsuppressed), nameof(Alert_SlavesUnsuppressed.Targets), MethodType.Getter)]
-public static class Patch_Alert_SlavesUnsuppressed_Targets
+public static class Alert_SlavesUnsuppressed_Targets_Patch
 {
 	[HarmonyPostfix]
 	public static void Postfix(ref List<Pawn> __result)
@@ -39,7 +39,7 @@ public static class Patch_Alert_SlavesUnsuppressed_Targets
 // for (other) player owned babies at all, unless it's happened directly on YOUR base.
 // Example: someone catapulted their baby on your map. Your own babies get a different set of warning, which works fine.
 [HarmonyPatch(typeof(Alert_AbandonedBaby), nameof(Alert_AbandonedBaby.AbandonedBabies))]
-public static class Patch_Alert_AbandonedBaby_MultifactionWarning
+public static class Alert_AbandonedBaby_AbandonedBabies_Patch
 {
 	[HarmonyPostfix]
 	public static void Postfix(ref List<Pawn> __result)
@@ -56,7 +56,7 @@ public static class Patch_Alert_AbandonedBaby_MultifactionWarning
 // constant warnings, when viewed from another, higher tick map.
 // We ensure that animals in the list are actually starving.
 [HarmonyPatch(typeof(Alert_StarvationAnimals), nameof(Alert_StarvationAnimals.StarvingAnimals), MethodType.Getter)]
-public static class Patch_Alert_StarvationAnimals
+public static class Alert_StarvationAnimals_StarvingAnimals_Patch
 {
 	[HarmonyPostfix]
 	public static void Postfix(Alert_StarvationAnimals __instance, ref List<Pawn> __result)
@@ -80,7 +80,7 @@ public static class Patch_Alert_StarvationAnimals
 // Exact same idea as in "Patch_Alert_StarvationAnimals",
 // but this class is written slightly differently
 [HarmonyPatch(typeof(Alert_PennedAnimalHungry), nameof(Alert_PennedAnimalHungry.CalculateTargets))]
-public static class Patch_Alert_PennedAnimalHungry
+public static class Alert_PennedAnimalHungry_CalculateTargets_Patch
 {
 	[HarmonyPostfix]
 	public static void Postfix(Alert_PennedAnimalHungry __instance)
