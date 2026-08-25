@@ -53,7 +53,7 @@ public static class Alert_AbandonedBaby_AbandonedBabies_Patch
 
 // Vanilla uses (mostly) "needs.food.TicksStarving" to determine
 // if animals are hungry/starving. Which in async results in
-// constant warnings, when viewed from another, higher tick map.
+// constant warnings when viewed from another, higher tick map.
 // We ensure that animals in the list are actually starving.
 [HarmonyPatch(typeof(Alert_StarvationAnimals), nameof(Alert_StarvationAnimals.StarvingAnimals), MethodType.Getter)]
 public static class Alert_StarvationAnimals_StarvingAnimals_Patch
