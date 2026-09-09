@@ -265,4 +265,34 @@ namespace Multiplayer.Client
         }
     }
 
+    [HarmonyPatch(typeof(PowerNet), nameof(PowerNet.DistributeEnergyAmongBatteries))]
+    static class SeedPowerNetBatteryDistribution
+    {
+        static void Prefix(ref bool __state)
+        {
+            if (Multiplayer.Client == null) return;
+
+            // DistributeEnergyAmongBatteries shuffles the net's battery list, consuming RNG. Whether it
+            // runs at all on a given tick is decided by a float comparison in PowerNet.ChangeStoredEnergy
+            // (extra > 0f), fed by CurrentEnergyGainRate/CurrentStoredEnergy summing floats across every
+            // power component on the net. Those sums drift by tiny amounts between machines, so the
+            // comparison can flip a tick earlier on one peer than another: one peer runs the shuffle on a
+            // tick where the other does not, the shared stream advances by a different number of calls,
+            // and the map desyncs ("Wrong random state on map 0"). A colony with a large enough grid hits
+            // this repeatedly - the desync recurs every few thousand ticks after each rejoin.
+            // Isolating the RNG is safe because the shuffled order cannot affect the outcome: each pass
+            // adds the same amount to every battery still in the list (the smallest AmountCanAccept, or
+            // an even share of what remains), and a battery's AmountCanAccept depends only on itself, so
+            // every permutation leaves the batteries holding the same energy.
+            Rand.PushState();
+            __state = true;
+        }
+
+        static void Finalizer(bool __state)
+        {
+            if (__state)
+                Rand.PopState();
+        }
+    }
+
 }
