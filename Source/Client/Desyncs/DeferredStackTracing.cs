@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -34,15 +35,22 @@ namespace Multiplayer.Client.Desyncs
             if (Native.LmfPtr == 0) return;
             if (!ShouldAddStackTraceForDesyncLog()) return;
 
-            var logItem = StackTraceLogItemRaw.GetFromPool();
-            var trace = logItem.raw;
-            int hash = 0;
-            // Skip this (DeferredStackTracing.Postfix) frame. Keeping it in the trace doesn't provide any value.
-            int depth = DeferredStackTracingImpl.TraceImpl(trace, ref hash, skipFrames: 1);
+            try
+            {
+                var logItem = StackTraceLogItemRaw.GetFromPool();
+                var trace = logItem.raw;
+                int hash = 0;
+                // Skip this (DeferredStackTracing.Postfix) frame. Keeping it in the trace doesn't provide any value.
+                int depth = DeferredStackTracingImpl.TraceImpl(trace, ref hash, skipFrames: 1);
 
-            Multiplayer.game.sync.TryAddStackTraceForDesyncLogRaw(logItem, depth, hash);
+                Multiplayer.game.sync.TryAddStackTraceForDesyncLogRaw(logItem, depth, hash);
 
-            acc++;
+                acc++;
+            }
+            catch (Exception ex)
+            {
+                Log.WarningOnce($"[Multiplayer] Exception during deferred stack tracing: {ex}", 71948201);
+            }
         }
 
         public static bool ShouldAddStackTraceForDesyncLog()

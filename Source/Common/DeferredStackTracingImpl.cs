@@ -153,6 +153,9 @@ public static class DeferredStackTracingImpl
 
             if (depth >= skipFrames)
             {
+                if (index >= traceIn.Length)
+                    break;
+
                 traceIn[index] = ret;
 
                 // info.nameHash == 0 marks methods to skip
