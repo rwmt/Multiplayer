@@ -1,0 +1,194 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+
+namespace Mono.Cecil { public class ModuleDefinition { } }
+
+namespace HarmonyLib
+{
+    public static class AccessTools
+    {
+        public static MethodInfo Method(string name) => typeof(Multiplayer.Client.Sync).GetMethod("Method");
+        public static MethodInfo Method(Type type, string name) => type.GetMethod(name);
+    }
+}
+
+namespace Multiplayer.API
+{
+    public interface ISyncMethod
+    {
+        ISyncMethod TransformArgument<Live, Networked>(int index, Serializer<Live, Networked> serializer);
+    }
+    public class Serializer<Live, Networked> { }
+    public static class Serializer
+    {
+        public static Serializer<Live, Networked> New<Live, Networked>(
+            Func<Live, object, object[], Networked> writer, Func<Networked, Live> reader) => new();
+    }
+}
+
+namespace RimWorld
+{
+    public interface ILordJobRole { }
+    public class RitualRole : ILordJobRole { }
+    public class PsychicRitualRoleDef : ILordJobRole { }
+    public class Assignments<T> where T : class, ILordJobRole
+    {
+        public string Key;
+        public T Role;
+        public int GroupReads;
+        public IEnumerable<IGrouping<string, T>> RoleGroups()
+        {
+            GroupReads++;
+            return new[] { Role }.GroupBy(_ => Key);
+        }
+    }
+    public class PawnRoleSelectionWidgetBase<T> where T : class, ILordJobRole
+    {
+        public static readonly List<IGrouping<string, T>> rolesGroupedTmp = new();
+        public Assignments<T> assignments;
+        // Method names are used by the production sync registration. Assignment selection
+        // itself is deliberately not reimplemented in this fixture.
+        public void TryAssignReplace() { }
+        public void TryAssignAnyRole() { }
+        public void TryAssign() { }
+        public void DrawPawnListInternal() { }
+    }
+    public class PawnRitualRoleSelectionWidget : PawnRoleSelectionWidgetBase<RitualRole> { }
+    public class PawnPsychicRitualRoleSelectionWidget : PawnRoleSelectionWidgetBase<PsychicRitualRoleDef> { }
+}
+
+namespace MultiplayerLoader
+{
+    public interface ISyncMethodForPrepatcher : Multiplayer.API.ISyncMethod
+    {
+        Type TargetType { get; }
+        bool DoSync(object target, object[] args);
+    }
+    public static class Prepatches
+    {
+        public static void AddPrepatcherPrefix(Mono.Cecil.ModuleDefinition module, int index,
+            MethodInfo original, MethodInfo prefix) { }
+    }
+}
+
+namespace Multiplayer.Client.Util
+{
+    public static class MpMethodUtil
+    {
+        public static MethodInfo GetLambda(Type type, string method, int lambdaOrdinal)
+            => typeof(MpMethodUtil).GetMethod("Lambda" + lambdaOrdinal);
+        public static void Lambda2() { }
+        public static void Lambda7() { }
+    }
+}
+
+namespace Multiplayer.Client
+{
+    public class SyncMethod : MultiplayerLoader.ISyncMethodForPrepatcher
+    {
+        public Type TargetType { get; set; }
+        public string Name;
+        public bool Enqueue;
+        public int SyncCalls;
+        public bool DoSync(object target, object[] args) { SyncCalls++; return Enqueue; }
+        public Multiplayer.API.ISyncMethod TransformArgument<Live, Networked>(int index,
+            Multiplayer.API.Serializer<Live, Networked> serializer) => this;
+    }
+    public static class Sync
+    {
+        public static readonly List<SyncMethod> Methods = new();
+        public static MultiplayerLoader.ISyncMethodForPrepatcher Method(Type target, string name, Type[] args)
+        {
+            var method = new SyncMethod { TargetType = target, Name = name };
+            Methods.Add(method);
+            return method;
+        }
+    }
+}
+
+public static class RitualCacheScenarios
+{
+    public static void Initialize() => MultiplayerLoader.SyncRituals.ApplyPrepatches(null);
+
+    public static string[] Replay(bool psychic, string initialGroup, bool enqueue, bool nested)
+        => psychic
+            ? Replay<RimWorld.PsychicRitualRoleDef, RimWorld.PawnPsychicRitualRoleSelectionWidget>(initialGroup, enqueue, nested)
+            : Replay<RimWorld.RitualRole, RimWorld.PawnRitualRoleSelectionWidget>(initialGroup, enqueue, nested);
+
+    private static string[] Replay<Role, Widget>(string initialGroup, bool enqueue, bool nested)
+        where Role : class, RimWorld.ILordJobRole, new()
+        where Widget : RimWorld.PawnRoleSelectionWidgetBase<Role>, new()
+    {
+        var widget = Create<Role, Widget>();
+        SetCache<Role>(initialGroup);
+        var index = Find<Widget>("TryAssignAnyRole");
+        Multiplayer.Client.Sync.Methods[index].Enqueue = enqueue;
+        bool runOriginal = nested
+            ? SyncedDelegate(index, widget)
+            : MultiplayerLoader.SyncRituals.PrepatcherPrefix(index, widget, Array.Empty<object>());
+        return new[] { runOriginal.ToString(), CacheKey<Role>(), widget.assignments.GroupReads.ToString() };
+    }
+
+    // A call inside a synced delegate enters the original generic prefix, rather than the
+    // top-level SyncMethod.Handle invocation. The preparation must work at this entry too.
+    private static bool SyncedDelegate(int index, object widget)
+        => MultiplayerLoader.SyncRituals.PrepatcherPrefix(index, widget, Array.Empty<object>());
+
+    public static bool NestedReplacement(bool psychic) => psychic
+        ? NestedReplacement<RimWorld.PsychicRitualRoleDef, RimWorld.PawnPsychicRitualRoleSelectionWidget>()
+        : NestedReplacement<RimWorld.RitualRole, RimWorld.PawnRitualRoleSelectionWidget>();
+
+    private static bool NestedReplacement<Role, Widget>()
+        where Role : class, RimWorld.ILordJobRole, new()
+        where Widget : RimWorld.PawnRoleSelectionWidgetBase<Role>, new()
+    {
+        var widget = Create<Role, Widget>();
+        SetCache<Role>("");
+        int index = Find<Widget>("TryAssignAnyRole");
+        Multiplayer.Client.Sync.Methods[index].Enqueue = false;
+        MultiplayerLoader.SyncRituals.PrepatcherPrefix(index, widget, Array.Empty<object>());
+        using var iterator = RimWorld.PawnRoleSelectionWidgetBase<Role>.rolesGroupedTmp.GetEnumerator();
+        if (!iterator.MoveNext()) return false;
+        int replacementIndex = Find<Widget>("TryAssignReplace");
+        bool runOriginal = MultiplayerLoader.SyncRituals.PrepatcherPrefix(replacementIndex, widget, Array.Empty<object>());
+        return runOriginal && !iterator.MoveNext() && widget.assignments.GroupReads == 1;
+    }
+
+    public static bool DifferentWidget()
+    {
+        var widget = Create<RimWorld.PsychicRitualRoleDef, RimWorld.PawnPsychicRitualRoleSelectionWidget>();
+        int index = Find<RimWorld.PawnRitualRoleSelectionWidget>("TryAssignAnyRole");
+        int callsBefore = Multiplayer.Client.Sync.Methods[index].SyncCalls;
+        bool runOriginal = MultiplayerLoader.SyncRituals.PrepatcherPrefix(index, widget, Array.Empty<object>());
+        return runOriginal && widget.assignments.GroupReads == 0
+            && Multiplayer.Client.Sync.Methods[index].SyncCalls == callsBefore;
+    }
+
+    public static bool SeparateCaches()
+    {
+        SetCache<RimWorld.RitualRole>("ideology cache");
+        Replay(true, "", false, false);
+        return CacheKey<RimWorld.RitualRole>() == "ideology cache"
+            && CacheKey<RimWorld.PsychicRitualRoleDef>() == "current ritual";
+    }
+
+    private static Widget Create<Role, Widget>()
+        where Role : class, RimWorld.ILordJobRole, new()
+        where Widget : RimWorld.PawnRoleSelectionWidgetBase<Role>, new()
+        => new Widget { assignments = new RimWorld.Assignments<Role> { Key = "current ritual", Role = new Role() } };
+
+    private static int Find<Widget>(string name)
+        => Multiplayer.Client.Sync.Methods.FindIndex(m => m.TargetType == typeof(Widget) && m.Name == name);
+
+    private static void SetCache<Role>(string key) where Role : class, RimWorld.ILordJobRole, new()
+    {
+        var cache = RimWorld.PawnRoleSelectionWidgetBase<Role>.rolesGroupedTmp;
+        cache.Clear();
+        if (key.Length != 0) cache.AddRange(new[] { new Role() }.GroupBy(_ => key));
+    }
+
+    private static string CacheKey<Role>() where Role : class, RimWorld.ILordJobRole
+        => string.Join(",", RimWorld.PawnRoleSelectionWidgetBase<Role>.rolesGroupedTmp.Select(g => g.Key));
+}
