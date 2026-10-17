@@ -65,6 +65,7 @@ namespace Multiplayer.Common
         public void SetDisconnected(ConnectionBase conn, MpDisconnectReason reason)
         {
             if (conn.State == ConnectionStateEnum.Disconnected) return;
+            server.CheckServerThread();
 
             conn.StateObj?.OnDisconnect();
 
@@ -135,6 +136,7 @@ namespace Multiplayer.Common
 
         public void OnJoin(ServerPlayer player)
         {
+            server.CheckServerThread();
             player.hasJoined = true;
             var standalonePrimaryPlayer = server.IsStandaloneServer &&
                 !server.JoinedPlayers.Any(p => p != player && !p.IsArbiter);
