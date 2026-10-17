@@ -161,7 +161,7 @@ namespace Multiplayer.Client
                             return;
                         }
 
-                        hediff = pawn.health.hediffSet.hediffs.First(x => x.loadID == id);
+                        hediff = pawn.health.hediffSet.hediffs.FirstOrDefault(x => x.loadID == id);
 
                         if (hediff == null)
                         {
@@ -819,6 +819,8 @@ namespace Multiplayer.Client
                             holder = worldObj;
                         else if (RwSerialization.GetAnyParent<WorldObjectComp>(thing) is { } worldObjComp)
                             holder = worldObjComp;
+                        else if (thing is Pawn pawn && RwSerialization.CanFindUnheldPawn(pawn))
+                            holder = Find.WorldPawns; // World pawns, pawns kept by quests/letters, etc.
 
                         RwSerialization.GetImpl(holder, RwSerialization.supportedThingHolders, out Type implType, out int index);
                         if (index == -1)
@@ -830,7 +832,7 @@ namespace Multiplayer.Client
 
                         data.WriteByte((byte)index);
 
-                        if (implType != typeof(Map))
+                        if (implType != typeof(Map) && implType != typeof(WorldPawns))
                         {
                             context.syncingThingParent = true;
                             WriteSyncObject(data, holder, implType);
@@ -852,6 +854,9 @@ namespace Multiplayer.Client
                             return null;
 
                         Type implType = RwSerialization.supportedThingHolders[implIndex];
+
+                        if (implType == typeof(WorldPawns))
+                            return RwSerialization.FindUnheldPawn(thingId);
 
                         if (implType != typeof(Map))
                         {
@@ -1059,10 +1064,9 @@ namespace Multiplayer.Client
                 (ByteReader data) => new PlanetTile(data.ReadInt32(), data.ReadInt32()), true // Implicit
             },
             {
-                (ByteWriter data, PlanetLayer workGiver) =>
+                (ByteWriter data, PlanetLayer layer) =>
                 {
-                    int layerId = workGiver?.LayerID ?? -1;
-                    WriteSync(data, workGiver.LayerID);
+                    WriteSync(data, layer?.LayerID ?? -1);
                 },
                 (ByteReader data) => {
 

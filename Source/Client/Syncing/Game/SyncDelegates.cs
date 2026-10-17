@@ -337,7 +337,7 @@ namespace Multiplayer.Client
 
         private static void InitChoiceLetters()
         {
-            SyncDelegate.Lambda(typeof(ChoiceLetter_ChoosePawn), nameof(ChoiceLetter_ChoosePawn.Option_ChoosePawn), 0); // Choose pawn (currently used for quest rewards)
+            SyncDelegate.Lambda(typeof(ChoiceLetter_ChoosePawn), nameof(ChoiceLetter_ChoosePawn.Option_ChoosePawn), 0).CancelIfAnyFieldNull(); // Choose pawn (currently used for quest rewards)
 
             SyncMethod.LambdaInGetter(typeof(ChoiceLetter_AcceptJoiner), nameof(ChoiceLetter_AcceptJoiner.Choices), 0); // Accept joiner
             CloseDialogsForExpiredLetters.RegisterDefaultLetterChoice(

@@ -229,13 +229,20 @@ namespace Multiplayer.Client
                 {
                     WriteSync(data, gene.def);
                     WriteSync(data, gene.pawn);
+                    data.WriteInt32(gene.loadID);
                 },
                 (ByteReader data) =>
                 {
                     var geneDef = ReadSync<GeneDef>(data);
                     var pawn = ReadSync<Pawn>(data);
+                    var loadId = data.ReadInt32();
 
-                    return pawn.genes.GetGene(geneDef);
+                    var genes = pawn?.genes;
+                    if (genes == null)
+                        return null;
+
+                    // A pawn can have the same gene def both as an endogene and a xenogene
+                    return genes.GenesListForReading.Find(g => g.loadID == loadId) ?? genes.GetGene(geneDef);
                 }, true // implicit
             },
             {

@@ -7,6 +7,7 @@ using System.Xml;
 using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Common;
+using RimWorld;
 using RimWorld.Planet;
 using Verse;
 
@@ -139,8 +140,17 @@ public static class RwSerialization
         typeof(Thing),
         typeof(ThingComp),
         typeof(WorldObject),
-        typeof(WorldObjectComp)
+        typeof(WorldObjectComp),
+        typeof(WorldPawns) // Not an IThingHolder, marks a pawn looked up by id (see FindUnheldPawn)
     };
+
+    // Pawns without a supported holder: world pawns and pawns only referenced by quests, letters etc.
+    internal static bool CanFindUnheldPawn(Pawn pawn) =>
+        pawn.IsWorldPawn() || PawnsFinder.AllMapsWorldAndTemporary_AliveOrDead.Contains(pawn);
+
+    internal static Pawn FindUnheldPawn(int thingId) =>
+        Find.WorldPawns.AllPawnsAliveOrDead.FirstOrDefault(p => p.thingIDNumber == thingId) ??
+        PawnsFinder.AllMapsWorldAndTemporary_AliveOrDead.FirstOrDefault(p => p.thingIDNumber == thingId);
 
     internal static string ThingHolderString(Thing thing)
     {
