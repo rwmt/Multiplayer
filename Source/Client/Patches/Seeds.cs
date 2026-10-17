@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
+using Multiplayer.Client.Patches;
 using Multiplayer.Client.Util;
 using Verse;
 using Verse.Grammar;
@@ -92,22 +93,28 @@ namespace Multiplayer.Client
         }
     }
 
+    // The seed and other simulation context are applied when the event runs, see SimLongEventContext
     [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.QueueLongEvent), typeof(Action), typeof(string), typeof(bool), typeof(Action<Exception>), typeof(bool), typeof(bool), typeof(Action))]
     static class SeedLongEvents
     {
-        static void Prefix(ref Action action, ref Action callback)
+        static void Prefix(ref SimLongEventContext __state)
         {
-            if (Multiplayer.Client != null && (Multiplayer.Ticking || Multiplayer.ExecutingCmds))
-            {
-                var seed = Rand.Int;
-                action = (() => Rand.PushState(seed)) + action + Rand.PopState;
+            if (SimLongEventContext.ShouldCapture)
+                __state = SimLongEventContext.Capture();
+        }
 
-                if (callback != null)
-                {
-                    var callbackSeed = Rand.Int;
-                    callback = (() => Rand.PushState(callbackSeed)) + callback + Rand.PopState;
-                }
-            }
+        static void Postfix(Action action, SimLongEventContext __state)
+        {
+            if (__state == null) return;
+
+            // Find the event that was just queued (it isn't if another prefix cancelled it)
+            LongEventHandler.QueuedLongEvent queued = null;
+            foreach (var ev in LongEventHandler.eventQueue)
+                if (ReferenceEquals(ev.eventAction, action))
+                    queued = ev;
+
+            if (queued != null)
+                SimLongEventContext.Attach(queued, __state);
         }
     }
 
