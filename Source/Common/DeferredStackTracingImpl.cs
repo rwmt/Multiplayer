@@ -162,6 +162,10 @@ public static class DeferredStackTracingImpl
                 if (lmfRbp == 0 || lmfRsp == 0)
                     break;
 
+                // The managed frame which called into native code is above the native frames
+                if (lmfRsp - 16 <= stck)
+                    return Fail(ret, "Bad LMF rsp");
+
                 rbp = lmfRbp;
                 stck = lmfRsp - 16;
 

@@ -251,6 +251,7 @@ namespace Multiplayer.Client
             int count = Rand.stateStack.Count;
             if (count == depth) return;
 
+            // Too shallow (an extra pop) can't be repaired, only reported
             Log.ErrorOnce($"Multiplayer: unbalanced Rand push/pop in {context}: stack depth {count}, expected {depth}", 0x5A3D17 ^ depth);
 
             while (Rand.stateStack.Count > depth)
@@ -360,8 +361,15 @@ namespace Multiplayer.Client
                 prevSelected = null;
 
                 // Local UI, depends on the local selection
-                using (LocalOnlyScope.Enter())
-                    Find.MainButtonsRoot.tabs.Notify_SelectedObjectDespawned();
+                try
+                {
+                    using (LocalOnlyScope.Enter())
+                        Find.MainButtonsRoot.tabs.Notify_SelectedObjectDespawned();
+                }
+                catch (Exception e)
+                {
+                    Log.Error($"Exception updating main tabs after a command: {e}");
+                }
 
                 RestoreRandStack(randDepth + 1, this);
                 map.PopFaction();
