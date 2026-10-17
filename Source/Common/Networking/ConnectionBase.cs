@@ -74,6 +74,8 @@ namespace Multiplayer.Common
         public const int MaxFragmentPacketSize = 1024;
         // Max size of a packet that can be sent fragmented. It is not possible to send any packets larger than this.
         public const int MaxFragmentPacketTotalSize = 33_554_432;
+        // The longest message SendFragmented accepts: the first fragment adds 6 bytes of metadata
+        public const int MaxFragmentedMessageLength = MaxFragmentPacketTotalSize - 6;
 
         private const int FragNone = 0x0;
         private const int FragMore = 0x40;
@@ -98,7 +100,7 @@ namespace Multiplayer.Common
             const int maxFragmentSize = MaxFragmentPacketSize - 2;
             // the first packet has an additional 6 bytes of overhead
             var totalLength = message.Length + 6;
-            if (totalLength > MaxFragmentPacketTotalSize)
+            if (message.Length > MaxFragmentedMessageLength)
             {
                 throw new PacketSendException(
                     $"Tried to send too big packet {id}. Max size: {MaxFragmentPacketTotalSize}, requested size (incl. overhead): {totalLength}.");

@@ -316,10 +316,66 @@ public class JoinPointTest
         server.IsStandaloneServer = true;
         var player = AddPlayer("a");
 
-        player.conn.GetState<ServerPlayingState>()!.HandleAutosaving(new ClientAutosavingPacket(JoinPointRequestReason.WorldTravel));
+        player.conn.GetState<ServerPlayingState>()!.HandleAutosaving(new ClientAutosavingPacket(JoinPointRequestReason.WorldTravel, 0));
         Assert.That(server.worldData.CreatingJoinPoint, Is.False);
 
-        player.conn.GetState<ServerPlayingState>()!.HandleAutosaving(new ClientAutosavingPacket(JoinPointRequestReason.Save));
+        player.conn.GetState<ServerPlayingState>()!.HandleAutosaving(new ClientAutosavingPacket(JoinPointRequestReason.Save, 0));
+        Assert.That(server.worldData.CreatingJoinPoint, Is.True);
+    }
+
+    private void AdvanceNetTimer(int ticks) =>
+        typeof(MultiplayerServer).GetProperty(nameof(MultiplayerServer.NetTimer))!
+            .SetValue(server, server.NetTimer + ticks);
+
+    private static void RequestSave(ServerPlayer player, int tick) =>
+        player.conn.GetState<ServerPlayingState>()!.HandleAutosaving(
+            new ClientAutosavingPacket(JoinPointRequestReason.Save, tick));
+
+    [Test]
+    public void DaysAutosaveRequestsForOneTickCreateOneJoinPoint()
+    {
+        server.IsStandaloneServer = true;
+        var uploader = AddPlayer("a");
+        var other = AddPlayer("b");
+        var slow = AddPlayer("slow");
+
+        // Every client autosaves at tick 90 and asks once its save is written
+        server.gameTimer = 100;
+        RequestSave(uploader, 90);
+        Assert.That(server.worldData.JoinPointTick, Is.EqualTo(100));
+        RequestSave(other, 90);
+        Upload(uploader, 100, [2]);
+        Assert.That(server.worldData.CompletedJoinPointTick, Is.EqualTo(100));
+
+        // Saving took the slow client longer than the forced join point cooldown
+        AdvanceNetTimer(WorldData.ForcedJoinPointCooldown + 1);
+        server.gameTimer = 400;
+        var cmdCount = server.worldData.cmds.Count;
+        RequestSave(slow, 90);
+
+        Assert.That(server.worldData.CreatingJoinPoint, Is.False);
+        Assert.That(server.worldData.cmds, Has.Count.EqualTo(cmdCount));
+
+        // A save of a newer state still gets one
+        RequestSave(other, 300);
+        Assert.That(server.worldData.CreatingJoinPoint, Is.True);
+        Assert.That(server.worldData.JoinPointTick, Is.EqualTo(400));
+    }
+
+    [Test]
+    public void SaveRequestAfterAnAbortedJoinPointCreatesOne()
+    {
+        server.IsStandaloneServer = true;
+        var uploader = AddPlayer("a");
+        var slow = AddPlayer("slow");
+
+        server.gameTimer = 100;
+        RequestSave(uploader, 90);
+        server.worldData.AbortJoinPointCreation();
+
+        // The server's world is still older than the save
+        AdvanceNetTimer(WorldData.ForcedJoinPointCooldown + 1);
+        RequestSave(slow, 90);
         Assert.That(server.worldData.CreatingJoinPoint, Is.True);
     }
 

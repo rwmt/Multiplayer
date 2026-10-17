@@ -70,8 +70,8 @@ namespace Multiplayer.Client
                 }
                 else if (session.autosaveUnit == AutosaveUnit.Days)
                 {
-                    // The map counters are synced game state, so every client requests at the same tick and the
-                    // server starts a single join point (duplicates are rejected while one is created/rate limited)
+                    // The map counters are synced game state, so every client saves at the same tick and the server
+                    // starts a single join point for it (WorldData.TryStartJoinPointForSave)
                     var anyMapCounterUp =
                         Multiplayer.game.mapComps
                         .Any(m => m.autosaveCounter > session.autosaveInterval * TicksPerIngameDay);

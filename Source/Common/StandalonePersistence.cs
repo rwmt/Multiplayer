@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Text;
 
 namespace Multiplayer.Common;
 
@@ -19,6 +21,10 @@ public class StandalonePersistence
     // All cmds since the join point in send order. Replaces the legacy per-tickable world_cmds.dat + maps/N_cmds.dat.
     private string CmdsPath => Path.Combine(SavedDir, "cmds.dat");
     private string LegacyWorldCmdsPath => Path.Combine(SavedDir, "world_cmds.dat");
+    // The protocol of the server that wrote the command log. Sync data in commands is encoded differently across
+    // protocols and the log is only replayed with the same one. Removed before and written after the log and the
+    // world are written, so a log of an older version or from an interrupted write has none.
+    private string CmdsProtocolPath => Path.Combine(SavedDir, "cmds_protocol.txt");
     private string SessionPath => Path.Combine(SavedDir, "session.dat");
     private string InfoPath => Path.Combine(SavedDir, "info.xml");
     private string StatePath => Path.Combine(SavedDir, "state.bin");
@@ -45,6 +51,7 @@ public class StandalonePersistence
     public void SeedFromSaveZip(string zipPath)
     {
         EnsureDirectories();
+        DeleteCmdsProtocol();
 
         using var zip = ZipFile.OpenRead(zipPath);
 
@@ -91,11 +98,14 @@ public class StandalonePersistence
 
             try
             {
-                WritePersistedTick(GetLatestTick(ReplayInfo.Read(infoBytes)));
+                var info = ReplayInfo.Read(infoBytes);
+                WritePersistedTick(GetLatestTick(info));
+                // The replay's commands were written by its protocol
+                WriteCmdsProtocol(info.protocol);
             }
             catch (Exception e)
             {
-                ServerLog.Error($"Failed to seed persisted tick from info.xml: {e.Message}");
+                ServerLog.Error($"Failed to seed persisted tick and protocol from info.xml: {e.Message}");
             }
         }
 
@@ -118,7 +128,6 @@ public class StandalonePersistence
         server.worldData.sessionData = File.Exists(SessionPath) ? File.ReadAllBytes(SessionPath) : Array.Empty<byte>();
 
         // Load maps
-        var legacyMapCmds = new List<List<ScheduledCommand>>();
         if (Directory.Exists(MapsDir))
         {
             foreach (var mapFile in Directory.GetFiles(MapsDir, "*.dat"))
@@ -127,31 +136,9 @@ public class StandalonePersistence
                 if (fileName.EndsWith("_cmds")) continue;
 
                 if (int.TryParse(fileName, out int mapId))
-                {
                     server.worldData.mapData[mapId] = File.ReadAllBytes(mapFile);
-
-                    var cmdsPath = Path.Combine(MapsDir, $"{mapId}_cmds.dat");
-                    if (File.Exists(cmdsPath))
-                        legacyMapCmds.Add(ScheduledCommand.DeserializeCmds(File.ReadAllBytes(cmdsPath)));
-                }
             }
         }
-
-        // Load commands
-        List<ScheduledCommand> cmds;
-        if (File.Exists(CmdsPath))
-        {
-            cmds = ScheduledCommand.DeserializeCmds(File.ReadAllBytes(CmdsPath));
-        }
-        else
-        {
-            var legacyWorldCmds = File.Exists(LegacyWorldCmdsPath)
-                ? ScheduledCommand.DeserializeCmds(File.ReadAllBytes(LegacyWorldCmdsPath))
-                : new List<ScheduledCommand>();
-            cmds = ScheduledCommand.MergeLegacyCmds(legacyWorldCmds, legacyMapCmds);
-        }
-
-        server.worldData.cmds = cmds.Select(ScheduledCommand.Serialize).ToList();
 
         // Load replay info for metadata
         ReplayInfo? info = null;
@@ -162,6 +149,7 @@ public class StandalonePersistence
         }
 
         var loadedTick = ReadPersistedTick() ?? GetLatestTick(info);
+        server.worldData.cmds = LoadCmds();
         server.gameTimer = loadedTick;
         server.startingTimer = loadedTick;
         server.worldData.standaloneWorldSnapshot.tick = loadedTick;
@@ -181,6 +169,7 @@ public class StandalonePersistence
     public void WriteJoinPoint(WorldData worldData, int tick)
     {
         EnsureDirectories();
+        DeleteCmdsProtocol();
 
         if (worldData.savedGame != null)
             AtomicWrite(WorldPath, worldData.savedGame);
@@ -198,6 +187,39 @@ public class StandalonePersistence
         DeleteLegacyCmdFiles();
 
         WritePersistedTick(tick);
+        WriteCmdsProtocol(MpVersion.Protocol);
+    }
+
+    /// The command log is only replayed when this protocol wrote it. Commands of another protocol can be misread:
+    /// they then do something else than what was played, fail halfway or depend on client local state, and the
+    /// clients desync. Without them every client continues from the same saved world, which only loses the progress
+    /// since that save. Logs from before cmds.dat (world_cmds.dat, maps/N_cmds.dat) always come from older protocols.
+    private List<byte[]> LoadCmds()
+    {
+        var protocol = ReadCmdsProtocol();
+        if (protocol == MpVersion.Protocol)
+            return File.Exists(CmdsPath)
+                ? ScheduledCommand.DeserializeCmds(File.ReadAllBytes(CmdsPath)).Select(ScheduledCommand.Serialize).ToList()
+                : new List<byte[]>();
+
+        var cmdFiles = new[] { CmdsPath, LegacyWorldCmdsPath }
+            .Concat(Directory.Exists(MapsDir) ? Directory.GetFiles(MapsDir, "*_cmds.dat") : []);
+        // Every format starts with the command count
+        var discarded = cmdFiles.Where(File.Exists).Select(File.ReadAllBytes)
+            .Sum(data => data.Length >= sizeof(int) ? Math.Max(0L, BitConverter.ToInt32(data, 0)) : 0L);
+
+        if (discarded > 0)
+        {
+            var writer = protocol == null
+                ? "an older version of the server (or its write was interrupted)"
+                : $"protocol {protocol}";
+            ServerLog.Error($"Discarding the saved command log ({discarded} commands): it was written by {writer} " +
+                            $"and this server (protocol {MpVersion.Protocol}) could misread it, replaying misread " +
+                            "commands desyncs. The game continues from the last saved world, the progress since " +
+                            "that save is lost.");
+        }
+
+        return new List<byte[]>();
     }
 
     /// <summary>
@@ -283,6 +305,26 @@ public class StandalonePersistence
     private void WritePersistedTick(int tick)
     {
         AtomicWrite(StatePath, BitConverter.GetBytes(tick));
+    }
+
+    private void WriteCmdsProtocol(int protocol)
+    {
+        AtomicWrite(CmdsProtocolPath, Encoding.UTF8.GetBytes(protocol.ToString(CultureInfo.InvariantCulture)));
+    }
+
+    private void DeleteCmdsProtocol()
+    {
+        if (File.Exists(CmdsProtocolPath))
+            File.Delete(CmdsProtocolPath);
+    }
+
+    private int? ReadCmdsProtocol()
+    {
+        if (!File.Exists(CmdsProtocolPath))
+            return null;
+
+        return int.TryParse(File.ReadAllText(CmdsProtocolPath).Trim(), NumberStyles.Integer,
+            CultureInfo.InvariantCulture, out var protocol) ? protocol : null;
     }
 
     private int? ReadPersistedTick()

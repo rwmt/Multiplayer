@@ -15,6 +15,10 @@ public static class Autosaving
     // (and in this client's faction context), so a joiner loading it wouldn't match the live clients.
     public static void DoAutosave(bool requestJoinPoint = true)
     {
+        // Taken now: in-game day autosaves start at the same tick on every client, but more ticks can run in this
+        // frame before the long event saves. The server starts one join point per tick.
+        var tick = TickPatch.Timer;
+
         LongEventHandler.QueueLongEvent(() =>
         {
             var snapshot = SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveGameData(), false);
@@ -23,16 +27,16 @@ public static class Autosaving
                 return;
 
             if (requestJoinPoint)
-                SendAutosavingRequest(JoinPointRequestReason.Save);
+                SendAutosavingRequest(JoinPointRequestReason.Save, tick);
         }, "MpSaving", false, null);
     }
 
-    public static void SendAutosavingRequest(JoinPointRequestReason reason)
+    public static void SendAutosavingRequest(JoinPointRequestReason reason, int tick)
     {
         if (TickPatch.Simulating)
             return;
 
-        Multiplayer.Client.Send(new ClientAutosavingPacket(reason));
+        Multiplayer.Client.Send(new ClientAutosavingPacket(reason, tick));
     }
 
     private static string GetNextAutosaveFileName()

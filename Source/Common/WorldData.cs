@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
+using Multiplayer.Common.Networking.Packet;
 
 namespace Multiplayer.Common;
 
@@ -20,7 +21,12 @@ public class WorldData
     public List<byte[]>? tmpCmds;
     public int lastJoinPointAtTick = -1;
 
+    // The sync reference's newest opinions (oldest first). Joiners only use them to check their catch-up
+    // simulation, after that they get the live ones, so losing the oldest ones only skips a few checks.
     public List<byte[]> syncInfos = new();
+    public const int MaxSyncInfos = 10;
+    // With desync traces on, one opinion can be a few MiB on big saves and they all go into the world data packet
+    public const int MaxSyncInfosLength = ClientSyncInfoPacket.MaxLength;
 
     public StandaloneWorldSnapshotState standaloneWorldSnapshot = new();
     public Dictionary<int, StandaloneMapSnapshotState> standaloneMapSnapshots = new();
@@ -31,6 +37,8 @@ public class WorldData
     // completes it
     public int JoinPointTick { get; private set; } = -1;
     public int JoinPointUploaderId { get; private set; } = ScheduledCommand.NoPlayer;
+    // The game timer of the last completed join point's save
+    public int CompletedJoinPointTick { get; private set; } = -1;
     private int joinPointProgressAt; // NetTimer
     private int? lastForcedJoinPointAt; // NetTimer
     private int standaloneAutosaveBaseTick = -1;
@@ -104,6 +112,22 @@ public class WorldData
         return true;
     }
 
+    /// A client saved the game at savedAtTick and wants the server's world to be at least as new. With in-game day
+    /// autosaves every client saves at the same tick and asks once its save is written, slow clients only after the
+    /// join point is done, so requests for a tick a join point already covers are ignored.
+    public bool TryStartJoinPointForSave(int savedAtTick, ServerPlayer? sourcePlayer = null)
+    {
+        var coveredUntil = Math.Max(CompletedJoinPointTick, JoinPointTick);
+        if (savedAtTick <= coveredUntil)
+        {
+            ServerLog.Detail($"Join point skipped: the save of {sourcePlayer?.Username} at tick={savedAtTick} is " +
+                             $"covered by the join point at tick={coveredUntil}");
+            return false;
+        }
+
+        return TryStartJoinPointCreation(true, sourcePlayer);
+    }
+
     /// Accepts the uploaded world only if it belongs to the join point being created. World, maps and cmds are
     /// replaced together so the stored save and its command log always match.
     public bool TryCompleteJoinPoint(ServerPlayer player, int tick, Dictionary<int, byte[]> uploadedMaps,
@@ -140,6 +164,7 @@ public class WorldData
         cmds = tmpCmds!;
         tmpCmds = null;
         lastJoinPointAtTick = currentTick;
+        CompletedJoinPointTick = JoinPointTick;
         ClearPendingJoinPoint();
 
         if (Server.IsStandaloneServer && Server.persistence != null)
@@ -190,6 +215,29 @@ public class WorldData
     {
         JoinPointTick = -1;
         JoinPointUploaderId = ScheduledCommand.NoPlayer;
+    }
+
+    public void AddSyncInfo(byte[] rawSyncOpinion)
+    {
+        syncInfos.Add(rawSyncOpinion);
+
+        long length = syncInfos.Sum(info => (long)info.Length);
+        while (syncInfos.Count > MaxSyncInfos || syncInfos.Count > 1 && length > MaxSyncInfosLength)
+        {
+            length -= syncInfos[0].Length;
+            syncInfos.RemoveAt(0);
+        }
+    }
+
+    /// The newest opinions whose length prefixed size fits into maxLength, oldest first
+    public List<byte[]> NewestSyncInfosFitting(long maxLength)
+    {
+        int start = syncInfos.Count;
+        long length = 0;
+        while (start > 0 && length + sizeof(int) + syncInfos[start - 1].Length <= maxLength)
+            length += sizeof(int) + syncInfos[--start].Length;
+
+        return syncInfos.GetRange(start, syncInfos.Count - start);
     }
 
     public Task<WorldData> WaitJoinPoint()
