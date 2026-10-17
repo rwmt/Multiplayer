@@ -10,13 +10,22 @@ public static class FactionExtensions
     // Sets the current Faction.OfPlayer
     // Applies faction's world components
     // Applies faction's map components if map not null
+    //
+    // force: the faction is applied even if it already is Faction.OfPlayer, and to every map, not only the given one.
+    // Forced pushes set up simulation contexts (map/world ticks and commands). Outside of them every map holds the
+    // data of the local client's own faction, so applying the context's faction to all maps makes sure simulation
+    // code touching another map (portals, pocket maps, gravships, ...) never sees client-specific data.
+    // The matching pop re-applies the previous faction to the world and every map.
     public static void PushFaction(this Map map, Faction f, bool force = false)
     {
-        var faction = FactionContext.Push(f, force);
+        var faction = FactionContext.Push(f, force, allMaps: force);
         if (faction == null) return;
 
         Multiplayer.WorldComp?.SetFaction(faction);
-        map?.MpComp().SetFaction(faction);
+        if (force)
+            SetFactionOnAllMaps(faction);
+        else
+            map?.MpComp().SetFaction(faction);
     }
 
     public static void PushFaction(this Map map, int factionId)
@@ -29,13 +38,26 @@ public static class FactionExtensions
 
     public static Faction PopFaction(this Map map)
     {
-        Faction faction = FactionContext.Pop();
+        Faction faction = FactionContext.Pop(out bool allMaps);
         if (faction == null) return null;
 
         Multiplayer.WorldComp?.SetFaction(faction);
-        map?.MpComp().SetFaction(faction);
+        if (allMaps)
+            SetFactionOnAllMaps(faction);
+        else
+            map?.MpComp().SetFaction(faction);
 
         return faction;
+    }
+
+    private static void SetFactionOnAllMaps(Faction faction)
+    {
+        // Includes comps of removed maps (they're never removed from the list), which is harmless
+        var comps = Multiplayer.game?.mapComps;
+        if (comps == null) return;
+
+        for (int i = 0; i < comps.Count; i++)
+            comps[i].SetFaction(faction);
     }
 
     public static bool TryGetPlayerFaction(this Quest quest, out Faction faction)

@@ -794,25 +794,26 @@ static class CompShuttle_ContainedColonistCount_Patch
 
 }
 
+// The pushes are forced: in a world command Faction.OfPlayer already is the gravship's faction while the maps hold
+// the spectator's data, so a regular push would be a no-op and the gravship would use the spectator's managers.
 [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.RemoveGravshipFromMap))]
 static class RemoveGravshipFromMap_Patch
 {
-    static void Prefix(Building_GravEngine engine, out bool __state)
+    static void Prefix(Building_GravEngine engine, out Map __state)
     {
-        __state = false;
+        __state = null;
         if (Multiplayer.Client == null) return;
         if (!Multiplayer.GameComp.multifaction) return;
-        if (engine == null) return;
+        if (engine?.Map == null) return;
 
-        engine.Map.PushFaction(engine.Faction);
-
-        __state = true;
+        // Remember the map, the engine is despawned by the time the finalizer runs
+        __state = engine.Map;
+        __state.PushFaction(engine.Faction, force: true);
     }
 
-    static void Finalizer(Building_GravEngine engine, bool __state)
+    static void Finalizer(Map __state)
     {
-        if (!__state) return;
-        engine.Map.PopFaction();
+        __state?.PopFaction();
     }
 }
 
@@ -825,7 +826,7 @@ static class PlaceGravship_FactionContext_Patch
         if (Multiplayer.Client == null) return;
         if (!Multiplayer.GameComp.multifaction) return;
 
-        map.PushFaction(gravship.Faction);
+        map.PushFaction(gravship.Faction, force: true);
 
         __state = true;
     }
