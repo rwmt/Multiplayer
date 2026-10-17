@@ -32,6 +32,7 @@ public class JoiningStateTest
     {
         ServerLog.error = prevErrorLog;
         ServerJoiningState.ReplyTimeout = TimeSpan.FromMinutes(2);
+        ServerJoiningState.InitDataTimeout = TimeSpan.FromMinutes(5);
         MultiplayerServer.instance = null;
     }
 
@@ -130,7 +131,7 @@ public class JoiningStateTest
     public void InitDataRequestTimesOut()
     {
         var (_, first) = Connect();
-        ServerJoiningState.ReplyTimeout = TimeSpan.Zero;
+        ServerJoiningState.InitDataTimeout = TimeSpan.Zero;
         SendHandshake(first, "first");
         Assert.That(server.InitDataState, Is.EqualTo(InitDataState.Requested));
 

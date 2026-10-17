@@ -11,6 +11,8 @@ public class ServerJoiningState : AsyncConnectionState
 {
     // Packets the client sends on its own, without user interaction
     public static TimeSpan ReplyTimeout { get; set; } = TimeSpan.FromMinutes(2);
+    // The init data can be a few MB with synced configs, other joiners wait for it
+    public static TimeSpan InitDataTimeout { get; set; } = TimeSpan.FromMinutes(5);
     // Packets sent after user input: the password prompt and the mod mismatch window
     public static TimeSpan UserInputTimeout { get; set; } = TimeSpan.FromMinutes(15);
 
@@ -116,7 +118,7 @@ public class ServerJoiningState : AsyncConnectionState
 
             ServerLog.Verbose("Sent initial data request");
             // Null when the player disconnects (or times out) while we wait
-            if (await TypedPacketOrNull<ClientInitDataPacket>(ReplyTimeout) is { } initData)
+            if (await TypedPacketOrNull<ClientInitDataPacket>(InitDataTimeout) is { } initData)
                 result = ServerInitData.FromNet(initData);
         }
         finally
