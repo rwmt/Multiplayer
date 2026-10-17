@@ -74,9 +74,8 @@ namespace Multiplayer.Client
                 MpTradeSession.SetTradeSession(session);
                 drawingTrade = this;
 
-                if (session.deal.ShouldRecache)
-                    session.deal.Recache();
-
+                // The deal itself is only recached in ticks and commands (MpTradeSession.RecacheDealIfNeeded),
+                // the UI just follows it
                 if (session.deal.uiShouldReset != UIShouldReset.None)
                 {
                     if (session.deal.uiShouldReset != UIShouldReset.Silent)

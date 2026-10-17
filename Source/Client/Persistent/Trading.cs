@@ -1,5 +1,6 @@
 using HarmonyLib;
 using Multiplayer.API;
+using Multiplayer.Client.Factions;
 using RimWorld;
 using RimWorld.Planet;
 using System.Collections.Generic;
@@ -200,10 +201,39 @@ namespace Multiplayer.Client
 
         public void Tick()
         {
-            if (playerNegotiator.Spawned) return;
-
-            if (ShouldCancel())
+            if (!playerNegotiator.Spawned && ShouldCancel())
+            {
                 Multiplayer.WorldComp.sessionManager.RemoveSession(this);
+                return;
+            }
+
+            RecacheDealIfNeeded();
+        }
+
+        /// <summary>
+        /// Applies the changes marked by the dirty flags to the deal's tradeables. This changes simulation state
+        /// (which tradeables exist and which things they hold), so it must only run in deterministic contexts
+        /// (ticks and commands), never from the UI.
+        /// </summary>
+        public void RecacheDealIfNeeded()
+        {
+            if (deal is not { ShouldRecache: true }) return;
+
+            var prevSession = current;
+            var map = playerNegotiator?.Map;
+
+            // Use the negotiator's data, not whatever the current context or the local client has applied
+            map.PushFaction(NegotiatorFaction, force: true);
+            try
+            {
+                SetTradeSession(this);
+                deal.Recache();
+            }
+            finally
+            {
+                SetTradeSession(prevSession);
+                map.PopFaction();
+            }
         }
 
         public override void ExposeData()
@@ -226,6 +256,9 @@ namespace Multiplayer.Client
 
         public Transferable GetTransferableByThingId(int thingId)
         {
+            // Called when reading synced data, i.e. on every client in the same command
+            RecacheDealIfNeeded();
+
             for (int i = 0; i < deal.tradeables.Count; i++)
             {
                 Tradeable tr = deal.tradeables[i];
