@@ -37,8 +37,14 @@ namespace Multiplayer.Client.Persistent
 
         /// <summary>
         /// Reference to the dialog that is being displayed.
+        /// UI only: it's local to each client (and not saved), synced methods must never depend on it.
         /// </summary>
         public CaravanSplittingProxy dialog;
+
+        /// <summary>
+        /// Set once the session has been removed, open dialogs close themselves.
+        /// </summary>
+        public bool removed;
 
         public override bool IsSessionValid => Caravan != null;
 
@@ -61,15 +67,9 @@ namespace Multiplayer.Client.Persistent
 
         private void AddItems()
         {
-            CaravanSplittingProxy.CreatingProxy = true;
-            dialog = new CaravanSplittingProxy(Caravan) {
-                session = this
-            };
-            CaravanSplittingProxy.CreatingProxy = false;
-            dialog.CalculateAndRecacheTransferables();
-            transferables = dialog.transferables;
-
-            Find.WindowStack.Add(dialog);
+            var proxy = PrepareDialogProxy();
+            proxy.CalculateAndRecacheTransferables();
+            transferables = proxy.transferables;
         }
 
         /// <summary>
@@ -142,7 +142,7 @@ namespace Multiplayer.Client.Persistent
         /// </summary>
         [SyncMethod]
         public void CancelSplittingSession() {
-            dialog.Close();
+            dialog?.Close();
             Multiplayer.WorldComp.sessionManager.RemoveSession(this);
         }
 
@@ -163,12 +163,22 @@ namespace Multiplayer.Client.Persistent
         [SyncMethod]
         public void AcceptSplitSession()
         {
-            if (dialog.TrySplitCaravan())
+            // Split using a fresh proxy (fresh mass caches) built from the session's state, so every client does the same
+            var proxy = PrepareDialogProxy();
+            proxy.CountToTransferChanged();
+
+            if (proxy.TrySplitCaravan())
             {
                 SoundDefOf.Tick_High.PlayOneShotOnCamera();
-                dialog.Close(false);
+                dialog?.Close(false);
                 Multiplayer.WorldComp.sessionManager.RemoveSession(this);
             }
+        }
+
+        public override void PostRemoveSession()
+        {
+            base.PostRemoveSession();
+            removed = true;
         }
 
         public override FloatMenuOption GetBlockingWindowOptions(ColonistBar.Entry entry)
