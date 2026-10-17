@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Emit;
 using HarmonyLib;
 using RimWorld;
 using UnityEngine;
@@ -130,6 +131,63 @@ namespace Multiplayer.Client.Patches
             if (LettersOnGUIOnlyMyFaction.realLetters != null)
                 __instance.mouseoverLetterIndex = LettersOnGUIOnlyMyFaction.realLetters.IndexOf(let);
         }
+    }
+
+    // LetterStackTick force-opens letters about to expire on every client (the stack is the same everywhere). Letters of
+    // other factions are still opened, as opening may change the simulation (e.g. NewQuestLetter removes itself from
+    // the stack), but without their UI (windows, main tab switch).
+    [HarmonyPatch(typeof(LetterStack), nameof(LetterStack.LetterStackTick))]
+    static class OpenExpiringLettersForTheirFaction
+    {
+        public static bool suppressUI;
+
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            var openLetter = AccessTools.Method(typeof(Letter), nameof(Letter.OpenLetter));
+            var replacement = AccessTools.Method(typeof(OpenExpiringLettersForTheirFaction), nameof(OpenLetter));
+
+            foreach (var inst in insts)
+            {
+                if (inst.Calls(openLetter))
+                {
+                    inst.opcode = OpCodes.Call;
+                    inst.operand = replacement;
+                }
+
+                yield return inst;
+            }
+        }
+
+        static void OpenLetter(Letter letter)
+        {
+            if (MultifactionLetters.IsVisibleLocally(letter))
+            {
+                letter.OpenLetter();
+                return;
+            }
+
+            suppressUI = true;
+            try
+            {
+                letter.OpenLetter();
+            }
+            finally
+            {
+                suppressUI = false;
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(WindowStack), nameof(WindowStack.Add))]
+    static class SuppressExpiringLetterWindows
+    {
+        static bool Prefix() => !OpenExpiringLettersForTheirFaction.suppressUI;
+    }
+
+    [HarmonyPatch(typeof(MainTabsRoot), nameof(MainTabsRoot.SetCurrentTab))]
+    static class SuppressExpiringLetterTabSwitch
+    {
+        static bool Prefix() => !OpenExpiringLettersForTheirFaction.suppressUI;
     }
 
     [HarmonyPatch(typeof(LetterStack), nameof(LetterStack.LetterStackUpdate))]
