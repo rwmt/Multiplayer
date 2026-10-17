@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
@@ -10,9 +11,19 @@ namespace Multiplayer.Common;
 
 public abstract class AsyncConnectionState(ConnectionBase connection) : MpConnectionState(connection)
 {
+    private static readonly Stopwatch Clock = Stopwatch.StartNew();
+
     private PacketAwaitable<ByteReader?>? packetAwaitable;
+    private long waitDeadlineMs = long.MaxValue;
 
     public Task? CurrentTask { get; private set; }
+
+    /// The packet this state is waiting for, if any.
+    public Packets? AwaitedPacket => packetAwaitable?.PacketType;
+
+    /// True when the awaited packet didn't arrive within the timeout given when starting to wait. Checked by the
+    /// server loop, which disconnects the player.
+    public bool WaitTimedOut => packetAwaitable != null && Clock.ElapsedMilliseconds > waitDeadlineMs;
 
     public override void StartState()
     {
@@ -49,15 +60,16 @@ public abstract class AsyncConnectionState(ConnectionBase connection) : MpConnec
     /// An exception is thrown if this is called again before the packet arrives. The player is disconnected if a
     /// different packet type arrives.
     /// </summary>
-    protected PacketAwaitable<ByteReader> Packet(Packets packet)
+    protected PacketAwaitable<ByteReader> Packet(Packets packet, TimeSpan? timeout = null)
     {
         if (packetAwaitable != null)
             throw new Exception($"Already waiting for another packet: {packetAwaitable}");
 
         ServerLog.Verbose($"{connection} waiting for {packet}");
 
-        packetAwaitable = new PacketAwaitable<ByteReader?>(packet, false);
-        return packetAwaitable!;
+        var awaitable = new PacketAwaitable<ByteReader?>(packet, false);
+        StartWaiting(awaitable, timeout);
+        return awaitable!;
     }
 
     /// <summary>
@@ -65,10 +77,10 @@ public abstract class AsyncConnectionState(ConnectionBase connection) : MpConnec
     /// An exception is thrown if this is called again before the packet arrives. The player is disconnected if a
     /// different packet type arrives.
     /// </summary>
-    protected PacketAwaitable<T> TypedPacket<T>() where T: struct, IPacket
+    protected PacketAwaitable<T> TypedPacket<T>(TimeSpan? timeout = null) where T: struct, IPacket
     {
         var typed = new PacketAwaitable<T>(PacketTypeInfo<T>.Id, announcePacketFailure: false);
-        WaitForTypedPacket<T>(announcePacketFailure: false, packet =>
+        WaitForTypedPacket<T>(announcePacketFailure: false, timeout, packet =>
         {
             if (packet.HasValue)
                 typed.SetResult(packet.Value);
@@ -85,15 +97,16 @@ public abstract class AsyncConnectionState(ConnectionBase connection) : MpConnec
     /// different packet type arrives.
     /// The result is null if the player is disconnected while waiting.
     /// </summary>
-    protected PacketAwaitable<ByteReader?> PacketOrNull(Packets packet)
+    protected PacketAwaitable<ByteReader?> PacketOrNull(Packets packet, TimeSpan? timeout = null)
     {
         if (packetAwaitable != null)
             throw new Exception($"Already waiting for another packet: {packetAwaitable}");
 
         ServerLog.Verbose($"{connection} waiting for {packet}");
 
-        packetAwaitable = new PacketAwaitable<ByteReader?>(packet, true);
-        return packetAwaitable;
+        var awaitable = new PacketAwaitable<ByteReader?>(packet, true);
+        StartWaiting(awaitable, timeout);
+        return awaitable;
     }
 
 
@@ -102,15 +115,15 @@ public abstract class AsyncConnectionState(ConnectionBase connection) : MpConnec
     /// An exception is thrown if this is called again before the packet arrives. The player is disconnected if a
     /// different packet type arrives.
     /// </summary>
-    protected PacketAwaitable<T?> TypedPacketOrNull<T>() where T: struct, IPacket
+    protected PacketAwaitable<T?> TypedPacketOrNull<T>(TimeSpan? timeout = null) where T: struct, IPacket
     {
         var typed = new PacketAwaitable<T?>(PacketTypeInfo<T>.Id, announcePacketFailure: true);
-        WaitForTypedPacket<T>(announcePacketFailure: true, typed.SetResult, typed.SetException);
+        WaitForTypedPacket<T>(announcePacketFailure: true, timeout, typed.SetResult, typed.SetException);
         return typed;
     }
 
-    private void WaitForTypedPacket<T>(bool announcePacketFailure, Action<T?> onResult, Action<Exception> onError)
-        where T : struct, IPacket
+    private void WaitForTypedPacket<T>(bool announcePacketFailure, TimeSpan? timeout, Action<T?> onResult,
+        Action<Exception> onError) where T : struct, IPacket
     {
         if (packetAwaitable != null)
             throw new Exception($"Already waiting for another packet: {packetAwaitable}");
@@ -146,7 +159,13 @@ public abstract class AsyncConnectionState(ConnectionBase connection) : MpConnec
             onResult(packet);
         });
 
-        packetAwaitable = raw;
+        StartWaiting(raw, timeout);
+    }
+
+    private void StartWaiting(PacketAwaitable<ByteReader?> awaitable, TimeSpan? timeout)
+    {
+        packetAwaitable = awaitable;
+        waitDeadlineMs = timeout is { } t ? Clock.ElapsedMilliseconds + (long)t.TotalMilliseconds : long.MaxValue;
     }
 
     public override PacketHandlerInfo? GetPacketHandler(Packets packet)

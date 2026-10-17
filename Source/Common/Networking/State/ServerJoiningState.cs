@@ -8,14 +8,21 @@ namespace Multiplayer.Common;
 
 public class ServerJoiningState : AsyncConnectionState
 {
+    // Packets the client sends on its own, without user interaction
+    public static TimeSpan ReplyTimeout { get; set; } = TimeSpan.FromMinutes(2);
+    // Packets sent after user input: the password prompt and the mod mismatch window
+    public static TimeSpan UserInputTimeout { get; set; } = TimeSpan.FromMinutes(15);
+
     public ServerJoiningState(ConnectionBase connection) : base(connection)
     {
     }
 
     protected override async Task RunState()
     {
-        HandleProtocol(await TypedPacket<ClientProtocolPacket>());
-        HandleUsername(await TypedPacket<ClientUsernamePacket>());
+        HandleProtocol(await TypedPacket<ClientProtocolPacket>(ReplyTimeout));
+        await EndIfDead();
+        HandleUsername(await TypedPacket<ClientUsernamePacket>(UserInputTimeout));
+        await EndIfDead();
 
         while (await Server.InitDataTask() is null && await EndIfDead())
             if (Server.InitDataState == InitDataState.Waiting)
@@ -23,7 +30,7 @@ public class ServerJoiningState : AsyncConnectionState
 
         connection.Send(Packets.Server_UsernameOk);
 
-        if (!HandleClientJoinData(await TypedPacket<ClientJoinDataPacket>()))
+        if (!HandleClientJoinData(await TypedPacket<ClientJoinDataPacket>(ReplyTimeout)))
             return;
 
         if (Server.settings.pauseOnJoin)
@@ -35,7 +42,7 @@ public class ServerJoiningState : AsyncConnectionState
         Server.playerManager.OnJoin(Player);
         Server.playerManager.SendInitDataCommand(Player);
 
-        await Packet(Packets.Client_WorldRequest);
+        await Packet(Packets.Client_WorldRequest, UserInputTimeout);
 
         connection.ChangeState(ConnectionStateEnum.ServerLoading);
     }
@@ -98,23 +105,23 @@ public class ServerJoiningState : AsyncConnectionState
 
     private async Task RequestInitData()
     {
-        ClientInitDataPacket? initData = null;
+        ServerInitData? result = null;
         var completionSource = Server.StartInitData();
         try
         {
             Player.SendPacket(new ServerInitDataRequestPacket(Server.settings.syncConfigs));
 
             ServerLog.Verbose("Sent initial data request");
-            initData = await TypedPacketOrNull<ClientInitDataPacket>();
+            // Null when the player disconnects (or times out) while we wait
+            if (await TypedPacketOrNull<ClientInitDataPacket>(ReplyTimeout) is { } initData)
+                result = ServerInitData.FromNet(initData);
         }
         finally
         {
-            // Invoking StartInitData and abandoning the completion source in case of an exception would mean a server
-            // restart is necessary to try and set init data again. Make sure the server is more graceful in that case.
-            completionSource.SetResult(initData != null
-                // cast to non-nullable, for whatever reason C# isn't able to infer that from the != null check
-                ? ServerInitData.FromNet((ClientInitDataPacket)initData)
-                : null);
+            // Always complete the source, also when FromNet throws: an abandoned source would block every later
+            // joiner until a server restart. Null puts the server back into InitDataState.Waiting so that the next
+            // joiner gets asked.
+            completionSource.SetResult(result);
         }
     }
 

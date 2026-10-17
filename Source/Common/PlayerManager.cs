@@ -67,7 +67,13 @@ namespace Multiplayer.Common
             if (conn.State == ConnectionStateEnum.Disconnected) return;
             server.CheckServerThread();
 
-            conn.StateObj?.OnDisconnect();
+            if (conn.StateObj is { } stateObj)
+            {
+                // OnDisconnect can synchronously resume the state's async flow (e.g. a pending init data request).
+                // Mark it dead first so that it stops instead of continuing on the dying connection.
+                stateObj.alive = false;
+                stateObj.OnDisconnect();
+            }
 
             ServerPlayer player = conn.serverPlayer;
             Players.Remove(player);
@@ -105,6 +111,21 @@ namespace Multiplayer.Common
             conn.ChangeState(ConnectionStateEnum.Disconnected);
 
             ServerLog.Log($"Disconnected ({reason}): {conn}");
+        }
+
+        public void CheckTimeouts()
+        {
+            // Disconnecting modifies Players
+            foreach (var player in Players.ToArray())
+            {
+                if (player.conn.State == ConnectionStateEnum.Disconnected) continue;
+
+                if (player.conn.StateObj is AsyncConnectionState { WaitTimedOut: true } state)
+                {
+                    ServerLog.Log($"{player.conn} timed out waiting for {state.AwaitedPacket} in {player.conn.State}");
+                    player.Disconnect("Timed out while joining the server");
+                }
+            }
         }
 
         public void OnDesync(ServerPlayer player, int tick, int diffAt)

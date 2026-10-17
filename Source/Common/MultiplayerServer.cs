@@ -183,7 +183,10 @@ namespace Multiplayer.Common
             NetTimer++;
 
             if (NetTimer % NetTicksPerSecond == 0)
+            {
                 playerManager.SendLatencies();
+                playerManager.CheckTimeouts();
+            }
 
 
             if (NetTimer % (NetTicksPerSecond / 5) == 0)
