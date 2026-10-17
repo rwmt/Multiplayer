@@ -70,19 +70,45 @@ namespace Multiplayer.Client.Patches
             e => e.FirstOrDefault()
         );
 
+        static MethodBase Shuffle = AccessTools.Method(typeof(GenList), nameof(GenList.Shuffle)).MakeGenericMethod(typeof(NameTriple));
+
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> e)
         {
             List<CodeInstruction> insts = new List<CodeInstruction>(e);
 
+            // Load the list the same way it's loaded for the shuffle call
+            CodeInstruction loadList = null;
+            for (int i = 1; i < insts.Count; i++)
+            {
+                if (insts[i].Calls((MethodInfo)Shuffle) && insts[i - 1].IsLdloc())
+                {
+                    loadList = new CodeInstruction(insts[i - 1].opcode, insts[i - 1].operand);
+                    break;
+                }
+            }
+
+            if (loadList == null)
+            {
+                Log.Error("MP: Couldn't find the shuffled name list in PawnBioAndNameGenerator.TryGetRandomUnusedSolidName, assuming local 1. Was the original method changed?");
+                loadList = new CodeInstruction(OpCodes.Ldloc_1);
+            }
+
+            int patched = 0;
             for (int i = insts.Count - 1; i >= 0; i--)
             {
                 if (insts[i].operand as MethodBase == FirstOrDefault)
+                {
                     insts.Insert(
                        i + 1,
-                       new CodeInstruction(OpCodes.Ldloc_1),
+                       loadList.Clone(),
                        new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(GenerateNewPawnInternalPatch), nameof(Unshuffle)).MakeGenericMethod(typeof(NameTriple)))
                    );
+                    patched++;
+                }
             }
+
+            if (patched == 0)
+                Log.Error("MP: Couldn't find FirstOrDefault in PawnBioAndNameGenerator.TryGetRandomUnusedSolidName. Was the original method changed?");
 
             return insts;
         }
@@ -134,6 +160,8 @@ namespace Multiplayer.Client.Patches
 
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
         {
+            int patched = 0;
+
             foreach (var inst in insts)
             {
                 yield return inst;
@@ -142,8 +170,12 @@ namespace Multiplayer.Client.Patches
                 {
                     yield return new CodeInstruction(OpCodes.Ldc_I4_1);
                     yield return new CodeInstruction(OpCodes.Or);
+                    patched++;
                 }
             }
+
+            if (patched == 0)
+                Log.Error("MP: Couldn't find CellRect.Contains in Pawn.ProcessPostTickVisuals. Was the original method changed?");
         }
     }
 

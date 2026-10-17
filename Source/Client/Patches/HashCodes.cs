@@ -68,15 +68,23 @@ namespace Multiplayer.Client.Patches
             yield return AccessTools.Method(typeof(TargetInfo), nameof(TargetInfo.GetHashCode));
         }
 
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts, MethodBase original)
         {
+            int patched = 0;
+
             foreach (var inst in insts)
             {
                 if (inst.operand as MethodInfo == Combine)
+                {
                     inst.operand = AccessTools.Method(typeof(PatchTargetInfoHashCodes), nameof(CombineHashes));
+                    patched++;
+                }
 
                 yield return inst;
             }
+
+            if (patched == 0)
+                Log.Error($"MP: Couldn't find Gen.HashCombine<Map> in {original.DeclaringType}:{original.Name}. Was the original method changed?");
         }
 
         static int CombineHashes(int seed, Map map) => Gen.HashCombineInt(seed, map?.uniqueID ?? -1);
