@@ -241,8 +241,9 @@ namespace Multiplayer.Client
                     if (genes == null)
                         return null;
 
-                    // A pawn can have the same gene def both as an endogene and a xenogene
-                    return genes.GenesListForReading.Find(g => g.loadID == loadId) ?? genes.GetGene(geneDef);
+                    // A pawn can have the same gene def both as an endogene and a xenogene, so don't fall back to
+                    // GetGene(def) if the exact gene is gone
+                    return genes.GenesListForReading.Find(g => g.loadID == loadId && g.def == geneDef);
                 }, true // implicit
             },
             {

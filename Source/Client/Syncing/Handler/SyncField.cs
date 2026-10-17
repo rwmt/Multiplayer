@@ -105,7 +105,8 @@ namespace Multiplayer.Client
 
         public void Watch(object target = null, object index = null)
         {
-            if (!(inGameLoop || Multiplayer.ShouldSync))
+            // In singleplayer nothing ever pops the entry (InGameLoop fields)
+            if (!(inGameLoop || Multiplayer.ShouldSync) || Multiplayer.Client == null)
                 return;
 
             // The enclosing watch scope takes care of it (e.g. a watched method called from another watched method)

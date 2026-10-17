@@ -492,12 +492,23 @@ namespace Multiplayer.Client
             int newOrder = toEnd ? group[group.Count - 1].playerSettings.displayOrder + 1 : target.playerSettings.displayOrder;
 
             // Same as ColonistBar.Reorder, but instead of the local bar's entries it shifts the group and all the faction's
-            // pawns. Shifting pawns which aren't in the bar keeps the relative order, so the bar's order is the same.
+            // pawns (and colonist corpses, which the bar shows too). Shifting pawns which aren't in the bar keeps the
+            // relative order, so the bar's order is the same.
             var pawns = new List<Pawn>(group);
             var seen = new HashSet<Pawn>(group);
-            foreach (var p in PawnsFinder.AllMapsCaravansAndTravellingTransporters_Alive)
-                if (p.playerSettings != null && p.Faction == Faction.OfPlayer && seen.Add(p))
+
+            void TryAdd(Pawn p)
+            {
+                if (p?.playerSettings != null && p.Faction == Faction.OfPlayer && seen.Add(p))
                     pawns.Add(p);
+            }
+
+            foreach (var p in PawnsFinder.AllMapsCaravansAndTravellingTransporters_Alive)
+                TryAdd(p);
+
+            foreach (var map in Find.Maps)
+                foreach (var thing in map.listerThings.ThingsInGroup(ThingRequestGroup.Corpse))
+                    TryAdd((thing as Corpse)?.InnerPawn);
 
             foreach (var p in pawns)
             {

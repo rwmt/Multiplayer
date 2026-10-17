@@ -1,5 +1,6 @@
 using HarmonyLib;
 using Multiplayer.Common;
+using RimWorld;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -140,16 +141,23 @@ namespace Multiplayer.Client
             cache[bufferTarget] = new BufferData(handler, data.oldValue, SnapshotValueIfNeeded(handler, newValue));
         }
 
+        // Watch scopes never outlive the UI pass that opened them. Leftovers mean a scope wasn't closed (e.g. an
+        // exception between the API's WatchBegin and WatchEnd), restore and sync those fields before anything ticks.
+        [MpFinalizer(typeof(UIRoot_Play), nameof(UIRoot_Play.UIRootOnGUI))]
+        [MpFinalizer(typeof(UIRoot_Play), nameof(UIRoot_Play.UIRootUpdate))]
+        static void FlushLeakedWatchScopes()
+        {
+            if (watchedStack.Count == 0 || Multiplayer.Client == null)
+                return;
+
+            Log.WarningOnce($"Multiplayer: {watchedStack.Count} field watch stack entries weren't closed, restoring them", 0x5e1d3a7);
+            while (watchedStack.Count > 0)
+                PopWatchScope();
+        }
+
         public static void UpdateSync()
         {
-            // Watch scopes never span frames. Leftovers mean a scope wasn't closed (e.g. an exception between the API's
-            // WatchBegin and WatchEnd), restore and sync those fields now.
-            if (watchedStack.Count > 0)
-            {
-                Log.WarningOnce($"Multiplayer: {watchedStack.Count} field watch stack entries weren't closed, restoring them", 0x5e1d3a7);
-                while (watchedStack.Count > 0)
-                    PopWatchScope();
-            }
+            FlushLeakedWatchScopes();
 
             foreach (var (field, fieldBufferedChanges) in bufferedChanges)
             {
@@ -243,6 +251,9 @@ namespace Multiplayer.Client
         {
             foreach (var entry in bufferedChanges)
                 entry.Value.Clear();
+
+            // Called when multiplayer stops: entries left from the old session mustn't be restored in the next one
+            watchedStack.Clear();
         }
     }
 

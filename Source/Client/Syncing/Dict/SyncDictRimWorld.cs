@@ -819,8 +819,8 @@ namespace Multiplayer.Client
                             holder = worldObj;
                         else if (RwSerialization.GetAnyParent<WorldObjectComp>(thing) is { } worldObjComp)
                             holder = worldObjComp;
-                        else if (thing is Pawn pawn && RwSerialization.CanFindUnheldPawn(pawn))
-                            holder = Find.WorldPawns; // World pawns, pawns kept by quests/letters, etc.
+                        else if (thing is Pawn pawn && pawn.IsWorldPawn())
+                            holder = Find.WorldPawns; // E.g. pawns only referenced by quests or letters
 
                         RwSerialization.GetImpl(holder, RwSerialization.supportedThingHolders, out Type implType, out int index);
                         if (index == -1)
@@ -856,7 +856,7 @@ namespace Multiplayer.Client
                         Type implType = RwSerialization.supportedThingHolders[implIndex];
 
                         if (implType == typeof(WorldPawns))
-                            return RwSerialization.FindUnheldPawn(thingId);
+                            return Find.WorldPawns.AllPawnsAliveOrDead.FirstOrDefault(p => p.thingIDNumber == thingId);
 
                         if (implType != typeof(Map))
                         {
