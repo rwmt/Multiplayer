@@ -1,3 +1,4 @@
+using System.Linq;
 using Multiplayer.Client.Util;
 using RimWorld;
 using UnityEngine;
@@ -75,8 +76,19 @@ namespace Multiplayer.Client.Factions
 
         private void GenerateTemporaryFaction()
         {
+            // Generating a faction can register a new ideoligion, which would be live game state on this client only.
+            // The temporary faction can keep using it unregistered.
+            var ideos = Find.IdeoManager.ideos;
+            var prevIdeos = ideos.ToList();
+
             _temporaryFactionForPawnCreation = FactionGenerator.NewGeneratedFaction(new FactionGeneratorParms(_scenario.playerFaction.factionDef));
             _temporaryFactionForPawnCreation.temporary = true;
+
+            if (!ideos.SequenceEqual(prevIdeos))
+            {
+                ideos.Clear();
+                ideos.AddRange(prevIdeos);
+            }
 
             // The faction isn't added to the FactionManager: it would be live game state on this client only (ticked,
             // iterated by the simulation and saved into join points). Pawn generation only needs it as Faction.OfPlayer,
