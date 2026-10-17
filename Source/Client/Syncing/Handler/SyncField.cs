@@ -108,6 +108,10 @@ namespace Multiplayer.Client
             if (!(inGameLoop || Multiplayer.ShouldSync))
                 return;
 
+            // The enclosing watch scope takes care of it (e.g. a watched method called from another watched method)
+            if (SyncFieldUtil.IsWatched(this, target, index))
+                return;
+
             object value;
 
             if (bufferChanges && SyncFieldUtil.bufferedChanges[this].TryGetValue(new(target, index), out BufferData cached))

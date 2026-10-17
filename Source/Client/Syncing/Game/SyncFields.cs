@@ -536,7 +536,7 @@ namespace Multiplayer.Client
             foreach (var entry in dropdowns)
             {
                 if (entry.option.action != null)
-                    entry.option.action = SyncFieldUtil.FieldWatchPrefix + watchAction + entry.option.action + SyncFieldUtil.FieldWatchPostfix;
+                    entry.option.action = SyncFieldUtil.WatchScope(watchAction, entry.option.action);
                 yield return entry;
             }
         }
@@ -547,7 +547,7 @@ namespace Multiplayer.Client
             {
                 if (entry.action != null)
                 {
-                    entry.action = SyncFieldUtil.FieldWatchPrefix + watchAction + entry.action + SyncFieldUtil.FieldWatchPostfix;
+                    entry.action = SyncFieldUtil.WatchScope(watchAction, entry.action);
                 }
             }
         }

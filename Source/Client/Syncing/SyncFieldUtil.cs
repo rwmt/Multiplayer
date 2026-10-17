@@ -17,71 +17,140 @@ namespace Multiplayer.Client
             watchedStack.Push(new FieldData(field, target, value, index));
         }
 
+        // True if an enclosing watch scope already watches this field of this target. That scope restores and syncs it,
+        // watching it again in a nested scope would revert the pending (buffered) value in the middle of the outer scope.
+        internal static bool IsWatched(SyncField field, object target, object index)
+        {
+            foreach (var entry in watchedStack)
+                if (entry is { } data && data.handler == field && Equals(data.target, target) && Equals(data.index, index))
+                    return true;
+
+            return false;
+        }
+
         public static void FieldWatchPrefix()
         {
             if (Multiplayer.Client == null) return;
             watchedStack.Push(null); // Marker
         }
 
-        // todo what happens on exceptions?
         public static void FieldWatchPostfix()
         {
             if (Multiplayer.Client == null) return;
+            PopWatchScope();
+        }
 
-            // Iterate until we hit the marker (`null`).
+        // Harmony patches use a finalizer, so the simulation values get restored even if the watched method throws
+        static void FieldWatchPatchPrefix(out bool __state)
+        {
+            __state = Multiplayer.Client != null;
+            if (__state)
+                watchedStack.Push(null); // Marker
+        }
+
+        static void FieldWatchPatchFinalizer(bool __state)
+        {
+            if (__state)
+                PopWatchScope();
+        }
+
+        /// Wraps the action in a watch scope which is closed even if the action throws.
+        internal static Action WatchScope(Action watchAction, Action action) => () =>
+        {
+            bool pushed = Multiplayer.Client != null;
+            if (pushed)
+                watchedStack.Push(null); // Marker
+
+            try
+            {
+                watchAction();
+                action();
+            }
+            finally
+            {
+                if (pushed)
+                    PopWatchScope();
+            }
+        };
+
+        private static void PopWatchScope()
+        {
+            // Iterate until we hit the marker (`null`). Always pop the whole scope, even if handling an entry fails.
             while (watchedStack.TryPop(out var dataOrNull) && dataOrNull is { } data)
             {
-                SyncField handler = data.handler;
-                object newValue = MpReflection.GetValue(data.target, handler.memberPath, data.index);
-                bool changed = !ValuesEqual(handler, newValue, data.oldValue);
-                var cache =
-                    handler.bufferChanges && !Multiplayer.IsReplay && !Multiplayer.GhostMode
-                        ? bufferedChanges.GetValueSafe(handler)
-                        : null;
-                var bufferTarget = new BufferTarget(data.target, data.index);
-                var cachedData = cache?.GetValueSafe(bufferTarget);
-
-                // Revert the local field's value for simulation purposes.
-                // For unbuffered fields, this rollback is only necessary if the value actually changed.
-                // For buffered fields, however, we always perform the restore, since the value is overwritten
-                // whenever watching it begins — assuming the value was previously changed and thus the buffer was
-                // initialized.
-                // If any change has happened, we record it and either send it immediately (unbuffered field) or queue
-                // it (buffered field). The server will eventually acknowledge the change and send it back, at which
-                // point the field is updated.
-                if (changed || cachedData != null)
+                try
                 {
-                    var simulationValue = cachedData?.actualValue ?? data.oldValue;
-                    MpReflection.SetValue(data.target, handler.memberPath, simulationValue, data.index);
+                    HandleWatchedField(data);
                 }
-
-                // No changes happened means no syncing needed either - we are done.
-                if (!changed)
-                    continue;
-
-                // For unbuffered fields, just immediately sync any changes.
-                if (cache == null)
+                catch (Exception e)
                 {
-                    handler.DoSyncCatch(data.target, newValue, data.index);
-                    continue;
+                    Log.Error($"Exception handling watched {data.handler}: {e}");
                 }
-
-                // For buffered fields, update the value to be sent.
-                if (cachedData != null)
-                {
-                    cachedData.sent = false;
-                    cachedData.lastChangedAtMillis = Utils.MillisNow;
-                    cachedData.toSend = SnapshotValueIfNeeded(handler, newValue);
-                    continue;
-                }
-
-                // The field is buffered but had no prior changes; initialize the cache entry now that a change has occurred.
-                cache[bufferTarget] = new BufferData(handler, data.oldValue, SnapshotValueIfNeeded(handler, newValue));
             }
+        }
+
+        private static void HandleWatchedField(FieldData data)
+        {
+            SyncField handler = data.handler;
+            object newValue = MpReflection.GetValue(data.target, handler.memberPath, data.index);
+            bool changed = !ValuesEqual(handler, newValue, data.oldValue);
+            var cache =
+                handler.bufferChanges && !Multiplayer.IsReplay && !Multiplayer.GhostMode
+                    ? bufferedChanges.GetValueSafe(handler)
+                    : null;
+            var bufferTarget = new BufferTarget(data.target, data.index);
+            var cachedData = cache?.GetValueSafe(bufferTarget);
+
+            // Revert the local field's value for simulation purposes.
+            // For unbuffered fields, this rollback is only necessary if the value actually changed.
+            // For buffered fields, however, we always perform the restore, since the value is overwritten
+            // whenever watching it begins — assuming the value was previously changed and thus the buffer was
+            // initialized.
+            // If any change has happened, we record it and either send it immediately (unbuffered field) or queue
+            // it (buffered field). The server will eventually acknowledge the change and send it back, at which
+            // point the field is updated.
+            if (changed || cachedData != null)
+            {
+                // The actual value can be null, so don't fall back to oldValue (the pending UI value) based on it
+                var simulationValue = cachedData != null ? cachedData.actualValue : data.oldValue;
+                MpReflection.SetValue(data.target, handler.memberPath, simulationValue, data.index);
+            }
+
+            // No changes happened means no syncing needed either - we are done.
+            if (!changed)
+                return;
+
+            // For unbuffered fields, just immediately sync any changes.
+            if (cache == null)
+            {
+                handler.DoSyncCatch(data.target, newValue, data.index);
+                return;
+            }
+
+            // For buffered fields, update the value to be sent.
+            if (cachedData != null)
+            {
+                cachedData.sent = false;
+                cachedData.lastChangedAtMillis = Utils.MillisNow;
+                cachedData.toSend = SnapshotValueIfNeeded(handler, newValue);
+                return;
+            }
+
+            // The field is buffered but had no prior changes; initialize the cache entry now that a change has occurred.
+            cache[bufferTarget] = new BufferData(handler, data.oldValue, SnapshotValueIfNeeded(handler, newValue));
         }
 
         public static void UpdateSync()
         {
+            // Watch scopes never span frames. Leftovers mean a scope wasn't closed (e.g. an exception between the API's
+            // WatchBegin and WatchEnd), restore and sync those fields now.
+            if (watchedStack.Count > 0)
+            {
+                Log.Warning($"Multiplayer: {watchedStack.Count} field watch stack entries weren't closed, restoring them");
+                while (watchedStack.Count > 0)
+                    PopWatchScope();
+            }
+
             foreach (var (field, fieldBufferedChanges) in bufferedChanges)
             {
                 if (field.inGameLoop) continue;
@@ -150,10 +219,10 @@ namespace Multiplayer.Client
 
         internal static void ApplyWatchFieldPatches(Type type)
         {
-            HarmonyMethod prefix = new HarmonyMethod(AccessTools.Method(typeof(SyncFieldUtil), nameof(FieldWatchPrefix)));
+            HarmonyMethod prefix = new HarmonyMethod(AccessTools.Method(typeof(SyncFieldUtil), nameof(FieldWatchPatchPrefix)));
             prefix.priority = MpPriority.MpFirst;
-            HarmonyMethod postfix = new HarmonyMethod(AccessTools.Method(typeof(SyncFieldUtil), nameof(FieldWatchPostfix)));
-            postfix.priority = MpPriority.MpLast;
+            HarmonyMethod finalizer = new HarmonyMethod(AccessTools.Method(typeof(SyncFieldUtil), nameof(FieldWatchPatchFinalizer)));
+            finalizer.priority = MpPriority.MpLast;
 
             foreach (var toPatch in type.GetDeclaredMethods())
             {
@@ -161,7 +230,7 @@ namespace Multiplayer.Client
                 {
                     try
                     {
-                        Multiplayer.harmony.PatchMeasure(attr.Method, prefix, postfix);
+                        Multiplayer.harmony.PatchMeasure(attr.Method, prefix, finalizer: finalizer);
                     } catch (Exception e) {
                         Log.Error($"FAIL: {attr.Method.DeclaringType.FullName}:{attr.Method.Name} with {e}");
                         Multiplayer.loadingErrors = true;
