@@ -53,9 +53,14 @@ namespace Multiplayer.Client
 
         public TransporterLoading CreateTransporterLoadingSession(Faction faction, List<CompTransporter> transporters)
         {
-            var transporterLoading = sessionManager.GetFirstOfType<TransporterLoading>();
+            // Several groups of transporters can be loaded at once, only reuse the session of this group
+            var transporterLoading = TransporterLoading.GetSessionFor(map, transporters);
             if (transporterLoading == null)
             {
+                // The transporters' owner, Faction.OfPlayer can be e.g. the spectator faction when called during a tick
+                if (transporters.FirstOrDefault()?.parent.Faction is { IsPlayer: true } owner)
+                    faction = owner;
+
                 transporterLoading = new TransporterLoading(faction, map, transporters);
                 if (!sessionManager.AddSession(transporterLoading))
                 {

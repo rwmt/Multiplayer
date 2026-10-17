@@ -10,23 +10,29 @@ public class MapPortalSession : ExposableSession, ISessionWithTransferables, ISe
 {
     public MapPortal portal;
     public List<TransferableOneWay> transferables;
+    // Stored explicitly as the portal's map becomes null if it despawns
+    private Map map;
 
-    public override Map Map => portal.Map;
+    public override Map Map => map;
 
-    public override bool IsSessionValid => portal != null;
+    public override bool IsSessionValid => portal != null && map != null;
 
-    public MapPortalSession(Map _) : base(null)
+    public MapPortalSession(Map map) : base(null)
     {
         // Mandatory constructor
+        this.map = map;
     }
 
     public static MapPortalSession Of(MapPortal portal)
     {
-        var session = new MapPortalSession(null);
+        var session = new MapPortalSession(portal.Map);
         session.portal = portal;
         session.AddItems();
         return session;
     }
+
+    public static MapPortalSession GetSessionFor(MapPortal portal) =>
+        portal?.MapHeld?.MpComp().sessionManager.GetFirstOfType<MapPortalSession>(s => s.portal == portal);
 
     private void AddItems()
     {
@@ -38,11 +44,11 @@ public class MapPortalSession : ExposableSession, ISessionWithTransferables, ISe
         transferables = dialog.transferables;
     }
 
-    public override bool IsCurrentlyPausing(Map map) => Map == map;
+    public override bool IsCurrentlyPausing(Map map) => this.map == map && portal is { Spawned: true };
 
     public override FloatMenuOption GetBlockingWindowOptions(ColonistBar.Entry entry)
     {
-        if (entry.map != Map)
+        if (entry.map != Map || portal is not { Spawned: true })
             return null;
 
         return new FloatMenuOption("MpMapPortalSession".Translate(portal?.Label), () =>
@@ -54,9 +60,7 @@ public class MapPortalSession : ExposableSession, ISessionWithTransferables, ISe
 
     public static void OpenOrCreateSession(MapPortal portal)
     {
-        var session = portal.Map.MpComp().sessionManager.AllSessions
-            .OfType<MapPortalSession>()
-            .FirstOrDefault(s => s.portal == portal);
+        var session = GetSessionFor(portal);
         if (session == null)
             CreateSession(portal);
         else
@@ -90,7 +94,7 @@ public class MapPortalSession : ExposableSession, ISessionWithTransferables, ISe
     public void Reset() => transferables.ForEach(t => t.CountToTransfer = 0);
 
     [SyncMethod]
-    public void Remove() => Map.MpComp().sessionManager.RemoveSession(this);
+    public void Remove() => map?.MpComp().sessionManager.RemoveSession(this);
 
     public void OpenWindow(bool sound = true)
     {
