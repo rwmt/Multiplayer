@@ -58,7 +58,8 @@ public class PsychicRitualSession : SemiPersistentSession, ISessionWithCreationR
         var session = manager.GetOrAddSession(new PsychicRitualSession(map, ritual, candidatePool, assignments));
 
         if (TickPatch.currentExecutingCmdIssuedBySelf)
-            session.OpenWindow();
+            using (LocalOnlyScope.Enter())
+                session.OpenWindow();
     }
 
     [SyncMethod]

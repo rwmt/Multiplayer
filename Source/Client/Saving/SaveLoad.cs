@@ -129,8 +129,21 @@ namespace Multiplayer.Client
             Find.Root.Start();
             CancelRootPlayStartLongEvents.cancel = false;
 
-            // SaveCompression enabled in the patch
-            SavedGameLoaderNow.LoadGameFromSaveFileNow(null);
+            // Load in the same program state as a normal load (and a joining client, which loads through a scene
+            // change) does. Load-time code checks for Playing, e.g. GenSpawn.Spawn's per-cell item limit (#854).
+            var prevProgramState = Current.ProgramState;
+            Current.programStateInt = ProgramState.MapInitializing;
+
+            try
+            {
+                // SaveCompression enabled in the patch
+                SavedGameLoaderNow.LoadGameFromSaveFileNow(null);
+            }
+            finally
+            {
+                if (Current.ProgramState == ProgramState.MapInitializing)
+                    Current.programStateInt = prevProgramState;
+            }
 
             DeepProfiler.End();
         }

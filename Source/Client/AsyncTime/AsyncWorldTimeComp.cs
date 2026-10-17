@@ -108,13 +108,32 @@ public class AsyncWorldTimeComp : IExposable, ITickable
     public void Tick()
     {
         tickingWorld = true;
+        int randDepth = Rand.stateStack.Count;
         PreContext();
 
         try
         {
-            Find.TickManager.DoSingleTick();
-            worldTicks++;
-            Multiplayer.WorldComp.TickWorldSessions();
+            try
+            {
+                Find.TickManager.DoSingleTick();
+            }
+            catch (Exception e)
+            {
+                Log.Error($"Exception in world DoSingleTick: {e}");
+            }
+
+            // Matches how worldTicks is initialized after loading (ExposeData), so clients which joined later agree
+            // even if a tick threw before or after advancing TicksGame
+            worldTicks = Find.TickManager.TicksGame;
+
+            try
+            {
+                Multiplayer.WorldComp.TickWorldSessions();
+            }
+            catch (Exception e)
+            {
+                Log.Error($"Exception ticking world sessions: {e}");
+            }
 
             if (ModsConfig.BiotechActive)
             {
@@ -139,6 +158,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         }
         finally
         {
+            AsyncTimeComp.RestoreRandStack(randDepth + 1, this);
             PostContext();
             tickingWorld = false;
 
@@ -182,6 +202,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         TickPatch.currentExecutingCmdIssuedBySelf = cmd.IsIssuedBySelf() && !TickPatch.Simulating;
         TickPatch.currentExecutingCmdType = cmdType;
 
+        int randDepth = Rand.stateStack.Count;
         PreContext();
         FactionExtensions.PushFaction(null, cmd.GetFaction());
 
@@ -269,6 +290,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
             MpLog.Debug($"rand calls {DeferredStackTracing.randCalls - randCalls1}");
             MpLog.Debug("rand state " + Rand.StateCompressed);
 
+            AsyncTimeComp.RestoreRandStack(randDepth + 1, this);
             FactionExtensions.PopFaction();
             PostContext();
             TickPatch.currentExecutingCmdIssuedBySelf = false;

@@ -190,6 +190,8 @@ public class GrowthMomentWindow : Dialog_GrowthMomentChoices
     static void OpenSessionWindow(ChoiceLetter_GrowthMoment letter)
     {
         var sess = GrowthMomentSession.TryAddSession(letter);
-        if (Multiplayer.ExecutingCmds && TickPatch.currentExecutingCmdIssuedBySelf) sess?.OpenWindow();
+        if (Multiplayer.ExecutingCmds && TickPatch.currentExecutingCmdIssuedBySelf)
+            using (LocalOnlyScope.Enter())
+                sess?.OpenWindow();
     }
 }

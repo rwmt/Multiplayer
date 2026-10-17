@@ -112,13 +112,24 @@ namespace Multiplayer.Client
         public void Tick()
         {
             tickingMap = map;
+            int randDepth = Rand.stateStack.Count;
             PreContext();
 
             //SimpleProfiler.Start();
 
             try
             {
-                map.MapPreTick();
+                // Like vanilla's DoSingleTick, an exception in one subsystem shouldn't skip the rest of the tick
+                // (in particular the mapTicks increment)
+                try
+                {
+                    map.MapPreTick();
+                }
+                catch (Exception e)
+                {
+                    Log.Error($"Exception in MapPreTick of {map}: {e}");
+                }
+
                 mapTicks++;
                 Find.TickManager.ticksGameInt = mapTicks;
 
@@ -132,12 +143,41 @@ namespace Multiplayer.Client
                 tickListRare.Tick();
                 tickListLong.Tick();
 
-                TickMapSessions();
+                try
+                {
+                    TickMapSessions();
+                }
+                catch (Exception e)
+                {
+                    Log.Error($"Exception ticking sessions of {map}: {e}");
+                }
 
-                Find.Storyteller.StorytellerTick();
-                Find.StoryWatcher.StoryWatcherTick();
+                try
+                {
+                    Find.Storyteller.StorytellerTick();
+                }
+                catch (Exception e)
+                {
+                    Log.Error(e.ToString());
+                }
 
-                QuestManagerTickAsyncTime();
+                try
+                {
+                    Find.StoryWatcher.StoryWatcherTick();
+                }
+                catch (Exception e)
+                {
+                    Log.Error(e.ToString());
+                }
+
+                try
+                {
+                    QuestManagerTickAsyncTime();
+                }
+                catch (Exception e)
+                {
+                    Log.Error(e.ToString());
+                }
 
                 map.MapPostTick();
                 Find.TickManager.ticksThisFrame = 1;
@@ -149,6 +189,7 @@ namespace Multiplayer.Client
             }
             finally
             {
+                RestoreRandStack(randDepth + 1, this);
                 PostContext();
                 Multiplayer.game.sync.TryAddMapRandomState(map.uniqueID, randState);
                 eventCount++;
@@ -204,6 +245,20 @@ namespace Multiplayer.Client
             map.PopFaction();
         }
 
+        // A Rand push left unpopped by an exception would otherwise be saved as the context's state, orphan the
+        // context's own entry and keep the stack too deep (which disables desync traces) for the rest of the session
+        public static void RestoreRandStack(int depth, object context)
+        {
+            int count = Rand.stateStack.Count;
+            if (count == depth) return;
+
+            // Too shallow (an extra pop) can't be repaired, only reported
+            Log.ErrorOnce($"Multiplayer: unbalanced Rand push/pop in {context}: stack depth {count}, expected {depth}", 0x5A3D17 ^ depth);
+
+            while (Rand.stateStack.Count > depth)
+                Rand.PopState();
+        }
+
         public void ExposeData()
         {
             Scribe_Values.Look(ref mapTicks, "mapTicks");
@@ -251,6 +306,7 @@ namespace Multiplayer.Client
             TickPatch.currentExecutingCmdIssuedBySelf = cmd.IsIssuedBySelf() && !TickPatch.Simulating;
             TickPatch.currentExecutingCmdType = cmdType;
 
+            int randDepth = Rand.stateStack.Count;
             PreContext();
             map.PushFaction(cmd.GetFaction(), force: true);
 
@@ -309,8 +365,18 @@ namespace Multiplayer.Client
                 Find.Selector.selected = prevSelected;
                 prevSelected = null;
 
-                Find.MainButtonsRoot.tabs.Notify_SelectedObjectDespawned();
+                // Local UI, depends on the local selection
+                try
+                {
+                    using (LocalOnlyScope.Enter())
+                        Find.MainButtonsRoot.tabs.Notify_SelectedObjectDespawned();
+                }
+                catch (Exception e)
+                {
+                    Log.Error($"Exception updating main tabs after a command: {e}");
+                }
 
+                RestoreRandStack(randDepth + 1, this);
                 map.PopFaction();
                 PostContext();
 

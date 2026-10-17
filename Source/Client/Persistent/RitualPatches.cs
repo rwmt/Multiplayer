@@ -105,7 +105,8 @@ namespace Multiplayer.Client.Persistent
                 }
 
                 if (TickPatch.currentExecutingCmdIssuedBySelf)
-                    session?.OpenWindow();
+                    using (LocalOnlyScope.Enter())
+                        session?.OpenWindow();
 
                 return false;
             }

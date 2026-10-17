@@ -76,6 +76,9 @@ public static class FactionCreator
 
             if (executingOnlyOnIssuer)
             {
+                // Runs on the issuer only: e.g. archived dialogs take unique ids
+                using var localOnly = LocalOnlyScope.Enter();
+
                 ClearPortraitCacheFromPawnConfigPage();
 
                 Current.Game.CurrentMap = newMap;

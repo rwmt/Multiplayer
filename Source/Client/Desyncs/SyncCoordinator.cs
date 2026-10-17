@@ -31,6 +31,27 @@ namespace Multiplayer.Client
 
         private const int MaxBacklog = 30;
 
+        // The coordinator of the previous MultiplayerGame instance, see the constructor
+        private static SyncCoordinator previous;
+        private readonly MultiplayerSession session;
+
+        public SyncCoordinator()
+        {
+            session = Multiplayer.session;
+
+            // Every reload (e.g. a join point) creates a new MultiplayerGame. Keep the opinions still waiting for
+            // their counterpart so that a desync right before the reload is still detected.
+            if (Multiplayer.reloading && previous is { } prev && prev != this && prev.session != null && prev.session == session)
+            {
+                knownClientOpinions.AddRange(prev.knownClientOpinions);
+                prev.knownClientOpinions.Clear();
+                lastValidTick = prev.lastValidTick;
+                arbiterWasPlayingOnLastValidTick = prev.arbiterWasPlayingOnLastValidTick;
+            }
+
+            previous = this;
+        }
+
         public ClientSyncOpinion FinishLocalOpinion()
         {
             if (!ShouldCollect || currentOpinion == null) return null;
@@ -78,6 +99,8 @@ namespace Multiplayer.Client
             if (knownClientOpinions.First().startTick != newOpinion.startTick)
             {
                 // Ignore this opinion
+                MpLog.Log($"Sync opinion windows don't line up, skipping the check: {(newOpinion.isLocalClientsOpinion ? "local" : "remote")} " +
+                          $"starts at {newOpinion.startTick}, the oldest known one at {knownClientOpinions.First().startTick}");
                 newOpinion.Clear();
                 return;
             }
@@ -210,6 +233,15 @@ namespace Multiplayer.Client
             });
 
             OpinionInBuilding.desyncStackTraceHashes.Add(hash);
+        }
+
+        /// <summary>
+        /// Excludes the current opinion's trace hashes from comparison, used when the local stack walk failed.
+        /// </summary>
+        public void MarkTracesUnreliable()
+        {
+            if (!ShouldCollect) return;
+            OpinionInBuilding.tracesUnreliable = true;
         }
 
         public void TryAddStackTraceForDesyncLogRaw(StackTraceLogItemRaw item, int depth, int hashIn, string moreInfo = null)

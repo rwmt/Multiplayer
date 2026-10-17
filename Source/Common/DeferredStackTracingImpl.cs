@@ -102,6 +102,10 @@ public static class DeferredStackTracingImpl
 {
     const long NotJit = long.MaxValue;
     const long RbpBased = long.MaxValue - 1;
+    const long UnknownFrame = long.MaxValue - 2;
+
+    // Upper bound on loop iterations in case the walk gets stuck (e.g. on a cyclic LMF chain)
+    const int MaxWalkSteps = 256;
 
     const long UsesRbpAsGpr = 1L << 50;
     const long UsesRbx = 1L << 51;
@@ -111,6 +115,11 @@ public static class DeferredStackTracingImpl
 
     public static AddrTable hashTable = new();
 
+    // Info about the last failed stack walk, for logging
+    public static string? lastFailureReason;
+    public static long lastFailureAddr;
+
+    // Returns the number of frames written to traceIn or -1 if the stack couldn't be walked
     public static unsafe int TraceImpl(long[] traceIn, ref int hash, int skipFrames = 0)
     {
         if (Native.LmfPtr == 0)
@@ -123,9 +132,9 @@ public static class DeferredStackTracingImpl
 
         long lmfPtr = *(long*)Native.LmfPtr;
 
-        int depth = 0; // frames seen
+        int depth = 0; // frames seen, only counting frames which contribute to the hash
         int index = 0; // frames returned through long[] traceIn
-        while (true)
+        for (int step = 0; step < MaxWalkSteps; step++)
         {
             var ret = *(long*)(stck + 8);
             ref var info = ref hashTable.GetOrCreateAddrInfo(ret);
@@ -135,38 +144,59 @@ public static class DeferredStackTracingImpl
             if (stackUsage == NotJit)
             {
                 // LMF (Last Managed Frame) layout on x64:
-                // previous
+                // previous (the lowest 3 bits are flags)
                 // rbp
                 // rsp
 
-                lmfPtr = *(long*)lmfPtr;
-                var lmfRbp = *(long*)(lmfPtr + 8);
-
-                if (lmfPtr == 0 || lmfRbp == 0)
+                // The first step reads the innermost LMF from lmf_addr, later ones follow previous_lmf
+                lmfPtr = *(long*)lmfPtr & ~7L;
+                if (lmfPtr == 0)
                     break;
 
+                // MonoLMFExt (bit 2) and MonoLMFTramp (bit 4) don't store a usable rbp/rsp
+                if ((*(long*)lmfPtr & 6) != 0)
+                    break;
+
+                var lmfRbp = *(long*)(lmfPtr + 8);
+                var lmfRsp = *(long*)(lmfPtr + 16);
+                if (lmfRbp == 0 || lmfRsp == 0)
+                    break;
+
+                // The managed frame which called into native code is above the native frames
+                if (lmfRsp - 16 <= stck)
+                    return Fail(ret, "Bad LMF rsp");
+
                 rbp = lmfRbp;
-                stck = *(long*)(lmfPtr + 16) - 16;
+                stck = lmfRsp - 16;
 
                 continue;
             }
 
-            if (depth >= skipFrames)
+            if (stackUsage == UnknownFrame)
+                return Fail(ret, null);
+
+            // info.nameHash == 0 marks methods to skip. They might get inlined depending on the platform so they
+            // don't count towards the hash, the depth or the recorded frames at all.
+            if (info.nameHash != 0)
             {
-                traceIn[index] = ret;
+                if (depth >= skipFrames)
+                {
+                    traceIn[index] = ret;
+                    if (index < HashInfluence) hash = HashCombineInt(hash, (int)info.nameHash);
+                    index++;
+                }
 
-                // info.nameHash == 0 marks methods to skip
-                if (index < HashInfluence && info.nameHash != 0) hash = HashCombineInt(hash, (int)info.nameHash);
-
-                index++;
+                // traceIn length limits above all how many frames are visited, not how many are populated.
+                if (++depth == traceIn.Length)
+                    break;
             }
-
-            // traceIn length limits above all how many frames are visited, not how many are populated.
-            if (info.nameHash != 0 && ++depth == traceIn.Length)
-                break;
 
             if (stackUsage == RbpBased)
             {
+                // The stack grows down so the caller's frame has to be above the current one
+                if (rbp <= stck)
+                    return Fail(ret, "Bad rbp");
+
                 stck = rbp;
                 rbp = *(long*)rbp;
                 continue;
@@ -190,18 +220,35 @@ public static class DeferredStackTracingImpl
         return index;
     }
 
+    private static int Fail(long addr, string? reason)
+    {
+        lastFailureAddr = addr;
+        if (reason != null) lastFailureReason = reason;
+        return -1;
+    }
 
     private static void UpdateNewElement(ref AddrInfo info, long ret)
     {
         info.addr = ret;
-        info.stackUsage = GetStackUsage(ret);
 
-        var normalizedMethodNameBetweenOS = Native.MethodNameNormalizedFromAddr(ret, true);
+        try
+        {
+            info.stackUsage = GetStackUsage(ret);
 
-        info.nameHash =
-            normalizedMethodNameBetweenOS == null ? 1 :
-            Native.GetMethodAggressiveInlining(ret) ? 0 :
-            StableStringHash(normalizedMethodNameBetweenOS);
+            var normalizedMethodNameBetweenOS = Native.MethodNameNormalizedFromAddr(ret, true);
+
+            info.nameHash =
+                normalizedMethodNameBetweenOS == null ? 1 :
+                Native.GetMethodAggressiveInlining(ret) ? 0 :
+                StableStringHash(normalizedMethodNameBetweenOS);
+        }
+        catch (Exception e)
+        {
+            // Cache the failure: following a frame of unknown size would read garbage
+            info.stackUsage = UnknownFrame;
+            info.nameHash = 1;
+            lastFailureReason = e.Message;
+        }
     }
 
     private static unsafe long GetStackUsage(long addr)

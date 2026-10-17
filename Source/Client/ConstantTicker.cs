@@ -1,6 +1,7 @@
 using System;
 using HarmonyLib;
 using Multiplayer.Client.Desyncs;
+using Multiplayer.Client.Factions;
 using Multiplayer.Common;
 using Multiplayer.Common.Networking.Packet;
 using RimWorld;
@@ -18,7 +19,7 @@ namespace Multiplayer.Client
 
             try
             {
-                TickShipCountdown(); // todo control the RNG seed here?
+                TickShipCountdown();
                 TickNonSimulation();
             }
             finally
@@ -146,7 +147,25 @@ namespace Multiplayer.Client
                 ShipCountdown.timeLeft -= 1f / GenTicks.TicksPerRealSecond;
 
                 if (ShipCountdown.timeLeft <= 0f)
-                    ShipCountdown.CountdownEnded();
+                {
+                    // This is game logic (destroys the ship, removes pawns): run it on the world's RNG and faction
+                    // context instead of the unsynced RNG outside of any tickable
+                    var world = Multiplayer.AsyncWorldTime;
+                    var shipMap = ShipCountdown.shipRoot?.Map;
+                    int randDepth = Rand.stateStack.Count;
+                    world.PreContext();
+                    shipMap.PushFaction(ShipCountdown.shipRoot?.Faction, force: true);
+                    try
+                    {
+                        ShipCountdown.CountdownEnded();
+                    }
+                    finally
+                    {
+                        AsyncTimeComp.RestoreRandStack(randDepth + 1, "ShipCountdown");
+                        shipMap.PopFaction();
+                        world.PostContext();
+                    }
+                }
             }
         }
     }

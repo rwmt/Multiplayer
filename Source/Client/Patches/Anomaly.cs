@@ -33,7 +33,18 @@ namespace Multiplayer.Client.Patches
             return Multiplayer.Client != null ? CellRect.Empty : Find.CameraDriver.CurrentViewRect;
         }
 
-        static void Prefix() => Rand.PushState(Find.TickManager.TicksAbs);
-        static void Postfix() => Rand.PopState();
+        // Seed per pawn so that multiple calls in one tick don't all pick the same cell
+        static void Prefix(Pawn pawn, ref bool __state)
+        {
+            if (Multiplayer.Client == null) return;
+            Rand.PushState(Gen.HashCombineInt(pawn?.thingIDNumber ?? 0, Find.TickManager.TicksAbs));
+            __state = true;
+        }
+
+        static void Finalizer(bool __state)
+        {
+            if (__state)
+                Rand.PopState();
+        }
     }
 }
