@@ -339,9 +339,9 @@ namespace Multiplayer.Client.Patches
     [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.TakeoffEnded))]
     public static class PatchGravshipTakeoffEnded
     {
-        static bool Prefix(WorldComponent_GravshipController __instance, out (bool factionPushed, Map map) __state)
+        static bool Prefix(WorldComponent_GravshipController __instance, out bool __state)
         {
-            __state = default;
+            __state = false;
             if (Multiplayer.Client == null) return true;
 
             if (Multiplayer.InInterface)
@@ -353,23 +353,22 @@ namespace Multiplayer.Client.Patches
             GravshipCutsceneSync.SyncedEndExecuting();
             GravshipTravelUtils.CloseSessionAt(__instance.takeoffTile);
 
+            // Forced like the other gravship pushes (see RemoveGravshipFromMap_Patch): in this world command
+            // Faction.OfPlayer may already be the gravship's faction (its player's command came first) while the maps
+            // hold the spectator's data, which would make a regular push a no-op
             if (Multiplayer.GameComp.multifaction && __instance.gravship?.Faction is { } faction)
             {
-                __instance.map.PushFaction(faction);
-                __state = (true, __instance.map);
+                FactionExtensions.PushFaction(null, faction, force: true);
+                __state = true;
             }
 
             return true;
         }
 
-        static void Finalizer((bool factionPushed, Map map) __state)
+        static void Finalizer(bool __state)
         {
-            if (!__state.factionPushed) return;
-
-            // TakeoffEnded can remove the map that was left behind
-            if (__state.map != null && Find.Maps.Contains(__state.map))
-                __state.map.PopFaction();
-            else
+            // The forced pop restores the world and every live map, TakeoffEnded can remove the map left behind
+            if (__state)
                 FactionExtensions.PopFaction();
         }
     }
@@ -406,9 +405,10 @@ namespace Multiplayer.Client.Patches
             // have our own way of changing the map speed.
             map.AsyncTime().DesiredTimeSpeed = TimeSpeed.Normal;
 
+            // Forced: the command's faction (whichever player's end command came first) may already be the gravship's
             if (Multiplayer.GameComp.multifaction && __instance.gravship.Faction is { } faction)
             {
-                map.PushFaction(faction);
+                map.PushFaction(faction, force: true);
                 __state.factionMap = map;
             }
 

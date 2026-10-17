@@ -83,7 +83,10 @@ public class GrowthMomentSession(Map map) : ExposableSession(null), ITickingSess
     public void Tick()
     {
         if (!IsActive) map.MpComp().sessionManager.RemoveSession(this);
-        else if (AtTimeout && IsLocalPlayersChild) OpenWindow();
+        else if (AtTimeout && IsLocalPlayersChild)
+            // Runs in the map tick on the child's players' clients only
+            using (LocalOnlyScope.Enter())
+                OpenWindow();
     }
 
     // UI only: reopen the window if it was closed while the map waits for the choice

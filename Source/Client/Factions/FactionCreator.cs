@@ -46,8 +46,10 @@ public static class FactionCreator
 
         LongEventHandler.QueueLongEvent(() =>
         {
-            // The long event runs after the command, with each client's own faction data applied
-            using var _ = MpScope.PushFactionOutsideContext(Multiplayer.WorldComp.spectatorFaction);
+            // Runs in the command's simulation context (SimLongEventContext), which also covers the actions map
+            // generation defers with ExecuteWhenFinished. The pop restores that context's faction data, not the
+            // local player's (the context's exit re-applies the real player faction, the issuer's new one).
+            using var _ = MpScope.PushFaction(Multiplayer.WorldComp.spectatorFaction);
 
             var scenario = creationData.scenarioDef?.scenario ?? Current.Game.Scenario;
             Map newMap = null;

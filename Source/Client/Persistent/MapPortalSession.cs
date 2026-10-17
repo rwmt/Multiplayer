@@ -87,7 +87,8 @@ public class MapPortalSession : ExposableSession, ISessionWithTransferables, ISe
         if (session == null)
             Log.Error($"Failed creating session of type {nameof(MapPortalSession)}.");
         else if (MP.IsExecutingSyncCommandIssuedBySelf)
-            session.OpenWindow();
+            using (LocalOnlyScope.Enter())
+                session.OpenWindow();
     }
 
     [SyncMethod]
