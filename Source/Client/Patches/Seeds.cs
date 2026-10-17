@@ -24,7 +24,7 @@ namespace Multiplayer.Client
             Rand.Seed = 1;
         }
 
-        static void Postfix()
+        static void Finalizer()
         {
             Rand.PopState();
         }
@@ -45,7 +45,7 @@ namespace Multiplayer.Client
             __state = true;
         }
 
-        static void Postfix(Map __instance, bool __state)
+        static void Finalizer(bool __state)
         {
             if (__state)
                 Rand.PopState();
@@ -66,7 +66,7 @@ namespace Multiplayer.Client
             __state = true;
         }
 
-        static void Postfix(Map __instance, bool __state)
+        static void Finalizer(bool __state)
         {
             if (__state)
                 Rand.PopState();
@@ -86,7 +86,7 @@ namespace Multiplayer.Client
             __state = true;
         }
 
-        static void Postfix(Map map, bool __state)
+        static void Finalizer(bool __state)
         {
             if (__state)
                 Rand.PopState();
@@ -196,7 +196,7 @@ namespace Multiplayer.Client
         }
 
         [HarmonyPriority(MpPriority.MpLast)]
-        static void Postfix(bool __state)
+        static void Finalizer(bool __state)
         {
             if (__state)
                 Rand.PopState();
@@ -219,7 +219,7 @@ namespace Multiplayer.Client
         }
 
         [HarmonyPriority(MpPriority.MpLast)]
-        static void Postfix(bool __state)
+        static void Finalizer(bool __state)
         {
             if (__state)
                 Rand.PopState();

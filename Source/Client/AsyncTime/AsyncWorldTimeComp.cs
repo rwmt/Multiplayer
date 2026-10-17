@@ -103,6 +103,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
     public void Tick()
     {
         tickingWorld = true;
+        int randDepth = Rand.stateStack.Count;
         PreContext();
 
         try
@@ -134,6 +135,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         }
         finally
         {
+            AsyncTimeComp.RestoreRandStack(randDepth + 1, this);
             PostContext();
             tickingWorld = false;
 
@@ -177,6 +179,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         TickPatch.currentExecutingCmdIssuedBySelf = cmd.IsIssuedBySelf() && !TickPatch.Simulating;
         TickPatch.currentExecutingCmdType = cmdType;
 
+        int randDepth = Rand.stateStack.Count;
         PreContext();
         FactionExtensions.PushFaction(null, cmd.GetFaction());
 
@@ -262,6 +265,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
             MpLog.Debug($"rand calls {DeferredStackTracing.randCalls - randCalls1}");
             MpLog.Debug("rand state " + Rand.StateCompressed);
 
+            AsyncTimeComp.RestoreRandStack(randDepth + 1, this);
             FactionExtensions.PopFaction();
             PostContext();
             TickPatch.currentExecutingCmdIssuedBySelf = false;

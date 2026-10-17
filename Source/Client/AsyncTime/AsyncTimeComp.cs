@@ -111,6 +111,7 @@ namespace Multiplayer.Client
         public void Tick()
         {
             tickingMap = map;
+            int randDepth = Rand.stateStack.Count;
             PreContext();
 
             //SimpleProfiler.Start();
@@ -148,6 +149,7 @@ namespace Multiplayer.Client
             }
             finally
             {
+                RestoreRandStack(randDepth + 1, this);
                 PostContext();
                 Multiplayer.game.sync.TryAddMapRandomState(map.uniqueID, randState);
                 eventCount++;
@@ -203,6 +205,19 @@ namespace Multiplayer.Client
             map.PopFaction();
         }
 
+        // A Rand push left unpopped by an exception would otherwise be saved as the context's state, orphan the
+        // context's own entry and keep the stack too deep (which disables desync traces) for the rest of the session
+        public static void RestoreRandStack(int depth, object context)
+        {
+            int count = Rand.stateStack.Count;
+            if (count == depth) return;
+
+            Log.ErrorOnce($"Multiplayer: unbalanced Rand push/pop in {context}: stack depth {count}, expected {depth}", 0x5A3D17 ^ depth);
+
+            while (Rand.stateStack.Count > depth)
+                Rand.PopState();
+        }
+
         public void ExposeData()
         {
             Scribe_Values.Look(ref mapTicks, "mapTicks");
@@ -246,6 +261,7 @@ namespace Multiplayer.Client
             TickPatch.currentExecutingCmdIssuedBySelf = cmd.IsIssuedBySelf() && !TickPatch.Simulating;
             TickPatch.currentExecutingCmdType = cmdType;
 
+            int randDepth = Rand.stateStack.Count;
             PreContext();
             map.PushFaction(cmd.GetFaction(), force: true);
 
@@ -306,6 +322,7 @@ namespace Multiplayer.Client
 
                 Find.MainButtonsRoot.tabs.Notify_SelectedObjectDespawned();
 
+                RestoreRandStack(randDepth + 1, this);
                 map.PopFaction();
                 PostContext();
 

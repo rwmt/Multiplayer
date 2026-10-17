@@ -559,12 +559,17 @@ namespace Multiplayer.Client.Patches
             }
         }
 
-        static void Prefix() => Rand.PushState();
+        static void Prefix(ref bool __state)
+        {
+            Rand.PushState();
+            __state = true;
+        }
 
-        static void Postfix(UndercaveMapComponent __instance)
+        static void Postfix(UndercaveMapComponent __instance, ref bool __state)
         {
             // Pop the RNG state from the prefix
             Rand.PopState();
+            __state = false;
 
             // Make sure the pit gate is collapsing
             if (__instance.pitGate is not { IsCollapsing: true })
@@ -580,21 +585,33 @@ namespace Multiplayer.Client.Patches
             // effecters - it would not be MP safe, but since it happens last it will be fine once we pop the state.
             Rand.PushState();
 
-            // If not looking at the map, trigger the collapse without shake/effecters (since it's not needed for current player).
-            // The call to play a sound is handled by RW itself, since it targets a specific map already.
-            if (Find.CurrentMap != __instance.map)
+            try
             {
-                // Progress the RNG state, matching the RandomInRange call in other two cases
-                Rand.RangeInclusive(0, 100);
-                __instance.TriggerCollapseFX(0, 0);
+                // If not looking at the map, trigger the collapse without shake/effecters (since it's not needed for current player).
+                // The call to play a sound is handled by RW itself, since it targets a specific map already.
+                if (Find.CurrentMap != __instance.map)
+                {
+                    // Progress the RNG state, matching the RandomInRange call in other two cases
+                    Rand.RangeInclusive(0, 100);
+                    __instance.TriggerCollapseFX(0, 0);
+                }
+                // Else, follow vanilla shake/effecter rules
+                else if (__instance.pitGate.CollapseStage == 1)
+                    __instance.TriggerCollapseFX(UndercaveMapComponent.StageOneShakeAmount, UndercaveMapComponent.StageOneNumCollapseEffects.RandomInRange);
+                else
+                    __instance.TriggerCollapseFX(UndercaveMapComponent.StageTwoShakeAmount, UndercaveMapComponent.StageTwoNumCollapseEffects.RandomInRange);
             }
-            // Else, follow vanilla shake/effecter rules
-            else if (__instance.pitGate.CollapseStage == 1)
-                __instance.TriggerCollapseFX(UndercaveMapComponent.StageOneShakeAmount, UndercaveMapComponent.StageOneNumCollapseEffects.RandomInRange);
-            else
-                __instance.TriggerCollapseFX(UndercaveMapComponent.StageTwoShakeAmount, UndercaveMapComponent.StageTwoNumCollapseEffects.RandomInRange);
+            finally
+            {
+                Rand.PopState();
+            }
+        }
 
-            Rand.PopState();
+        // Pops the prefix state if MapComponentTick threw before the postfix could
+        static void Finalizer(bool __state)
+        {
+            if (__state)
+                Rand.PopState();
         }
     }
 
