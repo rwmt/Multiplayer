@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
 
 namespace Tests;
 
@@ -127,10 +128,54 @@ public class CommandLogTest
         Assert.That(types, Is.EqualTo(new[] { CommandType.Sync, CommandType.CreateJoinPoint, CommandType.Sync }));
     }
 
+    [Test]
+    public void LargestAllowedCommandIsLoggedAndBroadcast()
+    {
+        var (_, conn) = AddPlayer("live", ConnectionStateEnum.ServerPlaying);
+
+        server.commands.Send(CommandType.Sync, 0, 1, new byte[ServerCommandPacket.MaxDataLength]);
+
+        Assert.That(server.worldData.cmds, Has.Count.EqualTo(1));
+        Assert.That(conn.SentPackets, Does.Contain(Packets.Server_Command));
+    }
+
+    [Test]
+    public void TooLargeCommandIsNeitherLoggedNorBroadcast()
+    {
+        var (_, conn) = AddPlayer("live", ConnectionStateEnum.ServerPlaying);
+        var errors = new List<string>();
+        var prevError = ServerLog.error;
+        ServerLog.error = errors.Add;
+
+        try
+        {
+            server.commands.Send(CommandType.Sync, 0, 1, new byte[ServerCommandPacket.MaxDataLength + 1]);
+        }
+        finally
+        {
+            ServerLog.error = prevError;
+        }
+
+        Assert.That(server.worldData.cmds, Is.Empty);
+        Assert.That(conn.SentPackets, Does.Not.Contain(Packets.Server_Command));
+        Assert.That(server.commands.SentCmds, Is.EqualTo(0));
+        Assert.That(errors, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public void ClientCommandDataIsCappedAtRebroadcastLimit()
+    {
+        var ok = new ClientCommandPacket(CommandType.Sync, 1, new byte[ServerCommandPacket.MaxDataLength]);
+        Assert.DoesNotThrow(() => ok.Serialize());
+
+        var tooBig = new ClientCommandPacket(CommandType.Sync, 1, new byte[ServerCommandPacket.MaxDataLength + 1]);
+        Assert.Catch(() => tooBig.Serialize());
+    }
+
     private static ScheduledCommand ToCmd(byte[] packetData)
     {
-        var packet = default(Multiplayer.Common.Networking.Packet.ServerCommandPacket);
-        packet.Bind(new Multiplayer.Common.Networking.Packet.PacketReader(new ByteReader(packetData)));
+        var packet = default(ServerCommandPacket);
+        packet.Bind(new PacketReader(new ByteReader(packetData)));
         return packet.ToCommand();
     }
 }

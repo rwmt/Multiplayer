@@ -37,6 +37,13 @@ namespace Multiplayer.Common
                     return;
             }
 
+            // Checked before logging: a command in the log that live clients never received desyncs every joiner
+            if (data.Length > ServerCommandPacket.MaxDataLength)
+            {
+                ServerLog.Error($"Dropped {cmdType} command with too much data ({data.Length} > {ServerCommandPacket.MaxDataLength})");
+                return;
+            }
+
             var cmd = new ScheduledCommand(
                 cmdType,
                 server.gameTimer,
