@@ -1,6 +1,7 @@
 using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Client.Factions;
+using Multiplayer.Client.Util;
 using RimWorld;
 using RimWorld.Planet;
 using System.Collections.Generic;
@@ -219,21 +220,47 @@ namespace Multiplayer.Client
         {
             if (deal is not { ShouldRecache: true }) return;
 
-            var prevSession = current;
             var map = playerNegotiator?.Map;
 
             // Use the negotiator's data, not whatever the current context or the local client has applied
             map.PushFaction(NegotiatorFaction, force: true);
             try
             {
-                SetTradeSession(this);
-                deal.Recache();
+                using (UseTradeSession())
+                    deal.Recache();
             }
             finally
             {
-                SetTradeSession(prevSession);
                 map.PopFaction();
             }
+        }
+
+        // Like SetTradeSession but restores the previous state and leaves the UI's transferables marker alone
+        private MpScope UseTradeSession()
+        {
+            var prevCurrent = current;
+            var prevTrader = TradeSession.trader;
+            var prevNegotiator = TradeSession.playerNegotiator;
+            var prevGiftMode = TradeSession.giftMode;
+            var prevDeal = TradeSession.deal;
+
+            return MpScope.Create(
+                () =>
+                {
+                    current = this;
+                    TradeSession.trader = trader;
+                    TradeSession.playerNegotiator = playerNegotiator;
+                    TradeSession.giftMode = giftMode;
+                    TradeSession.deal = deal;
+                },
+                () =>
+                {
+                    current = prevCurrent;
+                    TradeSession.trader = prevTrader;
+                    TradeSession.playerNegotiator = prevNegotiator;
+                    TradeSession.giftMode = prevGiftMode;
+                    TradeSession.deal = prevDeal;
+                });
         }
 
         public override void ExposeData()
@@ -312,10 +339,20 @@ namespace Multiplayer.Client
 
         public UIShouldReset uiShouldReset;
 
+        // The dirty state decides when every client recaches the deal, so it's saved and set only by the simulation
         public HashSet<Thing> recacheThings = new HashSet<Thing>();
         public bool recacheColony;
         public bool recacheTrader;
-        public bool ShouldRecache => recacheColony || recacheTrader || recacheThings.Count > 0;
+        public bool ShouldRecache => recacheColony || recacheTrader || AnyLiveRecacheThing();
+
+        // Destroyed things can't be saved, ignore them so reloaded clients agree with the others
+        private bool AnyLiveRecacheThing()
+        {
+            foreach (var t in recacheThings)
+                if (!t.Destroyed)
+                    return true;
+            return false;
+        }
         public bool caravanDirty;
 
         public Thing permanentSilver;
@@ -327,6 +364,8 @@ namespace Multiplayer.Client
 
         public void Recache()
         {
+            recacheThings.RemoveWhere(t => t.Destroyed);
+
             if (recacheColony)
                 CheckAddRemoveColony();
 
@@ -452,6 +491,18 @@ namespace Multiplayer.Client
         {
             Scribe_Deep.Look(ref permanentSilver, "permanentSilver");
             Scribe_Collections.Look(ref tradeables, "tradeables", LookMode.Deep);
+
+            Scribe_Values.Look(ref recacheColony, "recacheColony");
+            Scribe_Values.Look(ref recacheTrader, "recacheTrader");
+
+            List<Thing> things = null;
+            if (Scribe.mode == LoadSaveMode.Saving)
+                things = recacheThings.Where(t => !t.Destroyed).ToList();
+
+            Scribe_Collections.Look(ref things, "recacheThings", LookMode.Reference);
+
+            if (Scribe.mode == LoadSaveMode.ResolvingCrossRefs)
+                recacheThings = things != null ? new HashSet<Thing>(things.Where(t => t != null)) : new HashSet<Thing>();
         }
     }
 

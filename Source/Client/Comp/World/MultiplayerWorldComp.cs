@@ -217,9 +217,12 @@ public class MultiplayerWorldComp : IHasSessionData
         return -1;
     }
 
+    // Loading respawns things (and so triggers these) only on the loading client, while the trade dirty state is saved
+    private static bool IgnoreTradeDirtying => Multiplayer.reloading || Current.ProgramState != ProgramState.Playing;
+
     public void DirtyColonyTradeForMap(Map map)
     {
-        if (map == null) return;
+        if (map == null || IgnoreTradeDirtying) return;
         foreach (MpTradeSession session in trading)
             if (session.playerNegotiator.Map == map)
                 session.deal.recacheColony = true;
@@ -227,7 +230,7 @@ public class MultiplayerWorldComp : IHasSessionData
 
     public void DirtyTraderTradeForTrader(ITrader trader)
     {
-        if (trader == null) return;
+        if (trader == null || IgnoreTradeDirtying) return;
         foreach (MpTradeSession session in trading)
             if (session.trader == trader)
                 session.deal.recacheTrader = true;
@@ -235,7 +238,7 @@ public class MultiplayerWorldComp : IHasSessionData
 
     public void DirtyTradeForSpawnedThing(Thing t)
     {
-        if (t is not { Spawned: true }) return;
+        if (t is not { Spawned: true } || IgnoreTradeDirtying) return;
         foreach (MpTradeSession session in trading)
             if (session.playerNegotiator.Map == t.Map)
                 session.deal.recacheThings.Add(t);
