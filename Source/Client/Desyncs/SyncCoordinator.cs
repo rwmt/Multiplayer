@@ -212,6 +212,15 @@ namespace Multiplayer.Client
             OpinionInBuilding.desyncStackTraceHashes.Add(hash);
         }
 
+        /// <summary>
+        /// Excludes the current opinion's trace hashes from comparison, used when the local stack walk failed.
+        /// </summary>
+        public void MarkTracesUnreliable()
+        {
+            if (!ShouldCollect) return;
+            OpinionInBuilding.tracesUnreliable = true;
+        }
+
         public void TryAddStackTraceForDesyncLogRaw(StackTraceLogItemRaw item, int depth, int hashIn, string moreInfo = null)
         {
             if (!ShouldCollect) return;

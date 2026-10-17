@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -29,20 +30,71 @@ namespace Multiplayer.Client.Desyncs
         private static bool SupportsDeferredStackTracing =>
             RuntimeInformation.ProcessArchitecture is Architecture.X64 or Architecture.X86;
 
+        private static bool loggedTraceFailure;
+
         public static void Postfix()
         {
             if (Native.LmfPtr == 0) return;
-            if (!ShouldAddStackTraceForDesyncLog()) return;
 
-            var logItem = StackTraceLogItemRaw.GetFromPool();
-            var trace = logItem.raw;
-            int hash = 0;
-            // Skip this (DeferredStackTracing.Postfix) frame. Keeping it in the trace doesn't provide any value.
-            int depth = DeferredStackTracingImpl.TraceImpl(trace, ref hash, skipFrames: 1);
+            // This runs inside Rand and other game code: an exception here would abort the game code on this client
+            // only, so never let one escape
+            try
+            {
+                if (!ShouldAddStackTraceForDesyncLog()) return;
 
-            Multiplayer.game.sync.TryAddStackTraceForDesyncLogRaw(logItem, depth, hash);
+                var logItem = StackTraceLogItemRaw.GetFromPool();
+                var trace = logItem.raw;
+                int hash = 0;
+                int depth;
 
-            acc++;
+                try
+                {
+                    // Skip this (DeferredStackTracing.Postfix) frame. Keeping it in the trace doesn't provide any value.
+                    depth = DeferredStackTracingImpl.TraceImpl(trace, ref hash, skipFrames: 1);
+                }
+                catch (Exception e)
+                {
+                    LogTraceFailureOnce(e.ToString());
+                    depth = -1;
+                }
+
+                if (depth < 0)
+                {
+                    if (DeferredStackTracingImpl.lastFailureReason != null)
+                        LogTraceFailureOnce(DeferredStackTracingImpl.lastFailureReason);
+
+                    // Keep the trace count in line with other clients but don't compare this window's trace hashes
+                    depth = 0;
+                    hash = 0;
+                    Multiplayer.game.sync.MarkTracesUnreliable();
+                }
+
+                Multiplayer.game.sync.TryAddStackTraceForDesyncLogRaw(logItem, depth, hash);
+
+                acc++;
+            }
+            catch (Exception e)
+            {
+                LogTraceFailureOnce(e.ToString());
+            }
+        }
+
+        private static void LogTraceFailureOnce(string info)
+        {
+            if (loggedTraceFailure) return;
+            loggedTraceFailure = true;
+
+            string at = null;
+            try
+            {
+                at = Native.MethodNameFromAddr(DeferredStackTracingImpl.lastFailureAddr, false);
+            }
+            catch
+            {
+                // ignored
+            }
+
+            Log.Error($"Multiplayer: deferred stack tracing failed (further failures aren't logged). At: {at ?? "unknown"}. {info}");
         }
 
         public static bool ShouldAddStackTraceForDesyncLog()
@@ -58,6 +110,9 @@ namespace Multiplayer.Client.Desyncs
             if (Multiplayer.IsReplay) return false;
 
             if (!Multiplayer.Ticking && !Multiplayer.ExecutingCmds) return false;
+
+            // Worker thread timing isn't deterministic and LmfPtr belongs to the main thread
+            if (!UnityData.IsInMainThread) return false;
 
             return ignoreTraces == 0;
         }
