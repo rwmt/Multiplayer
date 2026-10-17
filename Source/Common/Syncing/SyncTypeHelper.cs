@@ -12,7 +12,12 @@ public abstract class SyncTypeHelper
 
     public ushort GetIndexFromImplementation(Type baseType, Type type)
     {
-        return (ushort)GetImplementations(baseType).IndexOf(type);
+        // Writing ushort.MaxValue (the null marker) followed by the object's data would misalign the reader
+        int index = GetImplementations(baseType).IndexOf(type);
+        if (index < 0 || index >= ushort.MaxValue)
+            throw new Multiplayer.Client.SerializationException($"Type {type} isn't a known implementation of {baseType}");
+
+        return (ushort)index;
     }
 
     public abstract List<Type> GetImplementations(Type baseType);

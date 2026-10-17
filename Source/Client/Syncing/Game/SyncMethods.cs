@@ -488,11 +488,16 @@ namespace Multiplayer.Client
                     core.GetMultiSelectFloatMenuOptions(Find.Selector.SelectedPawns).ExecuteEnumerable();
                 })
                 // After syncing and invoking the method, we want to restore the previous state of tmpPawnsCanReach.
-                // Just run the GetMultiSelectFloatMenuOptions method again so the list is populated.
+                // Just run the GetMultiSelectFloatMenuOptions method again so the list is populated. It's UI state for
+                // the local selection, so do it outside of the command to keep the clients' simulation identical.
                 .SetPostInvoke((x, _) =>
                 {
                     if (x is not Building_ArchonexusCore core) return;
-                    core.GetMultiSelectFloatMenuOptions(SyncUtil.prevSelected.OfType<Pawn>()).ExecuteEnumerable();
+                    OnMainThread.Enqueue(() =>
+                    {
+                        if (core.Spawned)
+                            core.GetMultiSelectFloatMenuOptions(Find.Selector.SelectedPawns).ExecuteEnumerable();
+                    });
                 });
             SyncMethod.Register(typeof(Building_ArchonexusCore), nameof(Building_ArchonexusCore.Activate)).SetDebugOnly(); // Activate archonexus core
 
@@ -508,11 +513,16 @@ namespace Multiplayer.Client
                     crate.GetMultiSelectFloatMenuOptions(Find.Selector.SelectedPawns).ExecuteEnumerable();
                 })
                 // After syncing and invoking the method, we want to restore the previous state of tmpPawnsCanReach.
-                // Just run the GetMultiSelectFloatMenuOptions method again so the list is populated.
+                // Just run the GetMultiSelectFloatMenuOptions method again so the list is populated. It's UI state for
+                // the local selection, so do it outside of the command to keep the clients' simulation identical.
                 .SetPostInvoke((x, _) =>
                 {
                     if (x is not Building_Crate crate) return;
-                    crate.GetMultiSelectFloatMenuOptions(SyncUtil.prevSelected.OfType<Pawn>()).ExecuteEnumerable();
+                    OnMainThread.Enqueue(() =>
+                    {
+                        if (crate.Spawned)
+                            crate.GetMultiSelectFloatMenuOptions(Find.Selector.SelectedPawns).ExecuteEnumerable();
+                    });
                 });
 
             // Double ExecuteWhenFinished ensures it'll load after MP Compat late patches,
@@ -545,10 +555,15 @@ namespace Multiplayer.Client
         }
 
         [MpPrefix(typeof(StorageSettingsClipboard), nameof(StorageSettingsClipboard.Copy))]
-        static void StorageSettingsClipboardCopy_Prefix() => Multiplayer.dontSync = true;
+        static void StorageSettingsClipboardCopy_Prefix(out bool __state)
+        {
+            __state = Multiplayer.dontSync;
+            Multiplayer.dontSync = true;
+        }
 
-        [MpPostfix(typeof(StorageSettingsClipboard), nameof(StorageSettingsClipboard.Copy))]
-        static void StorageSettingsClipboardCopy_Postfix() => Multiplayer.dontSync = false;
+        // A finalizer, as leaving dontSync set would turn every later sync handler local-only
+        [MpFinalizer(typeof(StorageSettingsClipboard), nameof(StorageSettingsClipboard.Copy))]
+        static void StorageSettingsClipboardCopy_Finalizer(bool __state) => Multiplayer.dontSync = __state;
 
         [MpTranspiler(typeof(CompPlantable), nameof(CompPlantable.BeginTargeting), lambdaOrdinal: 0)]
         static IEnumerable<CodeInstruction> CompPlantableTranspiler(IEnumerable<CodeInstruction> insts)

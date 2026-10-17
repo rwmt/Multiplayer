@@ -96,14 +96,23 @@ public class SyncWorkerEntry
     {
         parent?.Invoke(worker, ref obj);
 
+        // A worker which returns false gets rolled back to this point, i.e. after the parent's data. Rolling back
+        // further would drop the parent's data on the writer but not on the reader.
+        int start = worker switch
+        {
+            ReadingSyncWorker reader => reader.Position,
+            WritingSyncWorker writer => writer.Position,
+            _ => 0
+        };
+
         for (int i = 0; i < syncWorkers.Count; i++) {
             if (syncWorkers[i](worker, ref obj))
                 return true;
 
             if (worker is ReadingSyncWorker reader) {
-                reader.Reset();
+                reader.Reset(start);
             } else if (worker is WritingSyncWorker writer) {
-                writer.Reset();
+                writer.Reset(start);
             }
         }
 
