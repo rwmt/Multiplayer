@@ -548,11 +548,11 @@ namespace Multiplayer.Client
                     if (playerNegotiator.Map == Find.CurrentMap && playerNegotiator.CurJob.loadID == SyncMethods.tradeJobStartedByMe)
                     {
                         SyncMethods.tradeJobStartedByMe = -1;
-                        trade.OpenWindow();
+                        OpenWindowLocally(trade);
                     }
                     else if (trader is Settlement && Find.World.renderer.wantedMode == WorldRenderMode.Planet)
                     {
-                        trade.OpenWindow();
+                        OpenWindowLocally(trade);
                     }
                 }
 
@@ -560,6 +560,14 @@ namespace Multiplayer.Client
             }
 
             return true;
+        }
+
+        // Runs in a tick or command for the player who started the trade (or who looks at the world) only, the
+        // window's constructor and PreOpen must stay off the shared RNG and unique ids
+        static void OpenWindowLocally(MpTradeSession trade)
+        {
+            using (LocalOnlyScope.Enter())
+                trade.OpenWindow();
         }
     }
 
