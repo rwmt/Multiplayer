@@ -192,7 +192,9 @@ namespace Multiplayer.Client.Persistent
 
             if (TickPatch.currentExecutingCmdIssuedBySelf)
             {
-                CaravanFormingProxy dialog = session.OpenWindow();
+                CaravanFormingProxy dialog;
+                using (LocalOnlyScope.Enter())
+                    dialog = session.OpenWindow();
                 if (!routePlannerWaypoint.HasValue)
                     return;
 

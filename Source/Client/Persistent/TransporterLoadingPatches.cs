@@ -135,7 +135,8 @@ namespace Multiplayer.Client.Persistent
                 var comp = map.MpComp();
                 TransporterLoading loading = comp.CreateTransporterLoadingSession(Faction.OfPlayer, transporters);
                 if (TickPatch.currentExecutingCmdIssuedBySelf)
-                    loading.OpenWindow();
+                    using (LocalOnlyScope.Enter())
+                        loading.OpenWindow();
             }
         }
     }

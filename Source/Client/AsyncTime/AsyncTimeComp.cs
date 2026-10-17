@@ -320,7 +320,9 @@ namespace Multiplayer.Client
                 Find.Selector.selected = prevSelected;
                 prevSelected = null;
 
-                Find.MainButtonsRoot.tabs.Notify_SelectedObjectDespawned();
+                // Local UI, depends on the local selection
+                using (LocalOnlyScope.Enter())
+                    Find.MainButtonsRoot.tabs.Notify_SelectedObjectDespawned();
 
                 RestoreRandStack(randDepth + 1, this);
                 map.PopFaction();

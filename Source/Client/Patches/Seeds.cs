@@ -177,6 +177,35 @@ namespace Multiplayer.Client
         }
     }
 
+    /// <summary>
+    /// For code inside a tick or command which runs only on some clients, e.g. a window opened only for the issuer of
+    /// a command or local UI updates. Keeps it off the shared RNG stream, unique id counters and desync traces.
+    /// </summary>
+    public readonly struct LocalOnlyScope : IDisposable
+    {
+        private readonly bool prevLocalIds;
+
+        private LocalOnlyScope(bool prevLocalIds) => this.prevLocalIds = prevLocalIds;
+
+        public static LocalOnlyScope Enter()
+        {
+            var scope = new LocalOnlyScope(Patches.UniqueIdsPatch.useLocalIdsOverride);
+
+            Rand.PushState();
+            Desyncs.DeferredStackTracing.ignoreTraces++;
+            Patches.UniqueIdsPatch.useLocalIdsOverride = true;
+
+            return scope;
+        }
+
+        public void Dispose()
+        {
+            Patches.UniqueIdsPatch.useLocalIdsOverride = prevLocalIds;
+            Desyncs.DeferredStackTracing.ignoreTraces--;
+            Rand.PopState();
+        }
+    }
+
     [HarmonyPatch]
     static class SeedGrammar
     {
