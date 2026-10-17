@@ -280,8 +280,7 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(Pawn_TrainingTracker), nameof(Pawn_TrainingTracker.GetGizmos), 0, fields: [SyncDelegate.DelegateThis, "master"]).SetContext(SyncContext.MapSelected).CancelIfNoSelectedMapObjects(); // Force attack target
             SyncDelegate.Lambda(typeof(Pawn_TrainingTracker), nameof(Pawn_TrainingTracker.GetGizmos), 3).SetContext(SyncContext.MapSelected).CancelIfNoSelectedMapObjects(); // Cancel attacking target
 
-            // Colonist bar reordering
-            SyncDelegate.Lambda(typeof(ColonistBar.Entry), null, lambdaOrdinal: 0, parentMethodType: MethodType.Constructor, parentArgs: [typeof(Pawn), typeof(Map), typeof(int)]);
+            // Colonist bar reordering is synced through ColonistBarReorder below
 
             InitRituals();
             InitChoiceLetters();
@@ -459,6 +458,64 @@ namespace Multiplayer.Client
             letter.MakeChoices(passions, trait);
             // Close the letter, or it may auto-open for all players.
             Find.LetterStack.RemoveLetter(letter);
+        }
+
+        // The reorder indices and the group are relative to the local colonist bar's entries, which differ between
+        // clients (multifaction, hidden maps, entries not yet recached), so resolve them to pawns on the sender.
+        [MpPrefix(typeof(ColonistBar), nameof(ColonistBar.Reorder))]
+        static bool ColonistBarReorder(ColonistBar __instance, int from, int to, int entryGroup)
+        {
+            if (!Multiplayer.ShouldSync)
+                return true;
+
+            var group = new List<Pawn>();
+            foreach (var entry in __instance.cachedEntries)
+                if (entry.group == entryGroup && entry.pawn != null)
+                    group.Add(entry.pawn);
+
+            if (from >= 0 && from < group.Count)
+            {
+                bool toEnd = to < 0 || to >= group.Count;
+                SyncedColonistBarReorder(group[from], toEnd ? null : group[to], toEnd, group);
+            }
+
+            return false;
+        }
+
+        [SyncMethod]
+        static void SyncedColonistBarReorder(Pawn dragged, Pawn target, bool toEnd, List<Pawn> group)
+        {
+            group.RemoveAll(p => p?.playerSettings == null);
+            if (dragged?.playerSettings == null || !toEnd && target?.playerSettings == null || group.Count == 0)
+                return;
+
+            int newOrder = toEnd ? group[group.Count - 1].playerSettings.displayOrder + 1 : target.playerSettings.displayOrder;
+
+            // Same as ColonistBar.Reorder, but instead of the local bar's entries it shifts the group and all the faction's
+            // pawns. Shifting pawns which aren't in the bar keeps the relative order, so the bar's order is the same.
+            var pawns = new List<Pawn>(group);
+            var seen = new HashSet<Pawn>(group);
+            foreach (var p in PawnsFinder.AllMapsCaravansAndTravellingTransporters_Alive)
+                if (p.playerSettings != null && p.Faction == Faction.OfPlayer && seen.Add(p))
+                    pawns.Add(p);
+
+            foreach (var p in pawns)
+            {
+                var settings = p.playerSettings;
+                if (settings.displayOrder == newOrder)
+                {
+                    if (!toEnd && group.Contains(p))
+                        settings.displayOrder += p.thingIDNumber < target.thingIDNumber ? -1 : 1;
+                }
+                else if (settings.displayOrder > newOrder)
+                    settings.displayOrder++;
+                else
+                    settings.displayOrder--;
+            }
+
+            dragged.playerSettings.displayOrder = newOrder;
+            Find.ColonistBar.MarkColonistsDirty();
+            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
         }
 
         // The letter tries to generate the options when opened. Make the picks seeded, so all players will get the same ones.
