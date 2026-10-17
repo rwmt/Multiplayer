@@ -152,6 +152,16 @@ namespace Multiplayer.Client
             __state = true;
         }
 
+        // For methods that may also run on worker threads (e.g. async long events), where touching the shared
+        // Rand state stack would race with the main thread
+        [HarmonyPriority(MpPriority.MpFirst)]
+        public static void PrefixMainThread(ref bool __state)
+        {
+            if (!UnityData.IsInMainThread) return;
+            Rand.PushState();
+            __state = true;
+        }
+
         [HarmonyPriority(MpPriority.MpLast)]
         public static void Finalizer(bool __state)
         {
