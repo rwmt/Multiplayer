@@ -202,20 +202,27 @@ namespace Multiplayer.Client.Patches
         private enum Cutscene { None, Takeoff, Landing }
 
         // Only changed from InitiateTakeoff/InitiateLanding and TakeoffEnded/LandingEnded which run in commands,
-        // so it's the same on all clients.
+        // so it's the same on all clients. Saved with the controller, a join point can happen during a cutscene.
         private static Cutscene pending;
-        private static MultiplayerGame pendingGame;
 
         // Local state of this client
         private static bool endRequested;
         private static bool frozen;
 
-        public static bool EndRequested => endRequested && pendingGame == Multiplayer.game;
+        public static bool EndRequested => endRequested && pending != Cutscene.None;
+
+        public static void ExposeData()
+        {
+            // Don't add it to singleplayer saves, but reset it on every load
+            if (Scribe.mode == LoadSaveMode.Saving && Multiplayer.Client == null)
+                return;
+
+            Scribe_Values.Look(ref pending, "mpPendingCutsceneEnd");
+        }
 
         public static void CutsceneStarted(bool takeoff)
         {
             pending = takeoff ? Cutscene.Takeoff : Cutscene.Landing;
-            pendingGame = Multiplayer.game;
             endRequested = false;
 
             frozen = true;
@@ -231,7 +238,7 @@ namespace Multiplayer.Client.Patches
         }
 
         private static bool IsPending(bool takeoff) =>
-            pendingGame == Multiplayer.game && pending == (takeoff ? Cutscene.Takeoff : Cutscene.Landing);
+            pending == (takeoff ? Cutscene.Takeoff : Cutscene.Landing);
 
         // Called by vanilla in the interface when the local cutscene ends
         public static void LocalCutsceneEnded(WorldComponent_GravshipController controller, bool takeoff)
@@ -308,6 +315,12 @@ namespace Multiplayer.Client.Patches
                 TickPatch.currentExecutingCmdIssuedBySelf = prevIssuedBySelf;
             }
         }
+    }
+
+    [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.ExposeData))]
+    public static class PatchGravshipControllerExposePendingEnd
+    {
+        static void Postfix() => GravshipCutsceneSync.ExposeData();
     }
 
     [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.WorldComponentUpdate))]
