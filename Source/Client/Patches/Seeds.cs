@@ -97,9 +97,10 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.QueueLongEvent), typeof(Action), typeof(string), typeof(bool), typeof(Action<Exception>), typeof(bool), typeof(bool), typeof(Action))]
     static class SeedLongEvents
     {
-        static void Prefix(ref SimLongEventContext __state)
+        static void Prefix(string textKey, ref SimLongEventContext __state)
         {
-            if (SimLongEventContext.ShouldCapture)
+            // MpSaving events (autosaves) are queued from the non-simulation part of ConstantTicker on some clients only
+            if (SimLongEventContext.ShouldCapture && textKey != "MpSaving")
                 __state = SimLongEventContext.Capture();
         }
 

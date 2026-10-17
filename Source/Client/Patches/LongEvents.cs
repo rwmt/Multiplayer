@@ -179,8 +179,14 @@ namespace Multiplayer.Client.Patches
             this.faction = faction;
         }
 
-        public static SimLongEventContext Capture() =>
-            new(Rand.Int, Multiplayer.GameComp.multifaction ? Faction.OfPlayer : null);
+        // The seed is derived from the RNG state without advancing it: some events are queued only on the issuer of a
+        // command (e.g. join points on a standalone server), which mustn't move the shared stream
+        public static SimLongEventContext Capture()
+        {
+            ulong state = Rand.StateCompressed;
+            int seed = Gen.HashCombineInt((int)state, (int)(state >> 32));
+            return new(seed, Multiplayer.GameComp.multifaction ? Faction.OfPlayer : null);
+        }
 
         public static void Attach(LongEventHandler.QueuedLongEvent ev, SimLongEventContext context)
         {
@@ -208,25 +214,32 @@ namespace Multiplayer.Client.Patches
 
         public void Exit()
         {
-            // FactionContext is cleared when the game is reloaded
-            if (pushedFaction && game == Multiplayer.game && FactionContext.stack.Count > 0)
+            try
             {
-                FactionContext.Pop();
-
-                // Long events run in the interface context, where Faction.OfPlayer is the real faction. Restore that
-                // instead of the popped faction as the event may have changed it (FactionCreator).
-                if (Multiplayer.RealPlayerFaction is { } real)
+                // FactionContext is cleared when the game is reloaded
+                if (pushedFaction && game == Multiplayer.game && FactionContext.stack.Count > 0)
                 {
-                    FactionContext.Set(real);
-                    SetFactionData(real);
+                    FactionContext.Pop();
+
+                    // Long events run in the interface context, where Faction.OfPlayer is the real faction. Restore
+                    // that instead of the popped faction as the event may have changed it (FactionCreator).
+                    if (Multiplayer.RealPlayerFaction is { } real)
+                    {
+                        FactionContext.Set(real);
+                        SetFactionData(real);
+                    }
                 }
             }
+            finally
+            {
+                pushedFaction = false;
 
-            pushedFaction = false;
-            Rand.PopState();
+                // A context left active would keep InInterface false for good
+                current = prev;
+                prev = null;
 
-            current = prev;
-            prev = null;
+                Rand.PopState();
+            }
         }
 
         private static void SetFactionData(Faction f)
