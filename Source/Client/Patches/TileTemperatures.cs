@@ -1,9 +1,11 @@
 using HarmonyLib;
 using RimWorld;
 using RimWorld.Planet;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client
@@ -28,25 +30,35 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(TileTemperaturesComp), nameof(TileTemperaturesComp.RetrieveCachedData))]
     static class RetrieveCachedData_Patch
     {
+        private static int uiTickedAtFrame = -1;
+
         static bool Prefix(TileTemperaturesComp __instance, PlanetTile tile, ref TileTemperaturesComp.CachedTileTemperatureData __result)
         {
             if (Multiplayer.InInterface && __instance != Multiplayer.WorldComp.uiTemperatures)
             {
-                __result = Multiplayer.WorldComp.uiTemperatures.RetrieveCachedData(tile);
+                var uiTemperatures = Multiplayer.WorldComp.uiTemperatures;
+
+                // The UI cache isn't a real world component, so vanilla never ticks it and its entries would never
+                // refresh or get evicted. Tick it (at most once per frame) while the interface uses it.
+                if (uiTickedAtFrame != Time.frameCount)
+                {
+                    uiTickedAtFrame = Time.frameCount;
+
+                    try
+                    {
+                        uiTemperatures.WorldComponentTick();
+                    }
+                    catch (Exception e)
+                    {
+                        Log.ErrorOnce($"MP: Exception ticking UI tile temperatures: {e}", 846582641);
+                    }
+                }
+
+                __result = uiTemperatures.RetrieveCachedData(tile);
                 return false;
             }
 
             return true;
-        }
-    }
-
-    [HarmonyPatch(typeof(TileTemperaturesComp), nameof(TileTemperaturesComp.WorldComponentTick))]
-    static class TileTemperaturesTick_Patch
-    {
-        static void Prefix(TileTemperaturesComp __instance)
-        {
-            if (Multiplayer.InInterface && __instance != Multiplayer.WorldComp.uiTemperatures)
-                Multiplayer.WorldComp.uiTemperatures.WorldComponentTick();
         }
     }
 

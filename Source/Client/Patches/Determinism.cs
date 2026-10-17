@@ -70,19 +70,45 @@ namespace Multiplayer.Client.Patches
             e => e.FirstOrDefault()
         );
 
+        static MethodBase Shuffle = AccessTools.Method(typeof(GenList), nameof(GenList.Shuffle)).MakeGenericMethod(typeof(NameTriple));
+
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> e)
         {
             List<CodeInstruction> insts = new List<CodeInstruction>(e);
 
+            // Load the list the same way it's loaded for the shuffle call
+            CodeInstruction loadList = null;
+            for (int i = 1; i < insts.Count; i++)
+            {
+                if (insts[i].Calls((MethodInfo)Shuffle) && insts[i - 1].IsLdloc())
+                {
+                    loadList = new CodeInstruction(insts[i - 1].opcode, insts[i - 1].operand);
+                    break;
+                }
+            }
+
+            if (loadList == null)
+            {
+                Log.Error("MP: Couldn't find the shuffled name list in PawnBioAndNameGenerator.TryGetRandomUnusedSolidName, assuming local 1. Was the original method changed?");
+                loadList = new CodeInstruction(OpCodes.Ldloc_1);
+            }
+
+            int patched = 0;
             for (int i = insts.Count - 1; i >= 0; i--)
             {
                 if (insts[i].operand as MethodBase == FirstOrDefault)
+                {
                     insts.Insert(
                        i + 1,
-                       new CodeInstruction(OpCodes.Ldloc_1),
+                       loadList.Clone(),
                        new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(GenerateNewPawnInternalPatch), nameof(Unshuffle)).MakeGenericMethod(typeof(NameTriple)))
                    );
+                    patched++;
+                }
             }
+
+            if (patched == 0)
+                Log.Error("MP: Couldn't find FirstOrDefault in PawnBioAndNameGenerator.TryGetRandomUnusedSolidName. Was the original method changed?");
 
             return insts;
         }
@@ -134,6 +160,8 @@ namespace Multiplayer.Client.Patches
 
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
         {
+            int patched = 0;
+
             foreach (var inst in insts)
             {
                 yield return inst;
@@ -142,32 +170,42 @@ namespace Multiplayer.Client.Patches
                 {
                     yield return new CodeInstruction(OpCodes.Ldc_I4_1);
                     yield return new CodeInstruction(OpCodes.Or);
+                    patched++;
                 }
             }
+
+            if (patched == 0)
+                Log.Error("MP: Couldn't find CellRect.Contains in Pawn.ProcessPostTickVisuals. Was the original method changed?");
         }
     }
 
     public static class CellsShufflePatchShared
     {
-        public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts, FieldInfo cellsShuffledField)
+        // Turns "if (!cellsShuffled) shuffle" into "if (!(cellsShuffled || SkipShuffle())) shuffle"
+        public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts, FieldInfo cellsShuffledField, MethodBase original)
         {
             bool found = false;
             foreach (CodeInstruction inst in insts)
             {
                 yield return inst;
-                if (!found && inst.operand as FieldInfo == cellsShuffledField)
+                if (!found && inst.opcode == OpCodes.Ldfld && inst.operand as FieldInfo == cellsShuffledField)
                 {
-                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(CellsShufflePatchShared), nameof(ShouldShuffle)));
-                    yield return new CodeInstruction(OpCodes.Not);
+                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(CellsShufflePatchShared), nameof(SkipShuffle)));
                     yield return new CodeInstruction(OpCodes.Or);
                     found = true;
                 }
             }
+
+            if (!found)
+                Log.Error($"MP: Couldn't patch the cell shuffle in {original.DeclaringType}:{original.Name}. Was the original method changed?");
         }
 
-        public static bool ShouldShuffle()
+        // The shuffle uses Rand and its "shuffled" flag isn't saved, so whether a given access shuffles could differ
+        // between clients (e.g. only one of them reloaded or first accessed the cells from the UI). Before this was
+        // made explicit, a bitwise "not" here made the shuffle never happen at all, so keep that in MP.
+        public static bool SkipShuffle()
         {
-            return Multiplayer.Client == null || Multiplayer.Ticking;
+            return Multiplayer.Client != null;
         }
     }
 
@@ -175,16 +213,16 @@ namespace Multiplayer.Client.Patches
     static class ZoneCellsShufflePatch
     {
         static readonly FieldInfo CellsShuffled = AccessTools.Field(typeof(Zone), "cellsShuffled");
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
-            => CellsShufflePatchShared.Transpiler(insts, CellsShuffled);
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts, MethodBase __originalMethod)
+            => CellsShufflePatchShared.Transpiler(insts, CellsShuffled, __originalMethod);
     }
 
     [HarmonyPatch(typeof(Plan), nameof(Plan.Cells), MethodType.Getter)]
     static class PlanCellsShufflePatch
     {
         static readonly FieldInfo CellsShuffled = AccessTools.Field(typeof(Plan), "cellsShuffled");
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
-            => CellsShufflePatchShared.Transpiler(insts, CellsShuffled);
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts, MethodBase __originalMethod)
+            => CellsShufflePatchShared.Transpiler(insts, CellsShuffled, __originalMethod);
     }
 
     [HarmonyPatch]
@@ -252,10 +290,11 @@ namespace Multiplayer.Client.Patches
     [HarmonyPatch(typeof(PriorityWork), nameof(PriorityWork.Clear))]
     static class PriorityWorkClearNoInterface
     {
-        // This can get called in the UI but has side effects
+        // This can get called in the UI (IsPrioritized timeout check from the gizmos) but has side effects.
+        // Calls during ticking (e.g. JobGiver_Work after exhausting the prioritized work) are deterministic.
         static bool Prefix(PriorityWork __instance)
         {
-            return Multiplayer.Client == null || Multiplayer.ExecutingCmds;
+            return Multiplayer.Client == null || !Multiplayer.InInterface;
         }
     }
 
@@ -484,7 +523,42 @@ namespace Multiplayer.Client.Patches
                     AccessTools.Method(typeof(StatWorkerGetValuePatch), nameof(NewCacheTicks)))
             );
 
-            return matcher.Instructions();
+            // Make the interface judge staleness (and so decide whether to overwrite a simulation entry)
+            // with the time the simulation uses for the thing
+            var tickManagerTicksGame = AccessTools.PropertyGetter(typeof(TickManager), nameof(TickManager.TicksGame));
+            var genTicksTicksGame = AccessTools.PropertyGetter(typeof(GenTicks), nameof(GenTicks.TicksGame));
+            var result = matcher.Instructions();
+            int patched = 0;
+
+            for (int i = 0; i < result.Count; i++)
+            {
+                if (!result[i].Calls(tickManagerTicksGame) && !result[i].Calls(genTicksTicksGame))
+                    continue;
+
+                result.InsertRange(i + 1, [
+                    new CodeInstruction(OpCodes.Ldarg_1),
+                    new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(StatWorkerGetValuePatch), nameof(TicksGameFor)))
+                ]);
+                i += 2;
+                patched++;
+            }
+
+            if (patched == 0)
+                Log.Error("MP: Couldn't find TicksGame in StatWorker.GetValue. Was the original method changed?");
+
+            return result;
+        }
+
+        private static int TicksGameFor(int ticksGame, Thing thing)
+        {
+            if (Multiplayer.Client == null || !Multiplayer.InInterface)
+                return ticksGame;
+
+            // In the interface the current time can be another map's or the world's (async time)
+            if (thing?.MapHeld?.AsyncTime() is { } mapTime)
+                return mapTime.mapTicks;
+
+            return Multiplayer.AsyncWorldTime?.worldTicks ?? ticksGame;
         }
 
         private static bool HasValueInCache(bool hasValueInCache, StatWorker worker, Thing t)

@@ -33,21 +33,30 @@ namespace Multiplayer.Client
         // and handling this case properly might prevent some crashes and help with debugging
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
         {
+            int patched = 0;
+
             foreach (var inst in insts)
             {
                 yield return inst;
 
-                if (inst.operand as FieldInfo == FrameCountField)
+                if (inst.opcode == OpCodes.Ldsfld && inst.operand as FieldInfo == FrameCountField)
                 {
                     yield return new CodeInstruction(OpCodes.Ldarg_0);
                     yield return new CodeInstruction(OpCodes.Call, FrameCountReplacementMethod);
+                    patched++;
                 }
             }
+
+            if (patched == 0)
+                Log.Error("MP: Couldn't find RealTime.frameCount in Pawn_JobTracker.StartJob. Was the original method changed?");
         }
 
         static int FrameCountReplacement(int frameCount, Pawn_JobTracker tracker)
         {
-            return tracker.pawn.Map.AsyncTime()?.eventCount ?? frameCount;
+            if (Multiplayer.Client == null) return frameCount;
+
+            // The frame count differs between clients. Pawns without a map (caravans, world pawns) use the timer.
+            return tracker.pawn.MapHeld?.AsyncTime()?.eventCount ?? TickPatch.Timer;
         }
     }
 

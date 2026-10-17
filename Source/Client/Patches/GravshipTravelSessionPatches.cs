@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
 using Multiplayer.API;
+using Multiplayer.Client.Factions;
 using Multiplayer.Client.Persistent;
 using Multiplayer.Client.Util;
 using RimWorld;
@@ -181,49 +182,245 @@ namespace Multiplayer.Client.Patches
             yield return AccessTools.Method(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.InitiateLanding));
         }
 
-        static void Postfix()
+        static void Postfix(MethodBase __originalMethod)
         {
             if (Multiplayer.Client == null) return;
 
+            GravshipCutsceneSync.CutsceneStarted(__originalMethod.Name == nameof(WorldComponent_GravshipController.InitiateTakeoff));
+        }
+    }
+
+    /// <summary>
+    /// The takeoff/landing cutscenes end in WorldComponent_GravshipController.WorldComponentUpdate, i.e. in a frame
+    /// update, at a different moment on every client and outside of any tick or command. TakeoffEnded/LandingEnded
+    /// change the game state (landing outcome, world objects, maps, sessions), so in MP they are not run from there.
+    /// Instead, every client sends a synced command when its own cutscene ends and the first one to execute runs
+    /// the method on all clients at the same point of the simulation. The others are ignored.
+    /// </summary>
+    public static class GravshipCutsceneSync
+    {
+        private enum Cutscene { None, Takeoff, Landing }
+
+        // Only changed from InitiateTakeoff/InitiateLanding and TakeoffEnded/LandingEnded which run in commands,
+        // so it's the same on all clients. Saved with the controller, a join point can happen during a cutscene.
+        private static Cutscene pending;
+
+        // Local state of this client
+        private static bool endRequested;
+        private static bool frozen;
+
+        public static bool EndRequested => endRequested && pending != Cutscene.None;
+
+        public static void ExposeData()
+        {
+            // Don't add it to singleplayer saves, but reset it on every load
+            if (Scribe.mode == LoadSaveMode.Saving && Multiplayer.Client == null)
+                return;
+
+            Scribe_Values.Look(ref pending, "mpPendingCutsceneEnd");
+        }
+
+        public static void CutsceneStarted(bool takeoff)
+        {
+            pending = takeoff ? Cutscene.Takeoff : Cutscene.Landing;
+            endRequested = false;
+
+            frozen = true;
             GravshipTravelUtils.StartFreeze();
+        }
+
+        private static void Unfreeze()
+        {
+            if (!frozen) return;
+
+            frozen = false;
+            GravshipTravelUtils.StopFreeze();
+        }
+
+        private static bool IsPending(bool takeoff) =>
+            pending == (takeoff ? Cutscene.Takeoff : Cutscene.Landing);
+
+        // Called by vanilla in the interface when the local cutscene ends
+        public static void LocalCutsceneEnded(WorldComponent_GravshipController controller, bool takeoff)
+        {
+            if (EndRequested || !Multiplayer.ShouldSync)
+                return;
+
+            if (!IsPending(takeoff))
+            {
+                // The synced end already ran (e.g. this client's cutscene was very late), only clean up the visuals
+                Log.Warning($"MP: Gravship {(takeoff ? "takeoff" : "landing")} cutscene ended locally without a pending synced end");
+                Unfreeze();
+                WorldComponent_GravshipController.cutsceneInProgress = false;
+
+                try
+                {
+                    controller.ResetCutscene();
+                }
+                catch (Exception e)
+                {
+                    Log.Error($"MP: Exception resetting gravship cutscene: {e}");
+                }
+
+                return;
+            }
+
+            endRequested = true;
+
+            // Commands don't execute while frozen
+            Unfreeze();
+
+            if (takeoff)
+                SyncTakeoffEnded();
+            else
+                SyncLandingEnded(controller.map);
+        }
+
+        // Called when TakeoffEnded/LandingEnded actually runs
+        public static void SyncedEndExecuting()
+        {
+            pending = Cutscene.None;
+            endRequested = false;
+            Unfreeze();
+        }
+
+        [SyncMethod]
+        public static void SyncTakeoffEnded()
+        {
+            if (!IsPending(true)) return;
+            RunWithFeedback(Find.GravshipController.TakeoffEnded);
+        }
+
+        // The map argument makes it a command of the landing map (its RNG, time and faction)
+        [SyncMethod]
+        public static void SyncLandingEnded(Map map)
+        {
+            if (!IsPending(false)) return;
+            RunWithFeedback(Find.GravshipController.LandingEnded);
+        }
+
+        // Everyone watched the cutscene, so show its feedback (sounds, messages, camera) to all players like
+        // vanilla does, not only to the player whose command happened to arrive first.
+        private static void RunWithFeedback(Action action)
+        {
+            var prevIssuedBySelf = TickPatch.currentExecutingCmdIssuedBySelf;
+            TickPatch.currentExecutingCmdIssuedBySelf = !TickPatch.Simulating;
+
+            try
+            {
+                action();
+            }
+            finally
+            {
+                TickPatch.currentExecutingCmdIssuedBySelf = prevIssuedBySelf;
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.ExposeData))]
+    public static class PatchGravshipControllerExposePendingEnd
+    {
+        static void Postfix() => GravshipCutsceneSync.ExposeData();
+    }
+
+    [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.WorldComponentUpdate))]
+    public static class PatchGravshipCutsceneHoldLastFrame
+    {
+        static void Prefix(WorldComponent_GravshipController __instance)
+        {
+            if (Multiplayer.Client == null) return;
+
+            // Keep the cutscene on its last frame while waiting for the synced end
+            if (GravshipCutsceneSync.EndRequested && __instance.timeLeft < 0f)
+                __instance.timeLeft = 0f;
         }
     }
 
     [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.TakeoffEnded))]
     public static class PatchGravshipTakeoffEnded
     {
-        static void Prefix(WorldComponent_GravshipController __instance)
+        static bool Prefix(WorldComponent_GravshipController __instance, out (bool factionPushed, Map map) __state)
         {
-            if (Multiplayer.Client == null) return;
+            __state = default;
+            if (Multiplayer.Client == null) return true;
 
-            GravshipTravelUtils.StopFreeze();
+            if (Multiplayer.InInterface)
+            {
+                GravshipCutsceneSync.LocalCutsceneEnded(__instance, true);
+                return false;
+            }
+
+            GravshipCutsceneSync.SyncedEndExecuting();
             GravshipTravelUtils.CloseSessionAt(__instance.takeoffTile);
+
+            if (Multiplayer.GameComp.multifaction && __instance.gravship?.Faction is { } faction)
+            {
+                __instance.map.PushFaction(faction);
+                __state = (true, __instance.map);
+            }
+
+            return true;
+        }
+
+        static void Finalizer((bool factionPushed, Map map) __state)
+        {
+            if (!__state.factionPushed) return;
+
+            // TakeoffEnded can remove the map that was left behind
+            if (__state.map != null && Find.Maps.Contains(__state.map))
+                __state.map.PopFaction();
+            else
+                FactionExtensions.PopFaction();
         }
     }
 
-    // TODO: Is the random pushing here necessary? This might be related to issue #638.
     [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.LandingEnded))]
     public static class PatchGravshipLandingEnded
     {
-        static void Prefix(WorldComponent_GravshipController __instance)
+        static bool Prefix(WorldComponent_GravshipController __instance, out (Map factionMap, bool randPushed) __state)
         {
-            if (Multiplayer.Client == null) return;
+            __state = default;
+            if (Multiplayer.Client == null) return true;
 
-            Rand.PushState();
-            Rand.StateCompressed = __instance.map.AsyncTime().randState;
+            if (Multiplayer.InInterface)
+            {
+                GravshipCutsceneSync.LocalCutsceneEnded(__instance, false);
+                return false;
+            }
 
-            GravshipTravelUtils.StopFreeze();
+            var map = __instance.map;
+
+            // Normally runs in a command of the landing map which already provides its RNG state (and saves it after).
+            // Otherwise (e.g. called while loading) keep it from consuming an unrelated RNG state.
+            if (!Multiplayer.ExecutingCmds && !Multiplayer.Ticking)
+            {
+                Rand.PushState();
+                Rand.StateCompressed = map.AsyncTime().randState;
+                __state.randPushed = true;
+            }
+
+            GravshipCutsceneSync.SyncedEndExecuting();
             GravshipTravelUtils.CloseSessionAt(__instance.gravship.destinationTile);
 
             // LandingEnded calls Find.TickManager.CurTimeSpeed = TimeSpeed.Normal, but that doesn't work in MP as we
             // have our own way of changing the map speed.
-            __instance.map.AsyncTime().DesiredTimeSpeed = TimeSpeed.Normal;
+            map.AsyncTime().DesiredTimeSpeed = TimeSpeed.Normal;
+
+            if (Multiplayer.GameComp.multifaction && __instance.gravship.Faction is { } faction)
+            {
+                map.PushFaction(faction);
+                __state.factionMap = map;
+            }
+
+            return true;
         }
 
-        static void Finalizer()
+        static void Finalizer((Map factionMap, bool randPushed) __state)
         {
-            if (Multiplayer.Client == null) return;
-            Rand.PopState();
+            __state.factionMap?.PopFaction();
+
+            if (__state.randPushed)
+                Rand.PopState();
         }
     }
     #endregion
