@@ -108,9 +108,27 @@ public class AsyncWorldTimeComp : IExposable, ITickable
 
         try
         {
-            Find.TickManager.DoSingleTick();
-            worldTicks++;
-            Multiplayer.WorldComp.TickWorldSessions();
+            try
+            {
+                Find.TickManager.DoSingleTick();
+            }
+            catch (Exception e)
+            {
+                Log.Error($"Exception in world DoSingleTick: {e}");
+            }
+
+            // Matches how worldTicks is initialized after loading (ExposeData), so clients which joined later agree
+            // even if a tick threw before or after advancing TicksGame
+            worldTicks = Find.TickManager.TicksGame;
+
+            try
+            {
+                Multiplayer.WorldComp.TickWorldSessions();
+            }
+            catch (Exception e)
+            {
+                Log.Error($"Exception ticking world sessions: {e}");
+            }
 
             if (ModsConfig.BiotechActive)
             {

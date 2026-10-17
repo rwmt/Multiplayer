@@ -118,7 +118,17 @@ namespace Multiplayer.Client
 
             try
             {
-                map.MapPreTick();
+                // Like vanilla's DoSingleTick, an exception in one subsystem shouldn't skip the rest of the tick
+                // (in particular the mapTicks increment)
+                try
+                {
+                    map.MapPreTick();
+                }
+                catch (Exception e)
+                {
+                    Log.Error($"Exception in MapPreTick of {map}: {e}");
+                }
+
                 mapTicks++;
                 Find.TickManager.ticksGameInt = mapTicks;
 
@@ -132,12 +142,41 @@ namespace Multiplayer.Client
                 tickListRare.Tick();
                 tickListLong.Tick();
 
-                TickMapSessions();
+                try
+                {
+                    TickMapSessions();
+                }
+                catch (Exception e)
+                {
+                    Log.Error($"Exception ticking sessions of {map}: {e}");
+                }
 
-                Find.Storyteller.StorytellerTick();
-                Find.StoryWatcher.StoryWatcherTick();
+                try
+                {
+                    Find.Storyteller.StorytellerTick();
+                }
+                catch (Exception e)
+                {
+                    Log.Error(e.ToString());
+                }
 
-                QuestManagerTickAsyncTime();
+                try
+                {
+                    Find.StoryWatcher.StoryWatcherTick();
+                }
+                catch (Exception e)
+                {
+                    Log.Error(e.ToString());
+                }
+
+                try
+                {
+                    QuestManagerTickAsyncTime();
+                }
+                catch (Exception e)
+                {
+                    Log.Error(e.ToString());
+                }
 
                 map.MapPostTick();
                 Find.TickManager.ticksThisFrame = 1;
