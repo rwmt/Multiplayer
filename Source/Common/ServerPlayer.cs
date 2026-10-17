@@ -15,7 +15,16 @@ namespace Multiplayer.Common
         public bool simulating;
         public float frameTime;
 
-        public int ticksBehind;
+        // Reported by the client. It pauses and slows down the server for everyone, so keep it in a sane range
+        // (negative values sped the server up, huge ones overflowed ExtrapolatedTicksBehind).
+        public int ticksBehind
+        {
+            get => clampedTicksBehind;
+            set => clampedTicksBehind = Math.Max(0, Math.Min(value, MaxTicksBehind));
+        }
+        private int clampedTicksBehind;
+        public const int MaxTicksBehind = 1 << 24;
+
         public int ticksBehindReceivedAt;
         public int ExtrapolatedTicksBehind => ticksBehind + (Server.gameTimer - ticksBehindReceivedAt);
 

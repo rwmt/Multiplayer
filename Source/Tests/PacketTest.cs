@@ -208,6 +208,7 @@ public class PacketTest
                 DefCheckStatus.Ok, DefCheckStatus.Ok, DefCheckStatus.Count_Diff, DefCheckStatus.Hash_Diff,
                 DefCheckStatus.Not_Found
             ],
+            missingDefs = ["ServerOnlyDef"],
             configsIncluded = false,
             ServerInitData = [mpModData],
         };

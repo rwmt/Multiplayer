@@ -17,6 +17,8 @@ namespace Multiplayer.Common
 
         public void Send(CommandType cmdType, int factionId, int mapId, byte[] data, ServerPlayer? sourcePlayer = null, ServerPlayer? fauxSource = null)
         {
+            server.CheckServerThread();
+
             // policy
             if (sourcePlayer != null)
             {

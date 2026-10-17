@@ -65,8 +65,15 @@ namespace Multiplayer.Common
         public void SetDisconnected(ConnectionBase conn, MpDisconnectReason reason)
         {
             if (conn.State == ConnectionStateEnum.Disconnected) return;
+            server.CheckServerThread();
 
-            conn.StateObj?.OnDisconnect();
+            if (conn.StateObj is { } stateObj)
+            {
+                // OnDisconnect can synchronously resume the state's async flow (e.g. a pending init data request).
+                // Mark it dead first so that it stops instead of continuing on the dying connection.
+                stateObj.alive = false;
+                stateObj.OnDisconnect();
+            }
 
             ServerPlayer player = conn.serverPlayer;
             Players.Remove(player);
@@ -103,6 +110,36 @@ namespace Multiplayer.Common
             conn.ChangeState(ConnectionStateEnum.Disconnected);
 
             ServerLog.Log($"Disconnected ({reason}): {conn}");
+        }
+
+        // The transport keeps a hung game connected. A playing client that doesn't answer keep alives anymore stalls
+        // everyone through its ticks behind, so drop it after a generous delay (loading and saving big games blocks
+        // the client's main thread for a while).
+        public const int StaleKeepAliveNetTicks = 10 * 60 * MultiplayerServer.NetTicksPerSecond;
+
+        public void CheckTimeouts()
+        {
+            // Disconnecting modifies Players
+            foreach (var player in Players.ToArray())
+            {
+                if (player.conn.State == ConnectionStateEnum.Disconnected) continue;
+
+                if (player.conn.StateObj is AsyncConnectionState { WaitTimedOut: true } state)
+                {
+                    ServerLog.Log($"{player.conn} timed out waiting for {state.AwaitedPacket} in {player.conn.State}");
+                    player.Disconnect("Timed out while joining the server");
+                    continue;
+                }
+
+                // The hosting player is connected in memory
+                var localHost = player.IsHost && !server.IsStandaloneServer;
+                if (player.IsPlaying && player.status == PlayerStatus.Playing && !localHost &&
+                    server.NetTimer - player.keepAliveAt > StaleKeepAliveNetTicks)
+                {
+                    ServerLog.Log($"{player.conn} stopped answering keep alives");
+                    player.Disconnect("Timed out: the game stopped responding");
+                }
+            }
         }
 
         public void OnDesync(ServerPlayer player, int tick, int diffAt)
@@ -189,6 +226,7 @@ namespace Multiplayer.Common
 
         public void OnJoin(ServerPlayer player)
         {
+            server.CheckServerThread();
             player.hasJoined = true;
             var standalonePrimaryPlayer = server.IsStandaloneServer &&
                 !server.JoinedPlayers.Any(p => p != player && !p.IsArbiter);

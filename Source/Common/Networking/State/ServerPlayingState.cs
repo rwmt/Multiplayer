@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Multiplayer.Common.Networking.Packet;
@@ -6,9 +7,18 @@ namespace Multiplayer.Common
 {
     public class ServerPlayingState(ConnectionBase conn) : MpConnectionState(conn)
     {
+        public override void StartState()
+        {
+            // The client is about to load the world and may not answer keep alives for a while (also on rejoin,
+            // where the status stays Playing), so start the stale keep alive timeout from here.
+            if (connection.serverPlayer is { } player && MultiplayerServer.instance is { } server)
+                player.keepAliveAt = server.NetTimer;
+        }
+
         [PacketHandler(Packets.Client_WorldReady)]
         public void HandleWorldReady(ByteReader data)
         {
+            Player.keepAliveAt = Server.NetTimer;
             Player.UpdateStatus(PlayerStatus.Playing);
             Server.playerManager.UpdateSyncReference();
         }
@@ -40,6 +50,9 @@ namespace Multiplayer.Common
         [TypedPacketHandler]
         public void HandleClientCommand(ClientCommandPacket packet)
         {
+            if (!IsValidClientCommand(packet.type, packet.mapId))
+                throw new PacketReadException($"Invalid client command {packet.type} for map {packet.mapId}");
+
             int? mapToResync = null;
 
             if (packet.type == CommandType.PlayerCount)
@@ -57,13 +70,27 @@ namespace Multiplayer.Common
                     mapToResync = newMapId;
             }
 
-            // todo check if map id is valid for the player
+            // todo check if map id is valid for the player (the server doesn't know maps created since the last
+            //  join point)
 
             Server.commands.Send(packet.type, Player.FactionId, packet.mapId, packet.data, Player);
 
             if (mapToResync is int currentMapId)
                 Server.SendMapResponse(Player, currentMapId);
         }
+
+        /// Only the command types and scopes the client sends. PauseAll, CreateJoinPoint and InitPlayerData are
+        /// issued by the server alone; accepting them from clients would e.g. let anyone grant dev mode to anyone.
+        public static bool IsValidClientCommand(CommandType type, int mapId) => type switch
+        {
+            CommandType.GlobalTimeSpeed or CommandType.TimeSpeedVote or CommandType.PlayerCount =>
+                mapId == ScheduledCommand.Global,
+            CommandType.MapTimeSpeed or CommandType.Designator =>
+                mapId >= 0,
+            CommandType.Sync or CommandType.DebugTools =>
+                mapId == ScheduledCommand.Global || mapId >= 0,
+            _ => false
+        };
 
         public const int MaxChatMsgLength = 128;
 
@@ -231,10 +258,15 @@ namespace Multiplayer.Common
         [TypedPacketHandler]
         public void HandleSetFaction(ClientSetFactionPacket packet)
         {
-            // todo restrict handling
-
             int playerId = packet.playerId;
             int factionId = packet.factionId;
+
+            // Players switch their own faction; moving other players (factions window drag and drop) is host-only
+            if (playerId != Player.id && !Player.IsHost)
+            {
+                ServerLog.Log($"Ignoring faction change of player {playerId} requested by {Player.Username}");
+                return;
+            }
 
             var player = Server.GetPlayer(playerId);
             if (player == null) return;
@@ -244,7 +276,14 @@ namespace Multiplayer.Common
             Server.SendToPlaying(new ServerSetFactionPacket(playerId, factionId));
         }
 
+        public const float MaxFrameTime = 10_000f;
+
         [TypedPacketHandler]
-        public void HandleFrameTime(ClientFrameTimePacket packet) => Player.frameTime = packet.frameTime;
+        public void HandleFrameTime(ClientFrameTimePacket packet)
+        {
+            // A NaN would end up in the server's time per tick and stop the simulation for good
+            var frameTime = packet.frameTime;
+            Player.frameTime = float.IsNaN(frameTime) ? 0f : Math.Max(0f, Math.Min(frameTime, MaxFrameTime));
+        }
     }
 }

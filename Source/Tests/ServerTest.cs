@@ -42,6 +42,9 @@ public class ServerTest
 
             Thread.Sleep(50);
         }
+
+        // The join flow sends commands and mutates players, which must happen on the server thread
+        Assert.That(server.OffThreadCalls, Is.Zero);
     }
 
     [Test]
@@ -80,7 +83,8 @@ public class ServerTest
         _ = Task.Run(async () =>
         {
             await Task.Delay(200);
-            server.worldData.EndJoinPointCreation();
+            // Join points end on the server thread (world upload handler)
+            server.Enqueue(() => server.worldData.EndJoinPointCreation());
         });
 
         ConnectClient(port, typeof(TestLoadingKeepAliveState));

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -77,6 +78,10 @@ namespace Multiplayer.Common
         public bool IsStandaloneServer { get; set; }
         public StandalonePersistence? persistence;
 
+        private Thread? serverThread;
+        private int offThreadCalls;
+        public int OffThreadCalls => offThreadCalls;
+
         public MultiplayerServer(ServerSettings settings)
         {
             this.settings = settings;
@@ -94,6 +99,7 @@ namespace Multiplayer.Common
 
         public void Run()
         {
+            serverThread = Thread.CurrentThread;
             ServerLog.Detail("Server started");
 
             Stopwatch time = Stopwatch.StartNew();
@@ -178,7 +184,10 @@ namespace Multiplayer.Common
             NetTimer++;
 
             if (NetTimer % NetTicksPerSecond == 0)
+            {
                 playerManager.SendLatencies();
+                playerManager.CheckTimeouts();
+            }
 
 
             if (NetTimer % (NetTicksPerSecond / 5) == 0)
@@ -194,7 +203,8 @@ namespace Multiplayer.Common
 
             serverTimePerTick = PlayingIngamePlayers.MaxOrZero(p => p.frameTime);
 
-            if (serverTimePerTick < StandardTimePerTick)
+            // Written to also catch NaN
+            if (!(serverTimePerTick >= StandardTimePerTick))
                 serverTimePerTick = StandardTimePerTick;
 
             if (serverTimePerTick > StandardTimePerTick * 4f)
@@ -214,6 +224,19 @@ namespace Multiplayer.Common
         public void Enqueue(Action action)
         {
             queue.Enqueue(action);
+        }
+
+        /// Server state isn't thread-safe and the server thread defines the order of commands, so mutations from
+        /// other threads can race the tick loop. Use Enqueue to get onto the server thread.
+        public void CheckServerThread([CallerMemberName] string caller = "")
+        {
+            var thread = serverThread;
+            if (thread == null || thread == Thread.CurrentThread || !running) return;
+
+            // Limit the log spam, one stack trace is enough to find the culprit
+            if (Interlocked.Increment(ref offThreadCalls) <= 10)
+                ServerLog.Error($"{caller} called outside the server thread " +
+                                $"(thread {Thread.CurrentThread.ManagedThreadId}): {Environment.StackTrace}");
         }
 
         public void SendToPlaying<T>(T packet, bool reliable = true, ServerPlayer? excluding = null) where T : IPacket
