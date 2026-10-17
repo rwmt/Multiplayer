@@ -50,6 +50,20 @@ public static class FactionExtensions
         return faction;
     }
 
+    // Pops a push made outside of ticks and commands and re-applies the local player's faction everywhere (the resting
+    // state there) instead of the faction saved by the push, as the code in between may have changed the local faction
+    public static void PopToLocalFaction()
+    {
+        FactionContext.Pop();
+
+        var faction = Multiplayer.RealPlayerFaction;
+        if (faction == null) return;
+
+        FactionContext.Set(faction);
+        Multiplayer.WorldComp?.SetFaction(faction);
+        SetFactionOnAllMaps(faction);
+    }
+
     private static void SetFactionOnAllMaps(Faction faction)
     {
         // Includes comps of removed maps (they're never removed from the list), which is harmless

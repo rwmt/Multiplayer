@@ -46,6 +46,9 @@ public static class FactionCreator
 
         LongEventHandler.QueueLongEvent(() =>
         {
+            // The long event runs after the command, with each client's own faction data applied
+            using var _ = MpScope.PushFactionOutsideContext(Multiplayer.WorldComp.spectatorFaction);
+
             var scenario = creationData.scenarioDef?.scenario ?? Current.Game.Scenario;
             Map newMap = null;
 
@@ -237,7 +240,10 @@ public static class FactionCreator
         foreach (Faction other in Find.FactionManager.AllFactionsListForReading)
             faction.TryMakeInitialRelationsWith(other);
 
+        // Add recaches Faction.OfPlayer to the first player faction, keep the current context
+        var ofPlayer = Find.FactionManager.ofPlayer;
         Find.FactionManager.Add(faction);
+        Find.FactionManager.ofPlayer = ofPlayer;
 
         var newWorldFactionData = FactionWorldData.New(faction.loadID);
         Multiplayer.WorldComp.factionData[faction.loadID] = newWorldFactionData;
