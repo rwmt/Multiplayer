@@ -31,7 +31,11 @@ static class MapGenFactionPatch
         if (Multiplayer.Client != null && factionToSet == null)
             Log.Warning($"Couldn't set the faction context for map gen at {tile.tileId}: no player world object at the tile.");
 
-        FactionContext.Push(factionToSet);
+        // Also switch the faction's world data (research, play settings, history...) used during generation
+        if (Multiplayer.Client != null)
+            FactionExtensions.PushFaction(null, factionToSet);
+        else
+            FactionContext.Push(factionToSet);
     }
 
     private static Faction GetFactionAt(PlanetTile tile)
@@ -61,7 +65,10 @@ static class MapGenFactionPatch
 
     static void Finalizer()
     {
-        FactionContext.Pop();
+        if (Multiplayer.Client != null)
+            FactionExtensions.PopFaction();
+        else
+            FactionContext.Pop();
     }
 }
 
