@@ -86,6 +86,11 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         Scribe_Values.Look(ref timeSpeedInt, "timeSpeed");
         Scribe_Custom.LookULong(ref randState, "randState", 2);
 
+        // Affects the simulation through VTR, see AsyncTimeComp.ExposeData
+        var playerCount = CurrentPlayerCount;
+        Scribe_Values.Look(ref playerCount, "playerCount");
+        CurrentPlayerCount = playerCount;
+
         TimeSpeed timeSpeed = Find.TickManager.CurTimeSpeed;
         Scribe_Values.Look(ref timeSpeed, "timeSpeed");
         if (Scribe.mode == LoadSaveMode.LoadingVars)
@@ -239,7 +244,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
                 if (previousMapId >= 0)
                     prev = Find.Maps.FirstOrDefault(x => x.uniqueID == previousMapId)?.AsyncTime()?.DecreasePlayerCount() ?? -1;
                 else if (previousMapId == VTRSync.WorldMapId)
-                    prev = Multiplayer.AsyncWorldTime.CurrentPlayerCount -= 1;
+                    prev = Multiplayer.AsyncWorldTime.CurrentPlayerCount = Math.Max(0, Multiplayer.AsyncWorldTime.CurrentPlayerCount - 1);
 
                 var curr = -1;
                 if (newMapId >= 0)

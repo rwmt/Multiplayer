@@ -211,6 +211,12 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref gameStartAbsTickMap, "gameStartAbsTickMap");
 
             Scribe_Custom.LookULong(ref randState, "randState", 1);
+
+            // Affects the simulation through VTR. Saved so that it survives reloads, which can happen
+            // on one client only (standalone join points).
+            var playerCount = CurrentPlayerCount;
+            Scribe_Values.Look(ref playerCount, "playerCount");
+            CurrentPlayerCount = playerCount;
         }
 
         public int IncreasePlayerCount() => CurrentPlayerCount += 1;
