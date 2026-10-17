@@ -1,6 +1,7 @@
 using HarmonyLib;
 using RimWorld;
 using RimWorld.Planet;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -42,7 +43,15 @@ namespace Multiplayer.Client
                 if (uiTickedAtFrame != Time.frameCount)
                 {
                     uiTickedAtFrame = Time.frameCount;
-                    uiTemperatures.WorldComponentTick();
+
+                    try
+                    {
+                        uiTemperatures.WorldComponentTick();
+                    }
+                    catch (Exception e)
+                    {
+                        Log.ErrorOnce($"MP: Exception ticking UI tile temperatures: {e}", 846582641);
+                    }
                 }
 
                 __result = uiTemperatures.RetrieveCachedData(tile);
