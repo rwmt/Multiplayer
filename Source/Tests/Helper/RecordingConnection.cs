@@ -29,5 +29,7 @@ public class RecordingConnection : ConnectionBase
         SentRaw.Add(raw);
     }
 
-    protected override void OnClose(ServerDisconnectPacket? goodbye) { }
+    public ServerDisconnectPacket? Goodbye { get; private set; }
+
+    protected override void OnClose(ServerDisconnectPacket? goodbye) => Goodbye = goodbye;
 }

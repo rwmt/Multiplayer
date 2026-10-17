@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
+using Multiplayer.Common.Networking.Packet;
 
 namespace Multiplayer.Common;
 
@@ -20,7 +21,12 @@ public class WorldData
     public List<byte[]>? tmpCmds;
     public int lastJoinPointAtTick = -1;
 
+    // The sync reference's newest opinions (oldest first). Joiners only use them to check their catch-up
+    // simulation, after that they get the live ones, so losing the oldest ones only skips a few checks.
     public List<byte[]> syncInfos = new();
+    public const int MaxSyncInfos = 10;
+    // With desync traces on, one opinion can be a few MiB on big saves and they all go into the world data packet
+    public const int MaxSyncInfosLength = ClientSyncInfoPacket.MaxLength;
 
     public StandaloneWorldSnapshotState standaloneWorldSnapshot = new();
     public Dictionary<int, StandaloneMapSnapshotState> standaloneMapSnapshots = new();
@@ -190,6 +196,29 @@ public class WorldData
     {
         JoinPointTick = -1;
         JoinPointUploaderId = ScheduledCommand.NoPlayer;
+    }
+
+    public void AddSyncInfo(byte[] rawSyncOpinion)
+    {
+        syncInfos.Add(rawSyncOpinion);
+
+        long length = syncInfos.Sum(info => (long)info.Length);
+        while (syncInfos.Count > MaxSyncInfos || syncInfos.Count > 1 && length > MaxSyncInfosLength)
+        {
+            length -= syncInfos[0].Length;
+            syncInfos.RemoveAt(0);
+        }
+    }
+
+    /// The newest opinions whose length prefixed size fits into maxLength, oldest first
+    public List<byte[]> NewestSyncInfosFitting(long maxLength)
+    {
+        int start = syncInfos.Count;
+        long length = 0;
+        while (start > 0 && length + sizeof(int) + syncInfos[start - 1].Length <= maxLength)
+            length += sizeof(int) + syncInfos[--start].Length;
+
+        return syncInfos.GetRange(start, syncInfos.Count - start);
     }
 
     public Task<WorldData> WaitJoinPoint()

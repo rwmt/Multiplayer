@@ -207,10 +207,7 @@ namespace Multiplayer.Common
             var reference = Server.playerManager.SyncReference;
             if (Player != reference) return; // policy
 
-            // Keep at most 10 sync infos
-            Server.worldData.syncInfos.Add(packet.rawSyncOpinion);
-            if (Server.worldData.syncInfos.Count > 10)
-                Server.worldData.syncInfos.RemoveAt(0);
+            Server.worldData.AddSyncInfo(packet.rawSyncOpinion);
 
             foreach (var p in Server.PlayingPlayers.Where(p => p != reference && !p.IsArbiter))
                 p.conn.SendFragmented(new ServerSyncInfoPacket { rawSyncOpinion = packet.rawSyncOpinion }.Serialize());
