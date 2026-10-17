@@ -22,6 +22,10 @@ public class MultiplayerWorldComp : IHasSessionData
 
     public Faction spectatorFaction;
 
+    // Multifaction: letter ID -> load ID of Faction.OfPlayer when the letter was received. Only used by the UI to show
+    // letters to their faction's players, the letter stack itself is the same on every client.
+    public Dictionary<int, int> letterFactions = new();
+
     private int currentFactionId;
 
     public MultiplayerWorldComp(World world)
@@ -34,6 +38,7 @@ public class MultiplayerWorldComp : IHasSessionData
     public void ExposeData()
     {
         ExposeFactionData();
+        ExposeLetterFactions();
 
         sessionManager.ExposeSessions();
         // Ensure a pause lock session exists if there's any pause locks registered
@@ -125,6 +130,40 @@ public class MultiplayerWorldComp : IHasSessionData
         {
             // Game manager order?
             factionData[currentFactionId] = FactionWorldData.FromCurrent(currentFactionId);
+        }
+    }
+
+    private void ExposeLetterFactions()
+    {
+        List<int> letterIds = null;
+        List<int> factionIds = null;
+
+        if (Scribe.mode == LoadSaveMode.Saving)
+        {
+            // Only letters still in the stack (or waiting to be received) matter
+            letterIds = new List<int>();
+            factionIds = new List<int>();
+
+            var stack = Find.LetterStack;
+            foreach (var letter in stack.letters.Concat(stack.letterQueue))
+            {
+                if (letter != null && letterFactions.TryGetValue(letter.ID, out var factionId))
+                {
+                    letterIds.Add(letter.ID);
+                    factionIds.Add(factionId);
+                }
+            }
+        }
+
+        Scribe_Collections.Look(ref letterIds, "letterIds", LookMode.Value);
+        Scribe_Collections.Look(ref factionIds, "letterFactionIds", LookMode.Value);
+
+        if (Scribe.mode == LoadSaveMode.LoadingVars)
+        {
+            letterFactions = new Dictionary<int, int>();
+            if (letterIds != null && factionIds != null)
+                for (int i = 0; i < letterIds.Count && i < factionIds.Count; i++)
+                    letterFactions[letterIds[i]] = factionIds[i];
         }
     }
 

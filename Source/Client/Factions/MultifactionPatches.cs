@@ -635,17 +635,6 @@ static class TakeToBedGuestFactionPatch
 
 
 [HarmonyPatch(typeof(LetterStack), nameof(LetterStack.ReceiveLetter), typeof(Letter), typeof(string), typeof(int), typeof(bool))]
-static class LetterStackReceiveOnlyMyFaction
-{
-    // todo the letter might get culled from the archive if it isn't in the stack and Sync depends on the archive
-    static void Postfix(LetterStack __instance, Letter let)
-    {
-        if (Multiplayer.RealPlayerFaction != Faction.OfPlayer)
-            __instance.letters.Remove(let);
-    }
-}
-
-[HarmonyPatch(typeof(LetterStack), nameof(LetterStack.ReceiveLetter), typeof(Letter), typeof(string), typeof(int), typeof(bool))]
 static class LetterStackReceiveSoundOnlyMyFaction
 {
     private static MethodInfo PlayOneShotOnCamera =
@@ -666,7 +655,9 @@ static class LetterStackReceiveSoundOnlyMyFaction
 
     static void PlaySoundReplacement(SoundDef sound, Map map)
     {
-        if (Multiplayer.RealPlayerFaction == Faction.OfPlayer)
+        // Letters are kept in every client's stack and only shown to their faction's players (see MultifactionLetters)
+        var letter = RecordLetterFaction.receiving;
+        if (letter != null ? MultifactionLetters.IsVisibleLocally(letter) : Multiplayer.RealPlayerFaction == Faction.OfPlayer)
             sound.PlayOneShotOnCamera(map);
     }
 }
