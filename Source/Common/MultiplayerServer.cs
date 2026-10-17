@@ -241,7 +241,9 @@ namespace Multiplayer.Common
             ByteWriter writer = new ByteWriter();
             writer.WriteInt32(mapId);
 
-            var mapCmds = worldData.mapCmds.GetValueSafe(mapId) ?? [];
+            var mapCmds = worldData.cmds
+                .Where(cmd => ScheduledCommand.Deserialize(new ByteReader(cmd)).mapId == mapId)
+                .ToList();
             writer.WriteInt32(mapCmds.Count);
             foreach (var cmd in mapCmds)
                 writer.WritePrefixedBytes(cmd);

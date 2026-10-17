@@ -93,6 +93,7 @@ namespace Multiplayer.Client
         // Shared random state for ticking and commands
         public ulong randState;
 
+        // Always empty: map commands are queued in AsyncWorldTimeComp.cmds to keep a single global order
         public Queue<ScheduledCommand> cmds = new();
 
         public int CurrentPlayerCount { get; private set; }
@@ -220,11 +221,9 @@ namespace Multiplayer.Client
 
         public void FinalizeInit()
         {
-            cmds = new Queue<ScheduledCommand>(
-                Multiplayer.session.dataSnapshot?.MapCmds.GetValueSafe(map.uniqueID) ?? new List<ScheduledCommand>()
-            );
-
-            Log.Message($"Init map with cmds {cmds.Count}");
+            // Map commands live in the world's queue (see MultiplayerSession.ScheduleCommand) which is built only in
+            // Loader.PostLoad. Rebuilding a queue here (possibly on the loading thread, or for a map generated during
+            // play) used to drop or duplicate commands.
         }
 
         public static bool keepTheMap;

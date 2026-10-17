@@ -8,5 +8,6 @@ public record GameDataSnapshot(
     byte[] GameData,
     byte[] SessionData,
     Dictionary<int, byte[]> MapData,
-    Dictionary<int, List<ScheduledCommand>> MapCmds // Global cmds are -1, this is mutated by MultiplayerSession.ScheduleCommand
+    // All cmds (world and map) since CachedAtTime in execution order, appended to by MultiplayerSession.ScheduleCommand
+    List<ScheduledCommand> Cmds
 );

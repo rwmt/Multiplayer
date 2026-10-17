@@ -483,7 +483,7 @@ public class ChatCommandManagerTest
 
         server.HandleChatCommand(guest, "pause");
 
-        Assert.That(server.worldData.mapCmds.ContainsKey(ScheduledCommand.Global), Is.False);
+        Assert.That(server.worldData.cmds, Is.Empty);
         Assert.That(((RecordingConnection)guest.conn).ChatMessages, Does.Contain("No permission"));
     }
 
@@ -565,7 +565,7 @@ public class ChatCommandManagerTest
 
     private static ScheduledCommand LastGlobalCommand(MultiplayerServer server)
     {
-        return ScheduledCommand.Deserialize(new ByteReader(server.worldData.mapCmds[ScheduledCommand.Global].Last()));
+        return ScheduledCommand.Deserialize(new ByteReader(server.worldData.cmds.Last(cmd => ScheduledCommand.Deserialize(new ByteReader(cmd)).mapId == ScheduledCommand.Global)));
     }
 
     private static ClientInitDataPacket.ModData ModData(string name, string packageId)

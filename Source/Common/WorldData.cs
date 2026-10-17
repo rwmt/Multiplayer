@@ -14,8 +14,10 @@ public class WorldData
     public byte[]? sessionData; // Compressed semi persistent data
     public Dictionary<int, byte[]> mapData = new(); // Map id to compressed map data
 
-    public Dictionary<int, List<byte[]>> mapCmds = new(); // Map id to serialized cmds list
-    public Dictionary<int, List<byte[]>>? tmpMapCmds;
+    // Serialized cmds since the last join point, in the order they were sent to clients. Live clients execute
+    // commands in arrival order, so joiners must get exactly this order (not grouped by map).
+    public List<byte[]> cmds = new();
+    public List<byte[]>? tmpCmds;
     public int lastJoinPointAtTick = -1;
 
     public List<byte[]> syncInfos = new();
@@ -25,7 +27,7 @@ public class WorldData
 
     private TaskCompletionSource<WorldData>? dataSource;
 
-    public bool CreatingJoinPoint => tmpMapCmds != null;
+    public bool CreatingJoinPoint => tmpCmds != null;
 
     public MultiplayerServer Server { get; }
 
@@ -70,7 +72,7 @@ public class WorldData
 
         Server.commands.Send(CommandType.CreateJoinPoint, ScheduledCommand.NoFaction, ScheduledCommand.Global, Array.Empty<byte>(),
             sourcePlayer: Server.IsStandaloneServer ? issuingPlayer : null);
-        tmpMapCmds = new Dictionary<int, List<byte[]>>();
+        tmpCmds = new List<byte[]>();
         dataSource = new TaskCompletionSource<WorldData>();
 
         return true;
@@ -80,8 +82,8 @@ public class WorldData
     {
         int currentTick = CurrentJoinPointTick;
         ServerLog.Detail($"Join point completed at tick={currentTick}, standalone={Server.IsStandaloneServer}");
-        mapCmds = tmpMapCmds!;
-        tmpMapCmds = null;
+        cmds = tmpCmds!;
+        tmpCmds = null;
         lastJoinPointAtTick = currentTick;
 
         if (Server.IsStandaloneServer && Server.persistence != null)
@@ -105,7 +107,7 @@ public class WorldData
         if (!CreatingJoinPoint)
             return;
 
-        tmpMapCmds = null;
+        tmpCmds = null;
         dataSource?.SetResult(this);
         dataSource = null;
     }

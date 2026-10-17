@@ -46,9 +46,9 @@ namespace Multiplayer.Common
                 data);
             byte[] toSave = ScheduledCommand.Serialize(cmd);
 
-            // todo cull target players if not global
-            server.worldData.mapCmds.GetOrAddNew(mapId).Add(toSave);
-            server.worldData.tmpMapCmds?.GetOrAddNew(mapId).Add(toSave);
+            // The log and the live broadcast must stay identical: joiners replay the log in this exact order
+            server.worldData.cmds.Add(toSave);
+            server.worldData.tmpCmds?.Add(toSave);
 
             if (server.CanUseStandaloneMapStreaming(mapId))
             {

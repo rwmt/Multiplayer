@@ -90,7 +90,7 @@ public class StandaloneMapStreamingTest
     public void InitialPlayerCountMapReport_DoesNotSendMapResponse()
     {
         server.worldData.mapData[5] = [9, 9, 9];
-        server.worldData.mapCmds[5] = [ScheduledCommand.Serialize(new ScheduledCommand(CommandType.Designator, 10, 0, 5, 1, []))];
+        server.worldData.cmds = [ScheduledCommand.Serialize(new ScheduledCommand(CommandType.Designator, 10, 0, 5, 1, []))];
         var (player, conn) = AddPlayer("player", -1, hasReportedCurrentMap: false);
 
         var state = player.conn.GetState<ServerPlayingState>()!;
@@ -109,7 +109,7 @@ public class StandaloneMapStreamingTest
     public void WorldToMapTransition_DoesNotSendMapResponse()
     {
         server.worldData.mapData[5] = [9, 9, 9];
-        server.worldData.mapCmds[5] = [ScheduledCommand.Serialize(new ScheduledCommand(CommandType.Designator, 10, 0, 5, 1, []))];
+        server.worldData.cmds = [ScheduledCommand.Serialize(new ScheduledCommand(CommandType.Designator, 10, 0, 5, 1, []))];
         var (player, conn) = AddPlayer("player", -2);
 
         var state = player.conn.GetState<ServerPlayingState>()!;
@@ -127,7 +127,7 @@ public class StandaloneMapStreamingTest
     public void MapToMapTransition_DoesNotSendMapResponseWhenStreamingDisabled()
     {
         server.worldData.mapData[5] = [9, 9, 9];
-        server.worldData.mapCmds[5] = [ScheduledCommand.Serialize(new ScheduledCommand(CommandType.Designator, 10, 0, 5, 1, []))];
+        server.worldData.cmds = [ScheduledCommand.Serialize(new ScheduledCommand(CommandType.Designator, 10, 0, 5, 1, []))];
         var (player, conn) = AddPlayer("player", 3);
 
         var state = player.conn.GetState<ServerPlayingState>()!;
@@ -146,14 +146,14 @@ public class StandaloneMapStreamingTest
     {
         server.gameTimer = 123;
         server.startingTimer = 5;
-        server.worldData.mapCmds[1] = [[1]];
+        server.worldData.cmds = [[1]];
         var (player, conn) = AddPlayer("player", 1);
 
         var state = player.conn.GetState<ServerPlayingState>()!;
         state.HandleDebug(new ClientDebugPacket());
 
         Assert.That(server.gameTimer, Is.EqualTo(123));
-        Assert.That(server.worldData.mapCmds[1], Has.Count.EqualTo(1));
+        Assert.That(server.worldData.cmds, Has.Count.EqualTo(1));
         Assert.That(conn.SentPackets, Does.Not.Contain(Packets.Server_Debug));
     }
 
@@ -164,14 +164,14 @@ public class StandaloneMapStreamingTest
         server.settings.devModeScope = DevModeScope.Everyone;
         server.gameTimer = 123;
         server.startingTimer = 5;
-        server.worldData.mapCmds[1] = [[1]];
+        server.worldData.cmds = [[1]];
         var (player, conn) = AddPlayer("player", 1);
 
         var state = player.conn.GetState<ServerPlayingState>()!;
         state.HandleDebug(new ClientDebugPacket());
 
         Assert.That(server.gameTimer, Is.EqualTo(5));
-        Assert.That(server.worldData.mapCmds, Is.Empty);
+        Assert.That(server.worldData.cmds, Is.Empty);
         Assert.That(conn.SentPackets, Does.Contain(Packets.Server_Debug));
     }
 }

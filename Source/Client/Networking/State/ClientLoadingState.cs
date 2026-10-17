@@ -77,22 +77,14 @@ public class ClientLoadingState(ConnectionBase connection) : ClientBaseState(con
         byte[] worldData = GZipStream.UncompressBuffer(data.ReadPrefixedBytes());
         byte[] sessionData = GZipStream.UncompressBuffer(data.ReadPrefixedBytes());
 
-        var mapCmdsDict = new Dictionary<int, List<ScheduledCommand>>();
         var mapDataDict = new Dictionary<int, byte[]>();
         List<int> mapsToLoad = new List<int>();
 
-        int mapCmdsCount = data.ReadInt32();
-        for (int i = 0; i < mapCmdsCount; i++)
-        {
-            int mapId = data.ReadInt32();
-
-            int mapCmdsLen = data.ReadInt32();
-            List<ScheduledCommand> mapCmds = new List<ScheduledCommand>(mapCmdsLen);
-            for (int j = 0; j < mapCmdsLen; j++)
-                mapCmds.Add(ScheduledCommand.Deserialize(new ByteReader(data.ReadPrefixedBytes())));
-
-            mapCmdsDict[mapId] = mapCmds;
-        }
+        // World and map cmds in the order live clients executed them
+        int cmdsCount = data.ReadInt32();
+        var cmds = new List<ScheduledCommand>(cmdsCount);
+        for (int i = 0; i < cmdsCount; i++)
+            cmds.Add(ScheduledCommand.Deserialize(new ByteReader(data.ReadPrefixedBytes())));
 
         int mapDataCount = data.ReadInt32();
         for (int i = 0; i < mapDataCount; i++)
@@ -110,7 +102,7 @@ public class ClientLoadingState(ConnectionBase connection) : ClientBaseState(con
             worldData,
             sessionData,
             mapDataDict,
-            mapCmdsDict
+            cmds
         );
 
         TickPatch.tickUntil = tickUntil;

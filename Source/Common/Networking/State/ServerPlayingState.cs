@@ -237,7 +237,7 @@ namespace Multiplayer.Common
             if (!Server.commands.CanUseDevMode(Player))
                 return;
 
-            Server.worldData.mapCmds.Clear();
+            Server.worldData.cmds.Clear();
             Server.gameTimer = Server.startingTimer;
 
             Server.SendToPlaying(new ServerDebugPacket());

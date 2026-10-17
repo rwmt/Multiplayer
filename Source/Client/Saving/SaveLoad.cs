@@ -38,7 +38,7 @@ namespace Multiplayer.Client
 
             var tweenedPos = new Dictionary<int, Vector3>();
             var localFactionId = Multiplayer.RealPlayerFaction.loadID;
-            var mapCmds = new Dictionary<int, Queue<ScheduledCommand>>();
+            var cmds = Multiplayer.AsyncWorldTime.cmds;
             var planetRenderMode = Find.World.renderer.wantedMode;
             var chatWindow = ChatWindow.Opened;
 
@@ -49,11 +49,7 @@ namespace Multiplayer.Client
             {
                 foreach (Pawn p in map.mapPawns.AllPawnsSpawned)
                     tweenedPos[p.thingIDNumber] = p.drawer.tweener.tweenedPos;
-
-                mapCmds[map.uniqueID] = map.AsyncTime().cmds;
             }
-
-            mapCmds[ScheduledCommand.Global] = Multiplayer.AsyncWorldTime.cmds;
 
             TempGameData gameData;
             using (DeepProfilerWrapper.Section("Multiplayer SaveAndReload: Save"))
@@ -97,8 +93,6 @@ namespace Multiplayer.Client
                         p.drawer.tweener.lastDrawFrame = Time.frameCount;
                     }
                 }
-
-                m.AsyncTime().cmds = mapCmds[m.uniqueID];
             }
 
             if (chatWindow != null)
@@ -108,7 +102,7 @@ namespace Multiplayer.Client
             Find.Selector.selected = SyncSerialization.ReadSync<List<ISelectable>>(selectedReader).AllNotNull().Cast<object>().ToList();
 
             Find.World.renderer.wantedMode = planetRenderMode;
-            Multiplayer.AsyncWorldTime.cmds = mapCmds[ScheduledCommand.Global];
+            Multiplayer.AsyncWorldTime.cmds = cmds;
 
             Multiplayer.reloading = false;
 
@@ -198,7 +192,6 @@ namespace Multiplayer.Client
             XmlNode gameNode = data.SaveData.DocumentElement["game"];
             XmlNode mapsNode = gameNode["maps"];
 
-            var mapCmdsDict = new Dictionary<int, List<ScheduledCommand>>();
             var mapDataDict = new Dictionary<int, byte[]>();
 
             foreach (XmlNode mapNode in mapsNode)
@@ -206,7 +199,6 @@ namespace Multiplayer.Client
                 int id = int.Parse(mapNode["uniqueID"].InnerText);
                 byte[] mapData = ScribeUtil.XmlToByteArray(mapNode);
                 mapDataDict[id] = mapData;
-                mapCmdsDict[id] = new List<ScheduledCommand>(Find.Maps.First(m => m.uniqueID == id).AsyncTime().cmds);
             }
 
             if (removeCurrentMapId)
@@ -215,14 +207,14 @@ namespace Multiplayer.Client
             mapsNode.RemoveAll();
 
             byte[] gameData = ScribeUtil.XmlToByteArray(data.SaveData);
-            mapCmdsDict[ScheduledCommand.Global] = new List<ScheduledCommand>(Multiplayer.AsyncWorldTime.cmds);
 
             return new GameDataSnapshot(
                 TickPatch.Timer,
                 gameData,
                 data.SessionData,
                 mapDataDict,
-                mapCmdsDict
+                // The commands not executed yet, in order (all of them are in the world's queue)
+                new List<ScheduledCommand>(Multiplayer.AsyncWorldTime.cmds)
             );
         }
 

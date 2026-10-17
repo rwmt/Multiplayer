@@ -169,22 +169,29 @@ namespace Multiplayer.Client
         {
             int curTimer = Timer;
 
-            foreach (ITickable tickable in AllTickables)
+            // All commands (world and map) are in the world's queue, in the order the server sent them (#733)
+            var cmds = Multiplayer.AsyncWorldTime.Cmds;
+
+            while (cmds.Count > 0 && cmds.Peek().ticks <= curTimer)
             {
-                while (tickable.Cmds.Count > 0 && tickable.Cmds.Peek().ticks == curTimer)
+                ScheduledCommand cmd = cmds.Dequeue();
+
+                if (cmd.ticks < curTimer)
                 {
-                    ScheduledCommand cmd = tickable.Cmds.Dequeue();
-
-                    // Minimal code impact fix for #733. Having all the commands be added to a single queue gets rid of
-                    // the out-of-order execution problem. With a proper fix, this can be reverted to tickable.ExecuteCmd
-                    var target = TickableById(cmd.mapId);
-                    if (target == null)
-                    {
-                        Log.Error($"!!! Tickable of {cmd.mapId} not found! {cmd}");
-                    } else target.ExecuteCmd(cmd);
-
-                    if (LongEventHandler.eventQueue.Count > 0) return true; // Yield to e.g. join-point creation
+                    // Can only happen with a broken log (e.g. a world state newer than its commands). The loaded state
+                    // already contains the command's effects and executing it late can't match other clients, so
+                    // drop it instead of blocking the queue forever.
+                    Log.Error($"Multiplayer: dropping command scheduled for a past tick (timer {curTimer}): {cmd}");
+                    continue;
                 }
+
+                var target = TickableById(cmd.mapId);
+                if (target == null)
+                {
+                    Log.Error($"!!! Tickable of {cmd.mapId} not found! {cmd}");
+                } else target.ExecuteCmd(cmd);
+
+                if (LongEventHandler.eventQueue.Count > 0) return true; // Yield to e.g. join-point creation
             }
 
             return false;
