@@ -24,11 +24,4 @@ public class MpScope : IDisposable
     {
         return Create(() => FactionExtensions.PushFaction(null, f, force: true), () => FactionExtensions.PopFaction());
     }
-
-    // For simulation code running outside of ticks and commands (e.g. long events queued by commands), where the
-    // current faction data is the local player's. Ends by re-applying the local player's faction everywhere.
-    public static MpScope PushFactionOutsideContext(Faction f)
-    {
-        return Create(() => FactionExtensions.PushFaction(null, f, force: true), FactionExtensions.PopToLocalFaction);
-    }
 }
