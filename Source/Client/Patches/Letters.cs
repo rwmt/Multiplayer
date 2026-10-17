@@ -18,7 +18,7 @@ namespace Multiplayer.Client.Patches
     /// </summary>
     public static class MultifactionLetters
     {
-        public static bool Active => Multiplayer.Client != null && Multiplayer.GameComp.multifaction;
+        public static bool Active => Multiplayer.Client != null && Multiplayer.game?.gameComp?.multifaction == true;
 
         public static void RecordReceivingFaction(Letter let)
         {
@@ -26,8 +26,8 @@ namespace Multiplayer.Client.Patches
             if (!Active || let == null || let.ID < 0 || Faction.OfPlayer == null) return;
 
             // Delayed letters are received again later from the queue (in another context), keep the first faction
-            var letterFactions = Multiplayer.WorldComp.letterFactions;
-            if (!letterFactions.ContainsKey(let.ID))
+            var letterFactions = Multiplayer.game.worldComp?.letterFactions;
+            if (letterFactions != null && !letterFactions.ContainsKey(let.ID))
                 letterFactions[let.ID] = Faction.OfPlayer.loadID;
         }
 
@@ -35,7 +35,7 @@ namespace Multiplayer.Client.Patches
         {
             if (!Active || let == null) return true;
 
-            var worldComp = Multiplayer.WorldComp;
+            var worldComp = Multiplayer.game.worldComp;
             if (worldComp == null || !worldComp.letterFactions.TryGetValue(let.ID, out var factionId))
                 return true;
 
