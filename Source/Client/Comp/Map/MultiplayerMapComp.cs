@@ -110,9 +110,15 @@ namespace Multiplayer.Client
                 foreach (var data in factionData)
                 {
                     map.PushFaction(data.Key);
-                    data.Value.listerHaulables.ListerHaulablesTick();
-                    data.Value.resourceCounter.ResourceCounterTick();
-                    map.PopFaction();
+                    try
+                    {
+                        data.Value.listerHaulables.ListerHaulablesTick();
+                        data.Value.resourceCounter.ResourceCounterTick();
+                    }
+                    finally
+                    {
+                        map.PopFaction();
+                    }
                 }
             }
             finally

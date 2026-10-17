@@ -67,10 +67,10 @@ namespace Multiplayer.Client
                 selectedSession = session.SessionId;
             }
 
-            Faction factionContext = session.NegotiatorFaction;
+            // FactionContext.Push always pushes (null when it's a no-op), so always pop
+            FactionContext.Push(session.NegotiatorFaction);
             try
             {
-                factionContext = FactionContext.Push(factionContext);
                 MpTradeSession.SetTradeSession(session);
                 drawingTrade = this;
 
@@ -125,9 +125,7 @@ namespace Multiplayer.Client
             {
                 drawingTrade = null;
                 MpTradeSession.SetTradeSession(null);
-                if (factionContext != null) {
-                    FactionContext.Pop();
-                }
+                FactionContext.Pop();
             }
         }
 
