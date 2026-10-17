@@ -49,47 +49,67 @@ namespace Multiplayer.Client
                 throw;
             }
 
-            prevSelected = Find.Selector.selected;
-            prevWorldSelected = Find.WorldSelector.selected;
+            var worldSelector = Find.WorldSelector;
+            var restoreSelected = Find.Selector.selected;
+            var restoreWorldSelected = worldSelector.selected;
+            var restoreSelectedTile = worldSelector.selectedTile;
+            var restoreSelectedLayer = worldSelector.selectedLayer;
+            bool restoreWorldTile = false;
 
-            bool shouldQueue = false;
+            // The local player's selection from before the command (map commands already replaced Find.Selector's)
+            prevSelected = AsyncTimeComp.prevSelected ?? restoreSelected;
+            prevWorldSelected = restoreWorldSelected;
 
-            if (handler.context != SyncContext.None)
-            {
-                if (handler.context.HasFlag(SyncContext.MapMouseCell))
-                {
-                    IntVec3 mouseCell = SyncSerialization.ReadSync<IntVec3>(data);
-                    MouseCellPatch.result = mouseCell;
-                }
-
-                if (handler.context.HasFlag(SyncContext.MapSelected))
-                {
-                    List<ISelectable> selected = SyncSerialization.ReadSync<List<ISelectable>>(data);
-                    Find.Selector.selected = selected.Cast<object>().AllNotNull().ToList();
-                }
-
-                if (handler.context.HasFlag(SyncContext.WorldSelected))
-                {
-                    List<ISelectable> selected = SyncSerialization.ReadSync<List<ISelectable>>(data);
-                    FieldRefs.worldSelected(Find.WorldSelector) = selected.Cast<WorldObject>().AllNotNull().ToList();
-                }
-
-                if (handler.context.HasFlag(SyncContext.QueueOrder_Down))
-                    shouldQueue = data.ReadBool();
-            }
-
-            KeyIsDownPatch.shouldQueue = shouldQueue;
-
+            // Reading the context is inside the try, so a failure there can't leave the context applied either
             try
             {
+                bool shouldQueue = false;
+
+                if (handler.context != SyncContext.None)
+                {
+                    if (handler.context.HasFlag(SyncContext.MapMouseCell))
+                    {
+                        IntVec3 mouseCell = SyncSerialization.ReadSync<IntVec3>(data);
+                        MouseCellPatch.result = mouseCell;
+                    }
+
+                    if (handler.context.HasFlag(SyncContext.MapSelected))
+                    {
+                        List<ISelectable> selected = SyncSerialization.ReadSync<List<ISelectable>>(data);
+                        Find.Selector.selected = selected.Cast<object>().AllNotNull().ToList();
+                    }
+
+                    if (handler.context.HasFlag(SyncContext.WorldSelected))
+                    {
+                        List<ISelectable> selected = SyncSerialization.ReadSync<List<ISelectable>>(data);
+                        FieldRefs.worldSelected(worldSelector) = selected.Cast<WorldObject>().AllNotNull().ToList();
+
+                        // Some world gizmos only read the selected tile (e.g. the dev "Generate settlement")
+                        restoreWorldTile = true;
+                        worldSelector.selectedTile = SyncSerialization.ReadSync<PlanetTile>(data);
+                        worldSelector.selectedLayer = SyncSerialization.ReadSync<PlanetLayer>(data);
+                    }
+
+                    if (handler.context.HasFlag(SyncContext.QueueOrder_Down))
+                        shouldQueue = data.ReadBool();
+                }
+
+                KeyIsDownPatch.shouldQueue = shouldQueue;
+
                 handler.Handle(data);
             }
             finally
             {
                 MouseCellPatch.result = null;
                 KeyIsDownPatch.shouldQueue = null;
-                Find.Selector.selected = prevSelected;
-                FieldRefs.worldSelected(Find.WorldSelector) = prevWorldSelected;
+                Find.Selector.selected = restoreSelected;
+                FieldRefs.worldSelected(worldSelector) = restoreWorldSelected;
+
+                if (restoreWorldTile)
+                {
+                    worldSelector.selectedTile = restoreSelectedTile;
+                    worldSelector.selectedLayer = restoreSelectedLayer;
+                }
             }
 
             return handler;
@@ -112,7 +132,11 @@ namespace Multiplayer.Client
                 SyncSerialization.WriteSync(data, Find.Selector.selected.Cast<ISelectable>().ToList());
 
             if (handler.context.HasFlag(SyncContext.WorldSelected))
+            {
                 SyncSerialization.WriteSync(data, Find.WorldSelector.selected.Cast<ISelectable>().ToList());
+                SyncSerialization.WriteSync(data, Find.WorldSelector.selectedTile);
+                SyncSerialization.WriteSync(data, Find.WorldSelector.selectedLayer);
+            }
 
             if (handler.context.HasFlag(SyncContext.QueueOrder_Down))
                 data.WriteBool(KeyBindingDefOf.QueueOrder.IsDownEvent);

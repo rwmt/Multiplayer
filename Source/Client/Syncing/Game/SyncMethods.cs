@@ -488,11 +488,16 @@ namespace Multiplayer.Client
                     core.GetMultiSelectFloatMenuOptions(Find.Selector.SelectedPawns).ExecuteEnumerable();
                 })
                 // After syncing and invoking the method, we want to restore the previous state of tmpPawnsCanReach.
-                // Just run the GetMultiSelectFloatMenuOptions method again so the list is populated.
+                // Just run the GetMultiSelectFloatMenuOptions method again so the list is populated. It's UI state for
+                // the local selection, so do it outside of the command to keep the clients' simulation identical.
                 .SetPostInvoke((x, _) =>
                 {
                     if (x is not Building_ArchonexusCore core) return;
-                    core.GetMultiSelectFloatMenuOptions(SyncUtil.prevSelected.OfType<Pawn>()).ExecuteEnumerable();
+                    OnMainThread.Enqueue(() =>
+                    {
+                        if (core.Spawned)
+                            core.GetMultiSelectFloatMenuOptions(Find.Selector.SelectedPawns).ExecuteEnumerable();
+                    });
                 });
             SyncMethod.Register(typeof(Building_ArchonexusCore), nameof(Building_ArchonexusCore.Activate)).SetDebugOnly(); // Activate archonexus core
 
@@ -508,11 +513,16 @@ namespace Multiplayer.Client
                     crate.GetMultiSelectFloatMenuOptions(Find.Selector.SelectedPawns).ExecuteEnumerable();
                 })
                 // After syncing and invoking the method, we want to restore the previous state of tmpPawnsCanReach.
-                // Just run the GetMultiSelectFloatMenuOptions method again so the list is populated.
+                // Just run the GetMultiSelectFloatMenuOptions method again so the list is populated. It's UI state for
+                // the local selection, so do it outside of the command to keep the clients' simulation identical.
                 .SetPostInvoke((x, _) =>
                 {
                     if (x is not Building_Crate crate) return;
-                    crate.GetMultiSelectFloatMenuOptions(SyncUtil.prevSelected.OfType<Pawn>()).ExecuteEnumerable();
+                    OnMainThread.Enqueue(() =>
+                    {
+                        if (crate.Spawned)
+                            crate.GetMultiSelectFloatMenuOptions(Find.Selector.SelectedPawns).ExecuteEnumerable();
+                    });
                 });
 
             // Double ExecuteWhenFinished ensures it'll load after MP Compat late patches,

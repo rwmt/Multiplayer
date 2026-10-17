@@ -244,7 +244,7 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(GeneResourceDrainUtility), nameof(GeneResourceDrainUtility.GetResourceDrainGizmos), 1).SetDebugOnly(); // +10% resource
             SyncMethod.Register(typeof(CompBreakdownable), nameof(CompBreakdownable.Notify_Repaired)).SetDebugOnly(); // Dev repair breakdownable
             SyncDelegate.Lambda(typeof(CompCanBeDormant), nameof(CompCanBeDormant.CompGetGizmosExtra), 1).SetDebugOnly(); // Wake up after delay
-            SyncDelegate.Lambda(typeof(Tile), nameof(Tile.GetGizmos), 0).SetDebugOnly(); // Generate settlement
+            SyncDelegate.Lambda(typeof(Tile), nameof(Tile.GetGizmos), 0).SetContext(SyncContext.WorldSelected).SetDebugOnly(); // Generate settlement (reads Find.WorldSelector.SelectedTile)
             SyncDelegate.Lambda(typeof(Tile), nameof(Tile.GetGizmos), 4).SetDebugOnly(); // Generate map
 
             // Hediffs
