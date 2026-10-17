@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Multiplayer.Common.Networking.Packet;
@@ -6,9 +7,18 @@ namespace Multiplayer.Common
 {
     public class ServerPlayingState(ConnectionBase conn) : MpConnectionState(conn)
     {
+        public override void StartState()
+        {
+            // The client is about to load the world and may not answer keep alives for a while (also on rejoin,
+            // where the status stays Playing), so start the stale keep alive timeout from here.
+            if (connection.serverPlayer is { } player && MultiplayerServer.instance is { } server)
+                player.keepAliveAt = server.NetTimer;
+        }
+
         [PacketHandler(Packets.Client_WorldReady)]
         public void HandleWorldReady(ByteReader data)
         {
+            Player.keepAliveAt = Server.NetTimer;
             Player.UpdateStatus(PlayerStatus.Playing);
         }
 
@@ -281,7 +291,14 @@ namespace Multiplayer.Common
             Server.SendToPlaying(new ServerSetFactionPacket(playerId, factionId));
         }
 
+        public const float MaxFrameTime = 10_000f;
+
         [TypedPacketHandler]
-        public void HandleFrameTime(ClientFrameTimePacket packet) => Player.frameTime = packet.frameTime;
+        public void HandleFrameTime(ClientFrameTimePacket packet)
+        {
+            // A NaN would end up in the server's time per tick and stop the simulation for good
+            var frameTime = packet.frameTime;
+            Player.frameTime = float.IsNaN(frameTime) ? 0f : Math.Max(0f, Math.Min(frameTime, MaxFrameTime));
+        }
     }
 }

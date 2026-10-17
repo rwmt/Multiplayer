@@ -113,6 +113,11 @@ namespace Multiplayer.Common
             ServerLog.Log($"Disconnected ({reason}): {conn}");
         }
 
+        // The transport keeps a hung game connected. A playing client that doesn't answer keep alives anymore stalls
+        // everyone through its ticks behind, so drop it after a generous delay (loading and saving big games blocks
+        // the client's main thread for a while).
+        public const int StaleKeepAliveNetTicks = 10 * 60 * MultiplayerServer.NetTicksPerSecond;
+
         public void CheckTimeouts()
         {
             // Disconnecting modifies Players
@@ -124,6 +129,16 @@ namespace Multiplayer.Common
                 {
                     ServerLog.Log($"{player.conn} timed out waiting for {state.AwaitedPacket} in {player.conn.State}");
                     player.Disconnect("Timed out while joining the server");
+                    continue;
+                }
+
+                // The hosting player is connected in memory
+                var localHost = player.IsHost && !server.IsStandaloneServer;
+                if (player.IsPlaying && player.status == PlayerStatus.Playing && !localHost &&
+                    server.NetTimer - player.keepAliveAt > StaleKeepAliveNetTicks)
+                {
+                    ServerLog.Log($"{player.conn} stopped answering keep alives");
+                    player.Disconnect("Timed out: the game stopped responding");
                 }
             }
         }

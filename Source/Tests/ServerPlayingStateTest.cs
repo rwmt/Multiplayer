@@ -137,4 +137,49 @@ public class ServerPlayingStateTest
 
         Assert.That(bob.FactionId, Is.EqualTo(2));
     }
+
+    [TestCase(-1000, 0)]
+    [TestCase(int.MinValue, 0)]
+    [TestCase(int.MaxValue, ServerPlayer.MaxTicksBehind)]
+    [TestCase(50, 50)]
+    public void KeepAliveTicksBehindIsClamped(int reported, int expected)
+    {
+        var (player, _) = AddPlayer("player");
+        player.conn.GetState<ServerPlayingState>()!.HandleClientKeepAlive(new ClientKeepAlivePacket(0, reported, false, 0));
+        Assert.That(player.ticksBehind, Is.EqualTo(expected));
+    }
+
+    [TestCase(float.NaN, 0f)]
+    [TestCase(float.PositiveInfinity, ServerPlayingState.MaxFrameTime)]
+    [TestCase(-5f, 0f)]
+    [TestCase(20f, 20f)]
+    public void FrameTimeIsSanitized(float reported, float expected)
+    {
+        var (player, _) = AddPlayer("player");
+        player.conn.GetState<ServerPlayingState>()!.HandleFrameTime(new ClientFrameTimePacket(reported));
+        Assert.That(player.frameTime, Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void StaleKeepAliveDisconnectsPlayingPlayer()
+    {
+        var (host, hostConn) = AddPlayer("host");
+        server.hostUsername = "host";
+        var (loading, loadingConn) = AddPlayer("loading");
+        var (stale, staleConn) = AddPlayer("stale");
+        var (fresh, freshConn) = AddPlayer("fresh");
+
+        foreach (var p in new[] { host, stale, fresh })
+            p.status = PlayerStatus.Playing;
+
+        host.keepAliveAt = loading.keepAliveAt = stale.keepAliveAt = -PlayerManager.StaleKeepAliveNetTicks - 1;
+        fresh.keepAliveAt = -PlayerManager.StaleKeepAliveNetTicks + 10;
+
+        server.playerManager.CheckTimeouts();
+
+        Assert.That(staleConn.State, Is.EqualTo(ConnectionStateEnum.Disconnected));
+        Assert.That(hostConn.State, Is.EqualTo(ConnectionStateEnum.ServerPlaying)); // In-memory host connection
+        Assert.That(loadingConn.State, Is.EqualTo(ConnectionStateEnum.ServerPlaying)); // Not in game yet
+        Assert.That(freshConn.State, Is.EqualTo(ConnectionStateEnum.ServerPlaying));
+    }
 }

@@ -202,7 +202,8 @@ namespace Multiplayer.Common
 
             serverTimePerTick = PlayingIngamePlayers.MaxOrZero(p => p.frameTime);
 
-            if (serverTimePerTick < StandardTimePerTick)
+            // Written to also catch NaN
+            if (!(serverTimePerTick >= StandardTimePerTick))
                 serverTimePerTick = StandardTimePerTick;
 
             if (serverTimePerTick > StandardTimePerTick * 4f)
