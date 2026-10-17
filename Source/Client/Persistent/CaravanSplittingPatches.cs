@@ -66,9 +66,11 @@ namespace Multiplayer.Client.Persistent
         {
             var session = CaravanSplittingSession.Of(caravan);
 
-            // Only show the window to the caravan's players (everyone in a single faction game)
+            // Only show the window to the caravan's players (everyone in a single faction game). It's opened in the
+            // command on those clients only, so keep it off the shared state.
             if (Multiplayer.WorldComp.sessionManager.AddSession(session) && caravan.Faction == Multiplayer.RealPlayerFaction)
-                session.OpenWindow();
+                using (LocalOnlyScope.Enter())
+                    session.OpenWindow();
         }
     }
 }
