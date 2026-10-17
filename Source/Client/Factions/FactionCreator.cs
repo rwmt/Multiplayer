@@ -232,7 +232,7 @@ public static class FactionCreator
         }
         else
         {
-            var newIdeo = GenerateIdeo(chooseIdeoInfo);
+            var newIdeo = GenerateIdeo(chooseIdeoInfo, def);
             faction.ideos.SetPrimary(newIdeo);
             Find.IdeoManager.Add(newIdeo);
         }
@@ -260,16 +260,17 @@ public static class FactionCreator
         return faction;
     }
 
-    private static Ideo GenerateIdeo(IdeologyData chooseIdeoInfo)
+    // factionDef: the new faction's (from the chosen scenario), not Faction.OfPlayer's or the game scenario's
+    private static Ideo GenerateIdeo(IdeologyData chooseIdeoInfo, FactionDef factionDef)
     {
         List<MemeDef> list = chooseIdeoInfo.SelectedIdeo.memes.ToList();
 
         if (chooseIdeoInfo.SelectedStructure != null)
             list.Add(chooseIdeoInfo.SelectedStructure);
-        else if (DefDatabase<MemeDef>.AllDefsListForReading.Where(m => m.category == MemeCategory.Structure && IdeoUtility.IsMemeAllowedFor(m, Find.Scenario.playerFaction.factionDef)).TryRandomElement(out var result))
+        else if (DefDatabase<MemeDef>.AllDefsListForReading.Where(m => m.category == MemeCategory.Structure && IdeoUtility.IsMemeAllowedFor(m, factionDef)).TryRandomElement(out var result))
             list.Add(result);
 
-        Ideo ideo = IdeoGenerator.GenerateIdeo(new IdeoGenerationParms(Find.FactionManager.OfPlayer.def, forceNoExpansionIdeo: false, null, null, list, chooseIdeoInfo.SelectedIdeo.classicPlus, forceNoWeaponPreference: true));
+        Ideo ideo = IdeoGenerator.GenerateIdeo(new IdeoGenerationParms(factionDef, forceNoExpansionIdeo: false, null, null, list, chooseIdeoInfo.SelectedIdeo.classicPlus, forceNoWeaponPreference: true));
         new Page_ChooseIdeoPreset { selectedStyles = chooseIdeoInfo.SelectedStyles }.ApplySelectedStylesToIdeo(ideo);
 
         return ideo;
