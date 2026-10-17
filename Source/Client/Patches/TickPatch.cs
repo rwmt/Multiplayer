@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using HarmonyLib;
 using LudeonTK;
 using Multiplayer.Client.AsyncTime;
@@ -110,7 +111,7 @@ namespace Multiplayer.Client
             if (MpVersion.IsDebug)
                 SimpleProfiler.Start();
 
-            RunCmds();
+            RunCmdsBeforeTicks();
             if  (LongEventHandler.eventQueue.Count == 0)
             {
                 DoUpdate(out var worked);
@@ -164,6 +165,12 @@ namespace Multiplayer.Client
             if (Multiplayer.Client == null || Find.CurrentMap == null) return;
             Shader.SetGlobalFloat(ShaderPropertyIDs.GameSeconds, Find.CurrentMap.AsyncTime().mapTicks.TicksToSeconds());
         }
+
+        // Commands run either here at the start of the frame or in the DoUpdate loop. The desync trace hash includes
+        // the stack depth, so both paths have to be equally deep: Prefix -> RunCmdsBeforeTicks -> RunCmds like
+        // Prefix -> DoUpdate -> RunCmds (#994).
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void RunCmdsBeforeTicks() => RunCmds();
 
         private static bool RunCmds()
         {
