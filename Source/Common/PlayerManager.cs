@@ -71,11 +71,9 @@ namespace Multiplayer.Common
             ServerPlayer player = conn.serverPlayer;
             Players.Remove(player);
 
+            server.worldData.OnPlayerUnavailable(player, "disconnected");
             if (server.worldData.CreatingJoinPoint && (player.IsHost || !Players.Any(p => p.hasJoined)))
-            {
-                server.worldData.AbortJoinPointCreation();
-                ServerLog.Log("Aborted join point creation because no players remain.");
-            }
+                server.worldData.AbortJoinPointCreation("The host left or no players remain.");
 
             if (player.hasJoined)
             {
@@ -108,8 +106,16 @@ namespace Multiplayer.Common
 
         public void OnDesync(ServerPlayer player, int tick, int diffAt)
         {
+            // A desynced client reports once and then rejoins; ignore repeats (each one pauses and forces a join point)
+            if (player.status == PlayerStatus.Desynced) return;
+
             player.UpdateStatus(PlayerStatus.Desynced);
-            server.HostPlayer.SendPacket(ServerTracesPacket.Request(tick, diffAt, player.id));
+            server.worldData.OnPlayerUnavailable(player, "desynced");
+
+            // Traces come from the client whose opinions the desynced player was compared against (no host on standalone)
+            var traceSource = PlayingPlayers.FirstOrDefault(p => p.IsHost && p != player) ?? SyncReference;
+            if (traceSource != null && traceSource != player)
+                traceSource.SendPacket(ServerTracesPacket.Request(tick, diffAt, player.id));
 
             player.ResetTimeVotes();
 
@@ -118,6 +124,29 @@ namespace Multiplayer.Common
 
             if (server.settings.autoJoinPoint.HasFlag(AutoJoinPointFlags.Desync))
                 server.worldData.TryStartJoinPointCreation(true);
+        }
+
+        /// <summary>
+        /// The client treated as the truth: its sync opinions are forwarded to everyone else and it uploads join
+        /// points. The arbiter if playing, else the host; standalone has no host, so the longest connected player
+        /// which is caught up and in sync.
+        /// </summary>
+        public ServerPlayer? SyncReference
+        {
+            get
+            {
+                var arbiter = PlayingPlayers.FirstOrDefault(p => p.IsArbiter && p.status == PlayerStatus.Playing);
+                if (arbiter != null)
+                    return arbiter;
+
+                if (!server.IsStandaloneServer)
+                    return PlayingPlayers.FirstOrDefault(p => p.IsHost);
+
+                return PlayingPlayers
+                    .Where(p => !p.IsArbiter && p.status == PlayerStatus.Playing)
+                    .OrderBy(p => p.id)
+                    .FirstOrDefault();
+            }
         }
 
         public static ColorRGB[] PlayerColors =

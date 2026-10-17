@@ -201,26 +201,6 @@ public class StandalonePersistence
     }
 
     /// <summary>
-    /// Write an accepted map snapshot to disk atomically.
-    /// </summary>
-    public void WriteMapSnapshot(int mapId, byte[] compressedMapData)
-    {
-        EnsureDirectories();
-        AtomicWrite(Path.Combine(MapsDir, $"{mapId}.dat"), compressedMapData);
-    }
-
-    /// <summary>
-    /// Write an accepted world snapshot to disk atomically.
-    /// </summary>
-    public void WriteWorldSnapshot(byte[] compressedWorldData, byte[] sessionData, int tick)
-    {
-        EnsureDirectories();
-        AtomicWrite(WorldPath, compressedWorldData);
-        AtomicWrite(SessionPath, sessionData);
-        WritePersistedTick(tick);
-    }
-
-    /// <summary>
     /// Cleanup any leftover .tmp files from interrupted writes.
     /// </summary>
     public void CleanupTempFiles()

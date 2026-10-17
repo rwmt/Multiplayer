@@ -115,6 +115,7 @@ namespace Multiplayer.Common
                     queue.RunQueue(ServerLog.Error);
                     netManagers.ForEach(manager => manager.Tick());
                     TickNet();
+                    worldData.Tick();
 
                     int ticked = 0;
                     while (realTime > 0 && ticked < 2)

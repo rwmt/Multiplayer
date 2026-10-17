@@ -49,6 +49,10 @@ namespace Multiplayer.Common
 
             StateImpls[(int)state] = type;
 
+            // Replacing an implementation (tests do) must not keep the previous one's handlers
+            for (var packetId = 0; packetId < packetHandlers.GetLength(1); packetId++)
+                packetHandlers[(int)state, packetId] = null;
+
             // The point of this attribute is to explicitly mark how to handle packet listeners from the base type.
             // If the base type is the lowest possible (MpConnectionState, which doesn't have any listeners), there is
             // no reason to warn when the annotation is missing.

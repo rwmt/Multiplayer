@@ -101,6 +101,7 @@ public class CommandLogTest
     public void CompletedJoinPointKeepsOnlyCommandsAfterIt()
     {
         AddPlayer("live", ConnectionStateEnum.ServerPlaying);
+        server.hostUsername = "live";
 
         SendCmd(5, 1);
         Assert.That(server.worldData.TryStartJoinPointCreation(true), Is.True);
@@ -117,6 +118,7 @@ public class CommandLogTest
     public void AbortedJoinPointKeepsTheFullLog()
     {
         AddPlayer("live", ConnectionStateEnum.ServerPlaying);
+        server.hostUsername = "live";
 
         SendCmd(5, 1);
         Assert.That(server.worldData.TryStartJoinPointCreation(true), Is.True);

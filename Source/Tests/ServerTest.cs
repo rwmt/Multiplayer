@@ -47,12 +47,13 @@ public class ServerTest
     [Test]
     public async Task JoinPointAbortUnblocksWaiters()
     {
-        var server = new MultiplayerServer(new ServerSettings
+        var server = MultiplayerServer.instance = new MultiplayerServer(new ServerSettings
         {
             gameName = "Test",
             direct = false,
             lan = false
         });
+        AddHost(server);
 
         Assert.That(server.worldData.TryStartJoinPointCreation(true), Is.True);
         Assert.That(server.worldData.CreatingJoinPoint, Is.True);
@@ -73,6 +74,7 @@ public class ServerTest
     public void LoadingStateHandlesKeepAliveWhileWaitingForJoinPoint()
     {
         var server = MakeServer(out var port);
+        AddHost(server);
         Assert.That(server.worldData.TryStartJoinPointCreation(true), Is.True);
 
         _ = Task.Run(async () =>
@@ -83,16 +85,30 @@ public class ServerTest
 
         ConnectClient(port, typeof(TestLoadingKeepAliveState));
 
-        var timeoutWatch = Stopwatch.StartNew();
-        while (true)
-        {
-            if (server.playerManager.Players.Count == 0)
-                break;
+        // The client joins, waits for the join point, receives the world and leaves; only the host remains
+        WaitUntil(() => server.playerManager.Players.Count == 2);
+        WaitUntil(() => server.playerManager.Players.Count == 1);
+    }
 
+    private static void AddHost(MultiplayerServer server)
+    {
+        var conn = new RecordingConnection("host");
+        conn.ChangeState(ConnectionStateEnum.ServerPlaying);
+        var host = new ServerPlayer(100, conn) { hasJoined = true };
+        conn.serverPlayer = host;
+        server.playerManager.Players.Add(host);
+        server.hostUsername = "host";
+    }
+
+    private static void WaitUntil(Func<bool> condition)
+    {
+        var timeoutWatch = Stopwatch.StartNew();
+        while (!condition())
+        {
             if (timeoutWatch.ElapsedMilliseconds > 2000)
                 Assert.Fail("Timeout");
 
-            Thread.Sleep(50);
+            Thread.Sleep(20);
         }
     }
 

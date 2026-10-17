@@ -15,6 +15,10 @@ namespace Multiplayer.Common
         [PacketHandler(Packets.Client_RequestRejoin)]
         public void HandleRejoin(ByteReader data)
         {
+            // Not caught up until Client_WorldReady again: can't be the sync reference or a join point uploader
+            Player.UpdateStatus(PlayerStatus.Simulating);
+            Server.worldData.OnPlayerUnavailable(Player, "is rejoining");
+
             connection.ChangeState(ConnectionStateEnum.ServerLoading);
             Player.ResetTimeVotes();
         }
@@ -26,7 +30,8 @@ namespace Multiplayer.Common
         [TypedPacketHandler]
         public void HandleTraces(ClientTracesPacket packet)
         {
-            if (!Player.IsHost) return;
+            // Requested in PlayerManager.OnDesync
+            if (!Player.IsHost && Player != Server.playerManager.SyncReference) return;
             Server.GetPlayer(packet.playerId)?.SendPacket(ServerTracesPacket.Transfer(packet.rawTraces, packet.rawJittedMethods));
         }
 
@@ -87,75 +92,47 @@ namespace Multiplayer.Common
         [PacketHandler(Packets.Client_WorldDataUpload, allowFragmented: true)]
         public void HandleWorldDataUpload(ByteReader data)
         {
-            // On standalone, accept from any playing client; otherwise only host/arbiter
-            if (!Server.IsStandaloneServer && (Server.ArbiterPlaying ? !Player.IsArbiter : !Player.IsHost))
-                return;
+            ServerLog.Detail($"Got world upload {data.Left} from {Player.Username}");
 
-            ServerLog.Detail($"Got world upload {data.Left}");
+            int tick = data.ReadInt32();
 
-            Server.worldData.mapData = new Dictionary<int, byte[]>();
-
-            int maps = data.ReadInt32();
-            for (int i = 0; i < maps; i++)
+            var maps = new Dictionary<int, byte[]>();
+            int mapCount = data.ReadInt32();
+            for (int i = 0; i < mapCount; i++)
             {
                 int mapId = data.ReadInt32();
-                Server.worldData.mapData[mapId] = data.ReadPrefixedBytes();
+                maps[mapId] = data.ReadPrefixedBytes()!;
             }
 
-            Server.worldData.savedGame = data.ReadPrefixedBytes();
-            Server.worldData.sessionData = data.ReadPrefixedBytes();
+            var game = data.ReadPrefixedBytes()!;
+            var session = data.ReadPrefixedBytes()!;
 
-            if (Server.worldData.CreatingJoinPoint)
-                Server.worldData.EndJoinPointCreation();
+            // The host's initial upload when hosting, there is no command log yet
+            if (Server.worldData.savedGame == null && !Server.IsStandaloneServer && Player.IsHost)
+            {
+                Server.worldData.mapData = maps;
+                Server.worldData.savedGame = game;
+                Server.worldData.sessionData = session;
+                return;
+            }
+
+            // Anything else replacing the world without its command log would break every later joiner
+            Server.worldData.TryCompleteJoinPoint(Player, tick, maps, game, session);
         }
+
+        [FragmentedPacketHandler(Packets.Client_WorldDataUpload)]
+        public void HandleWorldDataUploadFragment(FragmentedPacket packet) =>
+            Server.worldData.OnUploadProgress(Player);
+
+        // Standalone snapshots are taken from join point uploads (Client_WorldDataUpload). A snapshot on its own would
+        // replace the world without trimming the command log.
+        [TypedPacketHandler]
+        public void HandleStandaloneWorldSnapshot(ClientStandaloneWorldSnapshotPacket packet) =>
+            ServerLog.Detail($"Ignored standalone world snapshot tick={packet.tick} from {Player.Username}");
 
         [TypedPacketHandler]
-        public void HandleStandaloneWorldSnapshot(ClientStandaloneWorldSnapshotPacket packet)
-        {
-            if (!Server.IsStandaloneServer)
-                return;
-
-            if (!Player.IsPlaying)
-                return;
-
-            var accepted = Server.worldData.TryAcceptStandaloneWorldSnapshot(Player, packet.tick,
-                packet.worldData, packet.sessionData, packet.sha256Hash);
-
-            if (accepted)
-            {
-                ServerLog.Detail(
-                    $"Accepted standalone world snapshot tick={packet.tick} from {Player.Username}");
-            }
-            else
-            {
-                ServerLog.Detail(
-                    $"Rejected standalone world snapshot tick={packet.tick} from {Player.Username}");
-            }
-        }
-
-        [TypedPacketHandler]
-        public void HandleStandaloneMapSnapshot(ClientStandaloneMapSnapshotPacket packet)
-        {
-            if (!Server.IsStandaloneServer)
-                return;
-
-            if (!Player.IsPlaying)
-                return;
-
-            var accepted = Server.worldData.TryAcceptStandaloneMapSnapshot(Player, packet.mapId, packet.tick,
-                packet.mapData, packet.sha256Hash);
-
-            if (accepted)
-            {
-                ServerLog.Detail(
-                    $"Accepted standalone map snapshot map={packet.mapId} tick={packet.tick} from {Player.Username}");
-            }
-            else
-            {
-                ServerLog.Detail(
-                    $"Rejected standalone map snapshot map={packet.mapId} tick={packet.tick} from {Player.Username}");
-            }
-        }
+        public void HandleStandaloneMapSnapshot(ClientStandaloneMapSnapshotPacket packet) =>
+            ServerLog.Detail($"Ignored standalone map snapshot map={packet.mapId} tick={packet.tick} from {Player.Username}");
 
         [TypedPacketHandler]
         public void HandleCursor(ClientCursorPacket clientPacket)
@@ -224,7 +201,12 @@ namespace Multiplayer.Common
                 $"Received Client_Autosaving from {Player.Username}, standalone={Server.IsStandaloneServer}, " +
                 $"isHost={Player.IsHost}, reason={packet.reason}, force={forceJoinPoint}");
 
-            // On standalone, any playing client can trigger a join point (always, regardless of settings)
+            // Every client reloads at a join point (and the game pauses), so per-player world travel join points
+            // would interrupt everyone each time someone opens the world map. Standalone autosaves are server driven.
+            if (packet.reason == JoinPointRequestReason.WorldTravel)
+                return;
+
+            // On standalone, any playing client can request one (saves; forced ones are rate limited)
             // On hosted, only the host can trigger and only if the Autosave flag is set
             if (Server.IsStandaloneServer ||
                 (Player.IsHost && Server.settings.autoJoinPoint.HasFlag(AutoJoinPointFlags.Autosave)))

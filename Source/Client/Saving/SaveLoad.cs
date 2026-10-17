@@ -5,7 +5,6 @@ using RimWorld;
 using RimWorld.Planet;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Threading;
 using System.Xml;
 using Multiplayer.Client.Saving;
@@ -223,11 +222,14 @@ namespace Multiplayer.Client
             var mapsData = new Dictionary<int, byte[]>(snapshot.MapData);
             var gameData = snapshot.GameData;
             var sessionData = snapshot.SessionData;
+            var tick = snapshot.CachedAtTime;
 
             void Send()
             {
                 var writer = new ByteWriter();
 
+                // The server only accepts the upload for the join point created at this tick
+                writer.WriteInt32(tick);
                 writer.WriteInt32(mapsData.Count);
                 foreach (var mapData in mapsData)
                 {
@@ -247,60 +249,6 @@ namespace Multiplayer.Client
                 ThreadPool.QueueUserWorkItem(c => Send());
             else
                 Send();
-        }
-
-        /// <summary>
-        /// Send per-map standalone snapshots to the server for all maps in the given snapshot.
-        /// Called after autosave when connected to a standalone server.
-        /// </summary>
-        public static void SendStandaloneMapSnapshots(GameDataSnapshot snapshot)
-        {
-            var tick = snapshot.CachedAtTime;
-
-            foreach (var (mapId, mapBytes) in snapshot.MapData)
-            {
-                var compressed = GZipStream.CompressBuffer(mapBytes);
-
-                byte[] hash;
-                using (var sha = SHA256.Create())
-                    hash = sha.ComputeHash(compressed);
-
-                var packet = new ClientStandaloneMapSnapshotPacket
-                {
-                    mapId = mapId,
-                    tick = tick,
-                    mapData = compressed,
-                    sha256Hash = hash,
-                };
-
-                OnMainThread.Enqueue(() => Multiplayer.Client?.SendFragmented(packet.Serialize()));
-            }
-        }
-
-        /// <summary>
-        /// Send the world + session standalone snapshot to the server.
-        /// Called after autosave when connected to a standalone server.
-        /// </summary>
-        public static void SendStandaloneWorldSnapshot(GameDataSnapshot snapshot)
-        {
-            var tick = snapshot.CachedAtTime;
-            var worldCompressed = GZipStream.CompressBuffer(snapshot.GameData);
-            var sessionCompressed = GZipStream.CompressBuffer(snapshot.SessionData);
-
-            using var hasher = SHA256.Create();
-            hasher.TransformBlock(worldCompressed, 0, worldCompressed.Length, null, 0);
-            hasher.TransformFinalBlock(sessionCompressed, 0, sessionCompressed.Length);
-            var hash = hasher.Hash ?? System.Array.Empty<byte>();
-
-            var packet = new ClientStandaloneWorldSnapshotPacket
-            {
-                tick = tick,
-                worldData = worldCompressed,
-                sessionData = sessionCompressed,
-                sha256Hash = hash,
-            };
-
-            OnMainThread.Enqueue(() => Multiplayer.Client?.SendFragmented(packet.Serialize()));
         }
     }
 

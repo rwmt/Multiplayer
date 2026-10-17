@@ -216,10 +216,12 @@ public class AsyncWorldTimeComp : IExposable, ITickable
 
             if (cmdType == CommandType.CreateJoinPoint)
             {
-                if (Multiplayer.session?.ConnectedToStandaloneServer == true && !TickPatch.currentExecutingCmdIssuedBySelf)
-                    return;
+                // Every client reloads (hosted and standalone): a reload isn't a no-op, and joiners start from the
+                // reloaded state. Only the uploader chosen by the server sends the save. Old logs have no payload.
+                var uploaderId = data.Left >= sizeof(int) ? data.ReadInt32() : cmd.playerId;
+                var upload = uploaderId == Multiplayer.session.playerId && !TickPatch.Simulating && !Multiplayer.IsReplay;
 
-                LongEventHandler.QueueLongEvent(CreateJoinPointAndSendIfHost, "MpCreatingJoinPoint", false, null);
+                LongEventHandler.QueueLongEvent(() => CreateJoinPoint(upload), "MpCreatingJoinPoint", false, null);
             }
 
             if (cmdType == CommandType.InitPlayerData)
@@ -274,28 +276,15 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         }
     }
 
-    private static void CreateJoinPointAndSendIfHost()
+    private static void CreateJoinPoint(bool upload)
     {
         Multiplayer.session.dataSnapshot = SaveLoad.SaveReloadAndCreateSnapshot(
             Multiplayer.GameComp.multifaction,
             ReloadOptimizationMode.ForJoinPointSnapshot
         );
 
-        if (!TickPatch.Simulating && !Multiplayer.IsReplay)
-        {
-            if (Multiplayer.session?.ConnectedToStandaloneServer == true)
-            {
-                // Standalone: every client uploads world data + individual snapshots
-                SaveLoad.SendGameData(Multiplayer.session.dataSnapshot, true);
-                SaveLoad.SendStandaloneMapSnapshots(Multiplayer.session.dataSnapshot);
-                SaveLoad.SendStandaloneWorldSnapshot(Multiplayer.session.dataSnapshot);
-            }
-            else if (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance)
-            {
-                // Hosted: only host/arbiter uploads world data
-                SaveLoad.SendGameData(Multiplayer.session.dataSnapshot, true);
-            }
-        }
+        if (upload)
+            SaveLoad.SendGameData(Multiplayer.session.dataSnapshot, true);
     }
 
     public void SetTimeEverywhere(TimeSpeed speed)
