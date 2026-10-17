@@ -174,6 +174,19 @@ public class CommandLogTest
         Assert.Catch(() => tooBig.Serialize());
     }
 
+    [Test]
+    public void CurrentFormatLogsAreNotReordered()
+    {
+        var log = new List<ScheduledCommand>
+        {
+            new(CommandType.Sync, 10, 0, 5, 0, [1]),
+            new(CommandType.Sync, 10, 0, ScheduledCommand.Global, 0, [2]),
+            new(CommandType.Sync, 3, 0, 5, 0, [3]), // e.g. after a debug timer reset
+        };
+
+        Assert.That(ScheduledCommand.MergeLegacyCmds(log, [[], []]), Is.SameAs(log));
+    }
+
     private static ScheduledCommand ToCmd(byte[] packetData)
     {
         var packet = default(ServerCommandPacket);
