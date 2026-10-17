@@ -523,7 +523,42 @@ namespace Multiplayer.Client.Patches
                     AccessTools.Method(typeof(StatWorkerGetValuePatch), nameof(NewCacheTicks)))
             );
 
-            return matcher.Instructions();
+            // Make the interface judge staleness (and so decide whether to overwrite a simulation entry)
+            // with the time the simulation uses for the thing
+            var tickManagerTicksGame = AccessTools.PropertyGetter(typeof(TickManager), nameof(TickManager.TicksGame));
+            var genTicksTicksGame = AccessTools.PropertyGetter(typeof(GenTicks), nameof(GenTicks.TicksGame));
+            var result = matcher.Instructions();
+            int patched = 0;
+
+            for (int i = 0; i < result.Count; i++)
+            {
+                if (!result[i].Calls(tickManagerTicksGame) && !result[i].Calls(genTicksTicksGame))
+                    continue;
+
+                result.InsertRange(i + 1, [
+                    new CodeInstruction(OpCodes.Ldarg_1),
+                    new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(StatWorkerGetValuePatch), nameof(TicksGameFor)))
+                ]);
+                i += 2;
+                patched++;
+            }
+
+            if (patched == 0)
+                Log.Error("MP: Couldn't find TicksGame in StatWorker.GetValue. Was the original method changed?");
+
+            return result;
+        }
+
+        private static int TicksGameFor(int ticksGame, Thing thing)
+        {
+            if (Multiplayer.Client == null || !Multiplayer.InInterface)
+                return ticksGame;
+
+            // In the interface the current time can be another map's or the world's (async time)
+            if (thing?.MapHeld?.AsyncTime() is { } mapTime)
+                return mapTime.mapTicks;
+
+            return Multiplayer.AsyncWorldTime?.worldTicks ?? ticksGame;
         }
 
         private static bool HasValueInCache(bool hasValueInCache, StatWorker worker, Thing t)
