@@ -120,11 +120,26 @@ public class SessionManager : IHasSessionData, ISessionManager
 
     /// <summary>
     /// Ticks over <see cref="TickingSessions"/>. It iterates backwards using a <see langword="for"/> loop to make it safe for the sessions to remove themselves when ticking.
+    /// A failing session is logged and doesn't stop the other sessions (or the rest of the map/world tick).
     /// </summary>
     public void TickSessions()
     {
         for (int i = tickingSessions.Count - 1; i >= 0; i--)
-            tickingSessions[i].Tick();
+        {
+            // A session's tick may remove more than one session
+            if (i >= tickingSessions.Count)
+                continue;
+
+            var session = tickingSessions[i];
+            try
+            {
+                session.Tick();
+            }
+            catch (Exception e)
+            {
+                Log.ErrorOnce($"Exception ticking session {session}: {e}", session.GetHashCode() ^ 0x3a5f19);
+            }
+        }
     }
 
     public T GetFirstOfType<T>() where T : Session => allSessions.OfType<T>().FirstOrDefault();
