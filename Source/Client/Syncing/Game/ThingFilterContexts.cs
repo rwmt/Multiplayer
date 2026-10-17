@@ -10,6 +10,10 @@ public record TabStorageWrapper(IStoreSettingsParent Storage) : ThingFilterConte
 {
     public override ThingFilter Filter => Storage.GetStoreSettings().filter;
     public override ThingFilter ParentFilter => Storage.GetParentStoreSettings()?.filter;
+
+    // Same as the ones passed by ITab_Storage.FillTab (the method doesn't depend on the tab's state)
+    public override IEnumerable<SpecialThingFilterDef> HiddenFilters =>
+        ((ITab_Storage)InspectTabManager.GetSharedInstance(typeof(ITab_Storage))).HiddenSpecialThingFilters();
 }
 
 public record BillConfigWrapper(Bill Bill) : ThingFilterContext

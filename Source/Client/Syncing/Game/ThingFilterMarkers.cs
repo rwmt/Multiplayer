@@ -23,22 +23,39 @@ static class ThingFilterMarkers
         }
     }
 
+    // The filter of a storage which can't be synced, edits to it are blocked instead of being applied locally
+    private static ThingFilter unsyncableFilter;
+
+    public static bool IsUnsyncableFilter(ThingFilter filter) =>
+        drawingThingFilter && filter != null && filter == unsyncableFilter;
+
     [MpPrefix(typeof(ITab_Storage), nameof(ITab_Storage.FillTab))]
     static void TabStorageFillTab_Prefix(ITab_Storage __instance)
     {
         var selThing = __instance.SelObject;
         var selParent = __instance.SelStoreSettingsParent;
         // If SelStoreSettingsParent is null, just return early. There'll be nothing to sync.
+        if (selParent == null)
+            return;
+
         // The map could potentially be null - for example, if we're syncing mortar. The mortar gun itself
         // holds the store settings, and turret guns don't have a map/location assigned - so we sync their parent.
         // Because of that, we check if the parent is not null.
-        if (selParent == null || selThing is Thing { Map: null } or ThingComp { parent: { Map: null } })
+        if (selThing is Thing { Map: null } or ThingComp { parent: { Map: null } })
+        {
+            unsyncableFilter = selParent.GetStoreSettings()?.filter;
             return;
+        }
+
         DrawnThingFilter = new TabStorageWrapper(selParent);
     }
 
     [MpFinalizer(typeof(ITab_Storage), nameof(ITab_Storage.FillTab))]
-    static void TabStorageFillTab_Finalizer() => DrawnThingFilter = null;
+    static void TabStorageFillTab_Finalizer()
+    {
+        DrawnThingFilter = null;
+        unsyncableFilter = null;
+    }
 
     [MpPrefix(typeof(Dialog_BillConfig), nameof(Dialog_BillConfig.DoWindowContents))]
     static void BillConfig_Prefix(Dialog_BillConfig __instance) =>
