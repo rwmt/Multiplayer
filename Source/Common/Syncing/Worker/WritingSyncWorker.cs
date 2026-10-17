@@ -8,8 +8,6 @@ namespace Multiplayer.Client
     public class WritingSyncWorker(ByteWriter writer, SyncSerialization serialization) : SyncWorker(true)
     {
         internal readonly ByteWriter writer = writer;
-        readonly int initialPos = writer.Position;
-
         public ByteWriter Writer => writer;
 
         public override void Bind<T>(ref T obj, SyncType type)
@@ -95,9 +93,11 @@ namespace Multiplayer.Client
             writer.WriteUShort(serialization.TypeHelper.GetIndexFromImplementation(typeof(T), type));
         }
 
-        internal void Reset()
+        internal int Position => writer.Position;
+
+        internal void Reset(int position)
         {
-            writer.SetLength(initialPos);
+            writer.SetLength(position);
         }
     }
 }

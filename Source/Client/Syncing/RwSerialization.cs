@@ -106,7 +106,10 @@ public static class RwSerialization
             },
             (data, obj, _) =>
             {
-                data.WriteUShort((ushort)ApiSerialization.syncSimples.FindIndex(obj!.GetType()));
+                int typeIndex = ApiSerialization.syncSimples.FindIndex(obj!.GetType());
+                if (typeIndex == -1)
+                    throw new SerializationException($"Unknown ISyncSimple type {obj.GetType()}");
+                data.WriteUShort((ushort)typeIndex);
                 foreach (var field in AccessTools.GetDeclaredFields(obj.GetType()))
                     SyncSerialization.WriteSyncObject(data, field.GetValue(obj), field.FieldType);
             }

@@ -1,4 +1,5 @@
-﻿using Multiplayer.API;
+﻿using System.Reflection;
+using Multiplayer.API;
 using Multiplayer.Client;
 using Multiplayer.Common;
 
@@ -165,6 +166,64 @@ public class SerializationTest
         }
     }
 
+    [Test]
+    public void SyncWithImplUnknownTypeThrows()
+    {
+        var ser = new SyncSerialization(new TestTypeHelper());
+        ser.syncTree = new SyncWorkerDictionaryTree
+        {
+            {
+                (SyncWorker worker, ref C4 c) =>
+                {
+                    worker.Bind(ref c.a);
+                }, false, true
+            },
+        };
+        ser.RegisterForSyncWithImpl(typeof(C1));
+
+        // Writing the "null" implementation marker followed by the object's data would misalign the reader
+        Assert.Throws<SerializationException>(() => ser.WriteSync<C1>(new ByteWriter(), new C4 { a = 1 }));
+    }
+
+    [Test]
+    public void RejectingImplicitWorkerKeepsParentData()
+    {
+        var ser = new SyncSerialization(new TestTypeHelper());
+        var tree = new SyncWorkerDictionaryTree
+        {
+            {
+                (SyncWorker worker, ref C2 c) =>
+                {
+                    worker.Bind(ref c.a);
+                }, true, true
+            },
+            {
+                (SyncWorker worker, ref C3 c) =>
+                {
+                    worker.Bind(ref c.b);
+                }, true, true
+            },
+        };
+
+        // Bool returning workers are inserted first; this one writes/reads some data and then gives up
+        tree.GetOrAddEntry(typeof(C3), isImplicit: true, shouldConstruct: true)
+            .Add(typeof(SerializationTest).GetMethod(nameof(RejectingWorker), BindingFlags.NonPublic | BindingFlags.Static)!);
+        ser.syncTree = tree;
+
+        var input = new C3 { a = 1, b = 2 };
+        Assert.That(
+            RoundtripSerialization(ser, input),
+            Is.EqualTo(input)
+        );
+    }
+
+    private static bool RejectingWorker(SyncWorker worker, ref object? obj)
+    {
+        int junk = 12345;
+        worker.Bind(ref junk);
+        return false;
+    }
+
     class TestTypeHelper : SyncTypeHelper
     {
         public override List<Type> GetImplementations(Type baseType)
@@ -196,6 +255,12 @@ public class SerializationTest
         {
             return obj is C3 c && c.b == b && c.a == a;
         }
+    }
+
+    // Not returned by TestTypeHelper
+    public class C4 : C1
+    {
+        public int a;
     }
 
     public interface IA;
