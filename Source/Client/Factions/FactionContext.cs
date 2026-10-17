@@ -8,32 +8,37 @@ namespace Multiplayer.Client
     {
         public static Stack<Faction> stack = new();
 
-        // Parallel to stack: whether the entry's push applied its faction to every map (see FactionExtensions.PushFaction)
-        private static Stack<bool> allMapsStack = new();
+        // Parallel to stack: optional state of the entry's push, restored by its pop (see FactionExtensions.PushFaction)
+        private static Stack<object> stateStack = new();
 
-        public static Faction Push(Faction newFaction, bool force = false) => Push(newFaction, force, false);
-
-        public static Faction Push(Faction newFaction, bool force, bool allMaps)
+        public static Faction Push(Faction newFaction, bool force = false)
         {
             if (newFaction == null || !force && Find.FactionManager.ofPlayer == newFaction || !newFaction.def.isPlayer)
             {
                 stack.Push(null);
-                allMapsStack.Push(false);
+                stateStack.Push(null);
                 return null;
             }
 
             stack.Push(Find.FactionManager.OfPlayer);
-            allMapsStack.Push(allMaps);
+            stateStack.Push(null);
             Set(newFaction);
 
             return newFaction;
         }
 
+        // Attaches state to the entry pushed last
+        public static void SetTopState(object state)
+        {
+            stateStack.Pop();
+            stateStack.Push(state);
+        }
+
         public static Faction Pop() => Pop(out _);
 
-        public static Faction Pop(out bool allMaps)
+        public static Faction Pop(out object state)
         {
-            allMaps = allMapsStack.Count > 0 && allMapsStack.Pop();
+            state = stateStack.Count > 0 ? stateStack.Pop() : null;
             Faction f = stack.Pop();
             if (f != null)
                 Set(f);
@@ -48,7 +53,7 @@ namespace Multiplayer.Client
         public static void Clear()
         {
             stack.Clear();
-            allMapsStack.Clear();
+            stateStack.Clear();
         }
     }
 

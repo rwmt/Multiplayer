@@ -188,10 +188,12 @@ public class MultiplayerWorldComp : IHasSessionData
         sessionManager.RemoveSession(session);
     }
 
-    public void SetFaction(Faction faction)
+    public void SetFaction(Faction faction) => SetFaction(faction.loadID);
+
+    public bool SetFaction(int factionId)
     {
-        if (!factionData.TryGetValue(faction.loadID, out FactionWorldData data))
-            return;
+        if (!factionData.TryGetValue(factionId, out FactionWorldData data))
+            return false;
 
         Game game = Current.Game;
         game.researchManager = data.researchManager;
@@ -203,6 +205,16 @@ public class MultiplayerWorldComp : IHasSessionData
         game.history = data.history;
         game.storyteller = data.storyteller;
         game.storyWatcher = data.storyWatcher;
+        return true;
+    }
+
+    // The faction whose data is currently applied to the game, -1 if unknown
+    public int GetAppliedFactionId()
+    {
+        foreach (var (id, data) in factionData)
+            if (data.researchManager == Find.ResearchManager)
+                return id;
+        return -1;
     }
 
     public void DirtyColonyTradeForMap(Map map)

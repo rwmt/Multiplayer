@@ -132,10 +132,12 @@ namespace Multiplayer.Client
             }
         }
 
-        public void SetFaction(Faction faction)
+        public void SetFaction(Faction faction) => SetFaction(faction.loadID);
+
+        public bool SetFaction(int factionId)
         {
-            if (!factionData.TryGetValue(faction.loadID, out FactionMapData data))
-                return;
+            if (!factionData.TryGetValue(factionId, out FactionMapData data))
+                return false;
 
             map.designationManager = data.designationManager;
             map.areaManager = data.areaManager;
@@ -147,6 +149,16 @@ namespace Multiplayer.Client
             map.resourceCounter = data.resourceCounter;
             map.listerFilthInHomeArea = data.listerFilthInHomeArea;
             map.listerMergeables = data.listerMergeables;
+            return true;
+        }
+
+        // The faction whose managers are currently applied to the map, -1 if unknown
+        public int GetAppliedFactionId()
+        {
+            foreach (var (id, data) in factionData)
+                if (data.zoneManager == map.zoneManager)
+                    return id;
+            return -1;
         }
 
         public CustomFactionMapData GetCurrentCustomFactionData()
