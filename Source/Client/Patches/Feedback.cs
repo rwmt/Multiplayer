@@ -63,13 +63,27 @@ namespace Multiplayer.Client.Patches
             yield return AccessTools.Method(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote), new[] { typeof(Vector3), typeof(Map), typeof(ThingDef), typeof(float), typeof(bool), typeof(float) });
         }
 
-        static bool Prefix(ThingDef moteDef)
+        static bool Prefix(object[] __args, ThingDef moteDef, ref Mote __result)
         {
             // Catches ritual effect motes
             if (moteDef.mote.solidTime >= 99999)
                 return true;
 
-            return !CancelFeedbackNotTargetedAtMe.Cancel;
+            if (!CancelFeedbackNotTargetedAtMe.Cancel)
+                return true;
+
+            // Callers may use the result and FixNullMotes makes it non-null for the issuer (unless out of bounds),
+            // so return the same kind of result on the other clients. The mote is made (motes get no thing ID)
+            // but not spawned.
+            var cell = __args[0] switch
+            {
+                IntVec3 c => c,
+                Vector3 v => v.ToIntVec3(),
+                _ => IntVec3.Invalid
+            };
+
+            __result = __args[1] is Map map && cell.InBounds(map) ? ThingMaker.MakeThing(moteDef) as Mote : null;
+            return false;
         }
     }
 
