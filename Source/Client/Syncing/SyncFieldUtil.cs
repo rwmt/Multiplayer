@@ -146,7 +146,7 @@ namespace Multiplayer.Client
             // WatchBegin and WatchEnd), restore and sync those fields now.
             if (watchedStack.Count > 0)
             {
-                Log.Warning($"Multiplayer: {watchedStack.Count} field watch stack entries weren't closed, restoring them");
+                Log.WarningOnce($"Multiplayer: {watchedStack.Count} field watch stack entries weren't closed, restoring them", 0x5e1d3a7);
                 while (watchedStack.Count > 0)
                     PopWatchScope();
             }
