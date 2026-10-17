@@ -32,8 +32,9 @@ static class MapGenFactionPatch
             Log.Warning($"Couldn't set the faction context for map gen at {tile.tileId}: no player world object at the tile.");
 
         // Also switch the faction's world data (research, play settings, history...) used during generation
+        // Forced as the current context may have set only Faction.OfPlayer (MpScope.PushFaction)
         if (Multiplayer.Client != null)
-            FactionExtensions.PushFaction(null, factionToSet);
+            FactionExtensions.PushFaction(null, factionToSet, force: true);
         else
             FactionContext.Push(factionToSet);
     }
