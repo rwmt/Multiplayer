@@ -545,10 +545,15 @@ namespace Multiplayer.Client
         }
 
         [MpPrefix(typeof(StorageSettingsClipboard), nameof(StorageSettingsClipboard.Copy))]
-        static void StorageSettingsClipboardCopy_Prefix() => Multiplayer.dontSync = true;
+        static void StorageSettingsClipboardCopy_Prefix(out bool __state)
+        {
+            __state = Multiplayer.dontSync;
+            Multiplayer.dontSync = true;
+        }
 
-        [MpPostfix(typeof(StorageSettingsClipboard), nameof(StorageSettingsClipboard.Copy))]
-        static void StorageSettingsClipboardCopy_Postfix() => Multiplayer.dontSync = false;
+        // A finalizer, as leaving dontSync set would turn every later sync handler local-only
+        [MpFinalizer(typeof(StorageSettingsClipboard), nameof(StorageSettingsClipboard.Copy))]
+        static void StorageSettingsClipboardCopy_Finalizer(bool __state) => Multiplayer.dontSync = __state;
 
         [MpTranspiler(typeof(CompPlantable), nameof(CompPlantable.BeginTargeting), lambdaOrdinal: 0)]
         static IEnumerable<CodeInstruction> CompPlantableTranspiler(IEnumerable<CodeInstruction> insts)

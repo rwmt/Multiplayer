@@ -463,12 +463,20 @@ namespace Multiplayer.Client
 
         // The letter tries to generate the options when opened. Make the picks seeded, so all players will get the same ones.
         [MpPrefix(typeof(ChoiceLetter_GrowthMoment), nameof(ChoiceLetter_GrowthMoment.TrySetChoices))]
-        static void PreLetterChoices(ChoiceLetter_GrowthMoment __instance)
-            => Rand.PushState(Gen.HashCombineInt(__instance.pawn.thingIDNumber, __instance.arrivalTick));
+        static void PreLetterChoices(ChoiceLetter_GrowthMoment __instance, out bool __state)
+        {
+            __state = false;
+            Rand.PushState(Gen.HashCombineInt(__instance.pawn.thingIDNumber, __instance.arrivalTick));
+            __state = true;
+        }
 
-        [MpPostfix(typeof(ChoiceLetter_GrowthMoment), nameof(ChoiceLetter_GrowthMoment.TrySetChoices))]
-        static void PostLetterChoices()
-            => Rand.PopState();
+        // A finalizer to keep the Rand state stack balanced if TrySetChoices throws
+        [MpFinalizer(typeof(ChoiceLetter_GrowthMoment), nameof(ChoiceLetter_GrowthMoment.TrySetChoices))]
+        static void PostLetterChoices(bool __state)
+        {
+            if (__state)
+                Rand.PopState();
+        }
 
         static void InitDevTools()
         {
