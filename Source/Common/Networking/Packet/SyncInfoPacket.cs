@@ -41,6 +41,19 @@ public record struct ServerSyncInfoPacket : IPacket
     private static readonly Binder<SyncOpinion> SyncOpinionBinder = BinderOf.Identity<SyncOpinion>();
 }
 
+/// Standalone only: whether the receiving client is the sync reference, the one whose opinions the server forwards to
+/// every other client (the host and arbiter know that they are).
+[PacketDefinition(Packets.Server_SyncReference)]
+public record struct ServerSyncReferencePacket(bool isReference) : IPacket
+{
+    public bool isReference = isReference;
+
+    public void Bind(PacketBuffer buf)
+    {
+        buf.Bind(ref isReference);
+    }
+}
+
 public record struct SyncOpinion : IPacketBufferable
 {
     public int startTick;

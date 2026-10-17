@@ -38,6 +38,8 @@ namespace Multiplayer.Client
         public bool showTimeline;
 
         public bool desynced;
+        // Standalone: set by the server when this client's sync opinions are the ones compared against
+        public bool isSyncReference;
 
         public List<CSteamID> pendingSteam = new();
         public List<CSteamID> knownUsers = new();

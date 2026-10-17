@@ -10,6 +10,7 @@ namespace Multiplayer.Common
         public void HandleWorldReady(ByteReader data)
         {
             Player.UpdateStatus(PlayerStatus.Playing);
+            Server.playerManager.UpdateSyncReference();
         }
 
         [PacketHandler(Packets.Client_RequestRejoin)]
@@ -18,6 +19,7 @@ namespace Multiplayer.Common
             // Not caught up until Client_WorldReady again: can't be the sync reference or a join point uploader
             Player.UpdateStatus(PlayerStatus.Simulating);
             Server.worldData.OnPlayerUnavailable(Player, "is rejoining");
+            Server.playerManager.UpdateSyncReference();
 
             connection.ChangeState(ConnectionStateEnum.ServerLoading);
             Player.ResetTimeVotes();
@@ -171,15 +173,16 @@ namespace Multiplayer.Common
         [TypedPacketHandler]
         public void HandleDesyncCheck(ClientSyncInfoPacket packet)
         {
-            var arbiter = Server.ArbiterPlaying;
-            if (arbiter ? !Player.IsArbiter : !Player.IsHost) return; // policy
+            // Only the reference's opinions are kept and forwarded (arbiter, host, or the standalone reference)
+            var reference = Server.playerManager.SyncReference;
+            if (Player != reference) return; // policy
 
             // Keep at most 10 sync infos
             Server.worldData.syncInfos.Add(packet.rawSyncOpinion);
             if (Server.worldData.syncInfos.Count > 10)
                 Server.worldData.syncInfos.RemoveAt(0);
 
-            foreach (var p in Server.PlayingPlayers.Where(p => !p.IsArbiter && (arbiter || !p.IsHost)))
+            foreach (var p in Server.PlayingPlayers.Where(p => p != reference && !p.IsArbiter))
                 p.conn.SendFragmented(new ServerSyncInfoPacket { rawSyncOpinion = packet.rawSyncOpinion }.Serialize());
         }
 

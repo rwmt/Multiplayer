@@ -70,6 +70,9 @@ public class ClientLoadingState(ConnectionBase connection) : ClientBaseState(con
         int factionId = data.ReadInt32();
         Multiplayer.session.myFactionId = factionId;
 
+        // The server only picks caught up players as the sync reference
+        Multiplayer.session.isSyncReference = false;
+
         int tickUntil = data.ReadInt32();
         int remoteSentCmds = data.ReadInt32();
         bool serverFrozen = data.ReadBool();

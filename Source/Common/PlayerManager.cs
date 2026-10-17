@@ -72,6 +72,7 @@ namespace Multiplayer.Common
             Players.Remove(player);
 
             server.worldData.OnPlayerUnavailable(player, "disconnected");
+            UpdateSyncReference();
             if (server.worldData.CreatingJoinPoint && (player.IsHost || !Players.Any(p => p.hasJoined)))
                 server.worldData.AbortJoinPointCreation("The host left or no players remain.");
 
@@ -111,6 +112,7 @@ namespace Multiplayer.Common
 
             player.UpdateStatus(PlayerStatus.Desynced);
             server.worldData.OnPlayerUnavailable(player, "desynced");
+            UpdateSyncReference();
 
             // Traces come from the client whose opinions the desynced player was compared against (no host on standalone)
             var traceSource = PlayingPlayers.FirstOrDefault(p => p.IsHost && p != player) ?? SyncReference;
@@ -147,6 +149,29 @@ namespace Multiplayer.Common
                     .OrderBy(p => p.id)
                     .FirstOrDefault();
             }
+        }
+
+        private int syncReferenceId = ScheduledCommand.NoPlayer;
+
+        /// Call after player status changes and disconnects
+        public void UpdateSyncReference()
+        {
+            var reference = SyncReference;
+            var referenceId = reference?.id ?? ScheduledCommand.NoPlayer;
+            if (referenceId == syncReferenceId) return;
+
+            var previous = GetPlayer(syncReferenceId);
+            syncReferenceId = referenceId;
+            ServerLog.Detail($"Sync reference changed to {reference?.Username ?? "none"}");
+
+            // Joiners compare their catch-up against these, keep only the current reference's opinions
+            server.worldData.syncInfos.Clear();
+
+            // Hosted clients know their role (host/arbiter)
+            if (!server.IsStandaloneServer) return;
+
+            previous?.SendPacket(new ServerSyncReferencePacket(false));
+            reference?.SendPacket(new ServerSyncReferencePacket(true));
         }
 
         public static ColorRGB[] PlayerColors =
@@ -210,6 +235,7 @@ namespace Multiplayer.Common
             host.SendPlayerList();
             SendInitDataCommand(host);
             host.UpdateStatus(PlayerStatus.Playing);
+            UpdateSyncReference();
         }
 
         public ServerPlayer? GetPlayer(string username)

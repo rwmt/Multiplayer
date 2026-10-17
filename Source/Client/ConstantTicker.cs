@@ -122,7 +122,10 @@ namespace Multiplayer.Client
 
                 try
                 {
-                    if (!TickPatch.Simulating && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
+                    // Only the sync reference's opinions are used by the server: host/arbiter, or the client the
+                    // standalone server picked. Opinions can be megabytes, others don't send them.
+                    if (!TickPatch.Simulating && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance ||
+                                                  Multiplayer.session.isSyncReference))
                         Multiplayer.Client.SendFragmented(
                             new ClientSyncInfoPacket { SyncOpinion = opinion.ToNet() }.Serialize());
                 }
