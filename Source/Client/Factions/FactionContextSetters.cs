@@ -29,7 +29,7 @@ static class MapGenFactionPatch
         Faction factionToSet = GetFactionAt(tile);
 
         if (Multiplayer.Client != null && factionToSet == null)
-            Log.Warning($"Couldn't set the faction context for map gen at {tile.tileId}: no world object and no stored faction.");
+            Log.Warning($"Couldn't set the faction context for map gen at {tile.tileId}: no player world object at the tile.");
 
         FactionContext.Push(factionToSet);
     }
@@ -42,7 +42,9 @@ static class MapGenFactionPatch
         if (mapParent != null && mapParent.Faction is { IsPlayer: true })
             return mapParent.Faction;
 
-        var caravan = worldObjectsHolder.PlayerControlledCaravanAt(tile);
+        // Not PlayerControlledCaravanAt: it compares with Faction.OfPlayer, which differs between clients outside
+        // of a simulation context
+        var caravan = worldObjectsHolder.Caravans.Find(c => c.Tile == tile && c.Faction is { IsPlayer: true });
         if (caravan != null)
             return caravan.Faction;
 
@@ -54,7 +56,7 @@ static class MapGenFactionPatch
         if (gravship != null)
             return gravship.Faction;
 
-        return TileFactionContext.GetFactionForTile(tile);
+        return null;
     }
 
     static void Finalizer()
@@ -152,16 +154,5 @@ static class GravshipArriveNewMapFactionPatch
     static void Finalizer()
     {
         FactionContext.Pop();
-    }
-}
-
-// Clean up after map generation is complete
-[HarmonyPatch(typeof(MapGenerator), nameof(MapGenerator.GenerateMap))]
-static class CleanupTileFactionContext
-{
-    static void Finalizer(MapParent parent)
-    {
-        if (parent != null)
-            TileFactionContext.ClearTile(parent.Tile);
     }
 }
