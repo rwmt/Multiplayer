@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -156,6 +157,15 @@ public class ServerJoiningState : AsyncConnectionState
             defStatus[i] = status;
         }
 
+        // The statuses above only cover the def types the client knows about
+        var clientDefNames = new HashSet<string>(packet.defInfos.Select(info => info.name));
+        var missingDefs = serverInitData.DefInfos.Keys
+            .Where(name => !clientDefNames.Contains(name))
+            .Take(ServerJoinDataPacket.MaxMissingDefs)
+            .ToArray();
+        if (missingDefs.Length > 0)
+            defsMatch = false;
+
         connection.SendFragmented(new ServerJoinDataPacket
         {
             gameName = Server.settings.gameName,
@@ -163,6 +173,7 @@ public class ServerJoiningState : AsyncConnectionState
             rwVersion = serverInitData.RwVersion,
             mpVersion = MpVersion.Version,
             defStatus = defStatus,
+            missingDefs = missingDefs,
             configsIncluded = serverInitData.IncludeConfigs,
             rawServerInitData = serverInitData.RawData,
         }.Serialize());

@@ -119,7 +119,8 @@ public class ReaderBoundsTest
         var roundtrip = Roundtrip(initData);
         var joinData = Roundtrip(new ServerJoinDataPacket
         {
-            gameName = "", rwVersion = "", mpVersion = "", defStatus = [], rawServerInitData = roundtrip.rawMods
+            gameName = "", rwVersion = "", mpVersion = "", defStatus = [], missingDefs = [],
+            rawServerInitData = roundtrip.rawMods
         });
         Assert.That(joinData.ServerInitData, Has.Count.EqualTo(mods.Count));
     }

@@ -98,7 +98,9 @@ namespace Multiplayer.Client
 
                 var contentPack = MultiplayerData.DummyContentPack(mod);
 
-                foreach (var asm in MultiplayerData.GetModAssemblies(contentPack))
+                // Include AssembliesCustom so that different Multiplayer builds show up as a mismatch
+                foreach (var asm in MultiplayerData.GetModAssemblies(contentPack)
+                             .Concat(MultiplayerData.GetModCustomAssemblies(contentPack)))
                 {
                     var relPath = asm.FullName.RemovePrefix(contentPack.RootDir).NormalizePath();
                     fileDict.Add(modId, new ModFile(asm.FullName, relPath, asm.CRC32()));

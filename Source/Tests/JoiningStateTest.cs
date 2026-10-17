@@ -154,4 +154,37 @@ public class JoiningStateTest
         Assert.That(conn.State, Is.EqualTo(ConnectionStateEnum.Disconnected));
         Assert.That(server.playerManager.Players, Is.Empty);
     }
+
+    [Test]
+    public void DefTypesMissingOnClientFailTheDefCheck()
+    {
+        var a = new KeyedDefInfo { name = "A", count = 1, hash = 1 };
+        var b = new KeyedDefInfo { name = "B", count = 2, hash = 2 };
+
+        var (first, firstConn) = Connect();
+        SendHandshake(firstConn, "first");
+        Receive(firstConn, InitData(a, b));
+
+        var (second, secondConn) = Connect();
+        SendHandshake(secondConn, "second");
+        Receive(secondConn, JoinData(a));
+
+        var raw = secondConn.SentRaw.Single(r => (Packets)(r[0] & 0x3F) == Packets.Server_JoinData);
+        var joinData = default(ServerJoinDataPacket);
+        joinData.Bind(new PacketReader(new ByteReader(raw.Skip(1).ToArray())));
+
+        Assert.That(joinData.defStatus, Is.EqualTo(new[] { DefCheckStatus.Ok }));
+        Assert.That(joinData.missingDefs, Is.EqualTo(new[] { "B" }));
+        Assert.That(second.hasJoined, Is.False);
+
+        Receive(firstConn, JoinData(a, b));
+        Assert.That(first.hasJoined, Is.True);
+    }
+
+    private static ClientJoinDataPacket JoinData(params KeyedDefInfo[] defInfos) => new()
+    {
+        modCtorRoundMode = RoundModeEnum.ToNearest,
+        staticCtorRoundMode = RoundModeEnum.ToNearest,
+        defInfos = defInfos
+    };
 }
