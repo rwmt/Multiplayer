@@ -28,6 +28,8 @@ public class ServerJoiningState : AsyncConnectionState
         while (await Server.InitDataTask() is null && await EndIfDead())
             if (Server.InitDataState == InitDataState.Waiting)
                 await RequestInitData();
+        // The player may have left while waiting for someone else's init data
+        await EndIfDead();
 
         connection.Send(Packets.Server_UsernameOk);
 

@@ -187,4 +187,21 @@ public class JoiningStateTest
         staticCtorRoundMode = RoundModeEnum.ToNearest,
         defInfos = defInfos
     };
+
+    [Test]
+    public void JoinerLeavingWhileWaitingForInitDataStops()
+    {
+        var (_, first) = Connect();
+        SendHandshake(first, "first");
+        var (_, second) = Connect();
+        SendHandshake(second, "second");
+
+        var secondState = second.GetState<ServerJoiningState>()!;
+        server.playerManager.SetDisconnected(second, MpDisconnectReason.ClientLeft);
+        Receive(first, InitData());
+
+        Assert.That(first.SentPackets, Does.Contain(Packets.Server_UsernameOk));
+        // The dead state's flow stopped instead of going on to wait for join data
+        Assert.That(secondState.AwaitedPacket, Is.Null);
+    }
 }
