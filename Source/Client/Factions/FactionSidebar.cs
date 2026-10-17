@@ -421,12 +421,13 @@ namespace Multiplayer.Client
             var gameConfigurationPages = new List<Page>();
             Page_ChooseIdeo_Multifaction ideologyConfigPage = null;
             Page_ConfigureStartingPawns pawnConfigPage = null;
+            var scenario = chosenScenario?.scenario ?? Find.Scenario;
 
             InitializeDataForGameConfigurationPages();
 
-            ideologyConfigPage = TryGetIdeologyConfigurationPage();
+            ideologyConfigPage = TryGetIdeologyConfigurationPage(scenario);
 
-            pawnConfigPage = new Page_ConfigureStartingPawns_Multifaction()
+            pawnConfigPage = new Page_ConfigureStartingPawns_Multifaction(scenario)
             {
                 nextAct = () =>
                 {
@@ -442,10 +443,23 @@ namespace Multiplayer.Client
 
             Find.WindowStack.Add(PageUtility.StitchedPages(gameConfigurationPages));
         }
+        // Find.Scenario is shared game state the simulation reads (Scenario.TickScenario, stat factors, disabled
+        // incidents, ...), so the configuration pages only apply their scenario while their own code runs
+        internal static MpScope UseScenario(Scenario scenario)
+        {
+            Scenario prevScenario = null;
+            return MpScope.Create(
+                () =>
+                {
+                    prevScenario = Current.Game.Scenario;
+                    if (scenario != null)
+                        Current.Game.Scenario = scenario;
+                },
+                () => Current.Game.Scenario = prevScenario);
+        }
+
         private static void InitializeDataForGameConfigurationPages()
         {
-            Current.Game.Scenario = chosenScenario.scenario;
-
             Current.Game.InitData = new GameInitData
             {
                 startedFromEntry = true,
@@ -465,12 +479,12 @@ namespace Multiplayer.Client
 
             return startingPossessions;
         }
-        private static Page_ChooseIdeo_Multifaction TryGetIdeologyConfigurationPage()
+        private static Page_ChooseIdeo_Multifaction TryGetIdeologyConfigurationPage(Scenario scenario)
         {
             Page_ChooseIdeo_Multifaction chooseIdeoPage = null;
 
             if (ModsConfig.IdeologyActive && !Find.IdeoManager.classicMode)
-                chooseIdeoPage = new Page_ChooseIdeo_Multifaction();
+                chooseIdeoPage = new Page_ChooseIdeo_Multifaction { scenario = scenario };
 
             return chooseIdeoPage;
         }

@@ -1,4 +1,6 @@
+using Multiplayer.Client.Util;
 using RimWorld;
+using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client.Factions
@@ -8,14 +10,42 @@ namespace Multiplayer.Client.Factions
         Faction _temporaryFactionForPawnCreation;
         Scenario _scenario;
 
+        public Page_ConfigureStartingPawns_Multifaction(Scenario scenario)
+        {
+            _scenario = scenario;
+        }
+
+        // The page's code reads Find.Scenario, which is shared game state used by the simulation. The chosen scenario
+        // is only applied while the page's own code runs (in the UI, between ticks).
+        private MpScope UseScenario() => FactionSidebar.UseScenario(_scenario);
+
         public override void PreOpen()
         {
-            base.PreOpen();
+            using (UseScenario())
+            {
+                base.PreOpen();
 
-            _scenario = Find.Scenario;
+                GenerateTemporaryFaction();
+                GeneratePawnsForConfigurePage();
+            }
+        }
 
-            GenerateTemporaryFaction();
-            GeneratePawnsForConfigurePage();
+        public override void PostOpen()
+        {
+            using (UseScenario())
+                base.PostOpen();
+        }
+
+        public override void DoWindowContents(Rect rect)
+        {
+            using (UseScenario())
+                base.DoWindowContents(rect);
+        }
+
+        public override void OnAcceptKeyPressed()
+        {
+            using (UseScenario())
+                base.OnAcceptKeyPressed();
         }
 
         public override void PostClose()
@@ -27,17 +57,17 @@ namespace Multiplayer.Client.Factions
 
         public override void DoNext()
         {
-            CleanUpTemporaryFaction();
+            using (UseScenario())
+            {
+                CleanUpTemporaryFaction();
 
-            base.DoNext();
+                base.DoNext();
+            }
         }
 
         private void CleanUpTemporaryFaction()
         {
             if (_temporaryFactionForPawnCreation == null) return;
-
-            Find.FactionManager.Remove(_temporaryFactionForPawnCreation);
-            Find.FactionManager.toRemove.Remove(_temporaryFactionForPawnCreation);
 
             Current.Game.InitData.playerFaction = null;
             _temporaryFactionForPawnCreation = null;
@@ -48,7 +78,12 @@ namespace Multiplayer.Client.Factions
             _temporaryFactionForPawnCreation = FactionGenerator.NewGeneratedFaction(new FactionGeneratorParms(_scenario.playerFaction.factionDef));
             _temporaryFactionForPawnCreation.temporary = true;
 
-            Find.FactionManager.Add(_temporaryFactionForPawnCreation);
+            // The faction isn't added to the FactionManager: it would be live game state on this client only (ticked,
+            // iterated by the simulation and saved into join points). Pawn generation only needs it as Faction.OfPlayer,
+            // which comes from GameInitData.playerFaction. NewGeneratedFaction also added relations with the temporary
+            // faction to every other faction, remove those.
+            foreach (var other in Find.FactionManager.AllFactionsListForReading)
+                other.relations.RemoveAll(r => r.other == _temporaryFactionForPawnCreation);
         }
 
         private void GeneratePawnsForConfigurePage()
