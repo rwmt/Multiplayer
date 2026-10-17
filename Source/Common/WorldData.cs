@@ -39,6 +39,8 @@ public class WorldData
     // rate limited. Abort if the uploader shows no progress, joiners would wait forever otherwise.
     public const int ForcedJoinPointCooldown = MultiplayerServer.NetTicksPerSecond * 10;
     public const int JoinPointTimeout = MultiplayerServer.NetTicksPerSecond * 60;
+    // Keep alives are answered several times a second unless the client's main thread is blocked
+    public const int UploaderBusyAfter = MultiplayerServer.NetTicksPerSecond * 5;
     private const int TicksPerMinute = 60 * 60;
 
     public bool CreatingJoinPoint => tmpCmds != null;
@@ -203,7 +205,15 @@ public class WorldData
 
     public void CheckJoinPointTimeout(int netTimer)
     {
-        if (CreatingJoinPoint && netTimer - joinPointProgressAt > JoinPointTimeout)
+        if (!CreatingJoinPoint) return;
+
+        // Saving and reloading for the join point blocks the uploader's main thread, for minutes with big games, so
+        // it doesn't answer keep alives meanwhile. That's progress too: a client that hangs for good is dropped by
+        // the stale keep alive timeout (PlayerManager.CheckTimeouts), which aborts the join point.
+        if (Server.GetPlayer(JoinPointUploaderId) is { } uploader && netTimer - uploader.keepAliveAt > UploaderBusyAfter)
+            joinPointProgressAt = netTimer;
+
+        if (netTimer - joinPointProgressAt > JoinPointTimeout)
             AbortJoinPointCreation("Timed out waiting for the world upload.");
     }
 

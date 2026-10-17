@@ -44,7 +44,10 @@ namespace Multiplayer.Common
         {
             // Requested in PlayerManager.OnDesync
             if (!Player.IsHost && Player != Server.playerManager.SyncReference) return;
-            Server.GetPlayer(packet.playerId)?.SendPacket(ServerTracesPacket.Transfer(packet.rawTraces, packet.rawJittedMethods));
+            // The traces are up to ClientTracesPacket.MaxLength; a single packet over the limit would throw here and
+            // disconnect the sender
+            Server.GetPlayer(packet.playerId)?.conn.SendFragmented(
+                ServerTracesPacket.Transfer(packet.rawTraces, packet.rawJittedMethods).Serialize());
         }
 
         [TypedPacketHandler]

@@ -212,15 +212,42 @@ public class JoinPointTest
     [Test]
     public void JoinPointTimesOutWithoutUpload()
     {
-        AddPlayer("host");
+        var host = AddPlayer("host");
         server.hostUsername = "host";
 
         Assert.That(server.worldData.TryStartJoinPointCreation(true), Is.True);
 
+        // The uploader keeps answering keep alives (it isn't busy saving) but never uploads
+        host.keepAliveAt = WorldData.JoinPointTimeout;
         server.worldData.CheckJoinPointTimeout(WorldData.JoinPointTimeout);
         Assert.That(server.worldData.CreatingJoinPoint, Is.True);
 
+        host.keepAliveAt = WorldData.JoinPointTimeout + 1;
         server.worldData.CheckJoinPointTimeout(WorldData.JoinPointTimeout + 1);
+        Assert.That(server.worldData.CreatingJoinPoint, Is.False);
+    }
+
+    [Test]
+    public void JoinPointWaitsWhileTheUploaderIsBusySaving()
+    {
+        server.IsStandaloneServer = true;
+        var uploader = AddPlayer("a");
+        AddPlayer("b");
+
+        Assert.That(server.worldData.TryStartJoinPointCreation(true), Is.True);
+
+        // Saving and reloading a big game blocks the uploader's main thread: no keep alives, no fragments
+        var reloaded = WorldData.JoinPointTimeout * 5;
+        server.worldData.CheckJoinPointTimeout(reloaded);
+        Assert.That(server.worldData.CreatingJoinPoint, Is.True);
+
+        // Once it answers keep alives again, the upload has to start within the timeout
+        uploader.keepAliveAt = reloaded + WorldData.JoinPointTimeout;
+        server.worldData.CheckJoinPointTimeout(reloaded + WorldData.JoinPointTimeout);
+        Assert.That(server.worldData.CreatingJoinPoint, Is.True);
+
+        uploader.keepAliveAt = reloaded + WorldData.JoinPointTimeout + 1;
+        server.worldData.CheckJoinPointTimeout(reloaded + WorldData.JoinPointTimeout + 1);
         Assert.That(server.worldData.CreatingJoinPoint, Is.False);
     }
 
