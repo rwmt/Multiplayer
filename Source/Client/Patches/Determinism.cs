@@ -149,25 +149,31 @@ namespace Multiplayer.Client.Patches
 
     public static class CellsShufflePatchShared
     {
-        public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts, FieldInfo cellsShuffledField)
+        // Turns "if (!cellsShuffled) shuffle" into "if (!(cellsShuffled || SkipShuffle())) shuffle"
+        public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts, FieldInfo cellsShuffledField, MethodBase original)
         {
             bool found = false;
             foreach (CodeInstruction inst in insts)
             {
                 yield return inst;
-                if (!found && inst.operand as FieldInfo == cellsShuffledField)
+                if (!found && inst.opcode == OpCodes.Ldfld && inst.operand as FieldInfo == cellsShuffledField)
                 {
-                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(CellsShufflePatchShared), nameof(ShouldShuffle)));
-                    yield return new CodeInstruction(OpCodes.Not);
+                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(CellsShufflePatchShared), nameof(SkipShuffle)));
                     yield return new CodeInstruction(OpCodes.Or);
                     found = true;
                 }
             }
+
+            if (!found)
+                Log.Error($"MP: Couldn't patch the cell shuffle in {original.DeclaringType}:{original.Name}. Was the original method changed?");
         }
 
-        public static bool ShouldShuffle()
+        // The shuffle uses Rand and its "shuffled" flag isn't saved, so whether a given access shuffles could differ
+        // between clients (e.g. only one of them reloaded or first accessed the cells from the UI). Before this was
+        // made explicit, a bitwise "not" here made the shuffle never happen at all, so keep that in MP.
+        public static bool SkipShuffle()
         {
-            return Multiplayer.Client == null || Multiplayer.Ticking;
+            return Multiplayer.Client != null;
         }
     }
 
@@ -175,16 +181,16 @@ namespace Multiplayer.Client.Patches
     static class ZoneCellsShufflePatch
     {
         static readonly FieldInfo CellsShuffled = AccessTools.Field(typeof(Zone), "cellsShuffled");
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
-            => CellsShufflePatchShared.Transpiler(insts, CellsShuffled);
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts, MethodBase __originalMethod)
+            => CellsShufflePatchShared.Transpiler(insts, CellsShuffled, __originalMethod);
     }
 
     [HarmonyPatch(typeof(Plan), nameof(Plan.Cells), MethodType.Getter)]
     static class PlanCellsShufflePatch
     {
         static readonly FieldInfo CellsShuffled = AccessTools.Field(typeof(Plan), "cellsShuffled");
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
-            => CellsShufflePatchShared.Transpiler(insts, CellsShuffled);
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts, MethodBase __originalMethod)
+            => CellsShufflePatchShared.Transpiler(insts, CellsShuffled, __originalMethod);
     }
 
     [HarmonyPatch]
