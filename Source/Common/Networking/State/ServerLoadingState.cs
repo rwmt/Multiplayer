@@ -51,22 +51,11 @@ public class ServerLoadingState : AsyncConnectionState
         writer.WritePrefixedBytes(Server.worldData.savedGame);
         writer.WritePrefixedBytes(Server.worldData.sessionData);
 
-        writer.WriteInt32(Server.worldData.mapCmds.Count);
-
-        foreach (var kv in Server.worldData.mapCmds)
-        {
-            int mapId = kv.Key;
-
-            //MultiplayerServer.instance.SendCommand(CommandType.CreateMapFactionData, ScheduledCommand.NoFaction, mapId, ByteWriter.GetBytes(factionId));
-
-            List<byte[]> mapCmds = kv.Value;
-
-            writer.WriteInt32(mapId);
-
-            writer.WriteInt32(mapCmds.Count);
-            foreach (var arr in mapCmds)
-                writer.WritePrefixedBytes(arr);
-        }
+        // All cmds in one list, in send order, so the joiner executes them exactly like live clients did
+        var cmds = Server.worldData.cmds;
+        writer.WriteInt32(cmds.Count);
+        foreach (var cmd in cmds)
+            writer.WritePrefixedBytes(cmd);
 
         writer.WriteInt32(Server.worldData.mapData.Count);
 

@@ -115,6 +115,7 @@ namespace Multiplayer.Common
                     queue.RunQueue(ServerLog.Error);
                     netManagers.ForEach(manager => manager.Tick());
                     TickNet();
+                    worldData.Tick();
 
                     int ticked = 0;
                     while (realTime > 0 && ticked < 2)
@@ -241,7 +242,9 @@ namespace Multiplayer.Common
             ByteWriter writer = new ByteWriter();
             writer.WriteInt32(mapId);
 
-            var mapCmds = worldData.mapCmds.GetValueSafe(mapId) ?? [];
+            var mapCmds = worldData.cmds
+                .Where(cmd => ScheduledCommand.Deserialize(new ByteReader(cmd)).mapId == mapId)
+                .ToList();
             writer.WriteInt32(mapCmds.Count);
             foreach (var cmd in mapCmds)
                 writer.WritePrefixedBytes(cmd);

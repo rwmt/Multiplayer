@@ -140,12 +140,11 @@ namespace Multiplayer.Client
         {
             int mapId = data.ReadInt32();
 
+            // Map streaming is disabled (MultiplayerServer.CanUseStandaloneMapStreaming). Streamed map cmds can't be
+            // placed in the global command order, so they are skipped here.
             int mapCmdsLen = data.ReadInt32();
-            List<ScheduledCommand> mapCmds = new List<ScheduledCommand>(mapCmdsLen);
             for (int j = 0; j < mapCmdsLen; j++)
-                mapCmds.Add(ScheduledCommand.Deserialize(new ByteReader(data.ReadPrefixedBytes())));
-
-            Session.dataSnapshot.MapCmds[mapId] = mapCmds;
+                data.ReadPrefixedBytes();
 
             byte[] mapData = GZipStream.UncompressBuffer(data.ReadPrefixedBytes());
             Session.dataSnapshot.MapData[mapId] = mapData;

@@ -16,7 +16,9 @@ public class StandalonePersistence
 
     private string MapsDir => Path.Combine(SavedDir, "maps");
     private string WorldPath => Path.Combine(SavedDir, "world.dat");
-    private string WorldCmdsPath => Path.Combine(SavedDir, "world_cmds.dat");
+    // All cmds since the join point in send order. Replaces the legacy per-tickable world_cmds.dat + maps/N_cmds.dat.
+    private string CmdsPath => Path.Combine(SavedDir, "cmds.dat");
+    private string LegacyWorldCmdsPath => Path.Combine(SavedDir, "world_cmds.dat");
     private string SessionPath => Path.Combine(SavedDir, "session.dat");
     private string InfoPath => Path.Combine(SavedDir, "info.xml");
     private string StatePath => Path.Combine(SavedDir, "state.bin");
@@ -54,26 +56,31 @@ public class StandalonePersistence
             AtomicWrite(WorldPath, Compress(worldBytes));
         }
 
-        // World commands
+        // World commands (all commands for replays written by current versions)
         var worldCmdsEntry = zip.GetEntry("world/000_cmds");
-        if (worldCmdsEntry != null)
-            AtomicWrite(WorldCmdsPath, ReadEntry(worldCmdsEntry));
+        var worldCmds = worldCmdsEntry != null
+            ? ScheduledCommand.DeserializeCmds(ReadEntry(worldCmdsEntry))
+            : new List<ScheduledCommand>();
+        var mapCmds = new List<List<ScheduledCommand>>();
 
-        // Map saves and commands
+        // Map saves and commands of the first section
         foreach (var entry in zip.Entries)
         {
             if (!entry.FullName.StartsWith("maps/")) continue;
 
             var parts = entry.FullName.Replace("maps/", "").Split('_');
-            if (parts.Length < 3) continue;
+            if (parts.Length < 3 || parts[0] != "000") continue;
 
             if (!int.TryParse(parts[1], out int mapId)) continue;
 
             if (entry.FullName.EndsWith("_save"))
                 AtomicWrite(Path.Combine(MapsDir, $"{mapId}.dat"), Compress(ReadEntry(entry)));
             else if (entry.FullName.EndsWith("_cmds"))
-                AtomicWrite(Path.Combine(MapsDir, $"{mapId}_cmds.dat"), ReadEntry(entry));
+                mapCmds.Add(ScheduledCommand.DeserializeCmds(ReadEntry(entry)));
         }
+
+        AtomicWrite(CmdsPath, ScheduledCommand.SerializeCmds(ScheduledCommand.MergeLegacyCmds(worldCmds, mapCmds)));
+        DeleteLegacyCmdFiles();
 
         // Info/metadata
         var infoEntry = zip.GetEntry("info");
@@ -111,6 +118,7 @@ public class StandalonePersistence
         server.worldData.sessionData = File.Exists(SessionPath) ? File.ReadAllBytes(SessionPath) : Array.Empty<byte>();
 
         // Load maps
+        var legacyMapCmds = new List<List<ScheduledCommand>>();
         if (Directory.Exists(MapsDir))
         {
             foreach (var mapFile in Directory.GetFiles(MapsDir, "*.dat"))
@@ -124,28 +132,26 @@ public class StandalonePersistence
 
                     var cmdsPath = Path.Combine(MapsDir, $"{mapId}_cmds.dat");
                     if (File.Exists(cmdsPath))
-                    {
-                        server.worldData.mapCmds[mapId] = ScheduledCommand.DeserializeCmds(File.ReadAllBytes(cmdsPath))
-                            .Select(ScheduledCommand.Serialize).ToList();
-                    }
-                    else
-                    {
-                        server.worldData.mapCmds[mapId] = new List<byte[]>();
-                    }
+                        legacyMapCmds.Add(ScheduledCommand.DeserializeCmds(File.ReadAllBytes(cmdsPath)));
                 }
             }
         }
 
-        // Load world commands
-        if (File.Exists(WorldCmdsPath))
+        // Load commands
+        List<ScheduledCommand> cmds;
+        if (File.Exists(CmdsPath))
         {
-            server.worldData.mapCmds[-1] = ScheduledCommand.DeserializeCmds(File.ReadAllBytes(WorldCmdsPath))
-                .Select(ScheduledCommand.Serialize).ToList();
+            cmds = ScheduledCommand.DeserializeCmds(File.ReadAllBytes(CmdsPath));
         }
         else
         {
-            server.worldData.mapCmds[-1] = new List<byte[]>();
+            var legacyWorldCmds = File.Exists(LegacyWorldCmdsPath)
+                ? ScheduledCommand.DeserializeCmds(File.ReadAllBytes(LegacyWorldCmdsPath))
+                : new List<ScheduledCommand>();
+            cmds = ScheduledCommand.MergeLegacyCmds(legacyWorldCmds, legacyMapCmds);
         }
+
+        server.worldData.cmds = cmds.Select(ScheduledCommand.Serialize).ToList();
 
         // Load replay info for metadata
         ReplayInfo? info = null;
@@ -180,39 +186,17 @@ public class StandalonePersistence
             AtomicWrite(WorldPath, worldData.savedGame);
 
         AtomicWrite(SessionPath, worldData.sessionData ?? Array.Empty<byte>());
-        AtomicWrite(WorldCmdsPath, SerializeStoredCmds(worldData.mapCmds.GetValueOrDefault(ScheduledCommand.Global) ?? []));
 
         var currentMapIds = worldData.mapData.Keys.ToHashSet();
         DeleteStaleMapFiles(currentMapIds);
 
         foreach (var (mapId, mapData) in worldData.mapData)
-        {
             AtomicWrite(Path.Combine(MapsDir, $"{mapId}.dat"), mapData);
-            AtomicWrite(
-                Path.Combine(MapsDir, $"{mapId}_cmds.dat"),
-                SerializeStoredCmds(worldData.mapCmds.GetValueOrDefault(mapId) ?? []));
-        }
 
-        WritePersistedTick(tick);
-    }
+        // cmds.dat takes precedence over the legacy files, so they are only deleted once it exists
+        AtomicWrite(CmdsPath, SerializeStoredCmds(worldData.cmds));
+        DeleteLegacyCmdFiles();
 
-    /// <summary>
-    /// Write an accepted map snapshot to disk atomically.
-    /// </summary>
-    public void WriteMapSnapshot(int mapId, byte[] compressedMapData)
-    {
-        EnsureDirectories();
-        AtomicWrite(Path.Combine(MapsDir, $"{mapId}.dat"), compressedMapData);
-    }
-
-    /// <summary>
-    /// Write an accepted world snapshot to disk atomically.
-    /// </summary>
-    public void WriteWorldSnapshot(byte[] compressedWorldData, byte[] sessionData, int tick)
-    {
-        EnsureDirectories();
-        AtomicWrite(WorldPath, compressedWorldData);
-        AtomicWrite(SessionPath, sessionData);
         WritePersistedTick(tick);
     }
 
@@ -282,6 +266,18 @@ public class StandalonePersistence
             if (int.TryParse(mapIdText, out var mapId) && !currentMapIds.Contains(mapId))
                 File.Delete(path);
         }
+    }
+
+    private void DeleteLegacyCmdFiles()
+    {
+        if (File.Exists(LegacyWorldCmdsPath))
+            File.Delete(LegacyWorldCmdsPath);
+
+        if (!Directory.Exists(MapsDir))
+            return;
+
+        foreach (var path in Directory.GetFiles(MapsDir, "*_cmds.dat"))
+            File.Delete(path);
     }
 
     private void WritePersistedTick(int tick)

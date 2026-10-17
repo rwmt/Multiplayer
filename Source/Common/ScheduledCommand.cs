@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 
 namespace Multiplayer.Common
 {
@@ -64,6 +65,22 @@ namespace Multiplayer.Common
                 writer.WritePrefixedBytes(Serialize(cmd));
 
             return writer.ToArray();
+        }
+
+        /// <summary>
+        /// Old saves stored world and map commands in separate lists, so their relative order is lost. Merge them by
+        /// tick, keeping world commands first within a tick (best effort, the original order is unknown).
+        /// Logs in the current format keep all commands in the world list and are returned unchanged.
+        /// </summary>
+        public static List<ScheduledCommand> MergeLegacyCmds(List<ScheduledCommand> worldCmds,
+            IEnumerable<List<ScheduledCommand>> mapCmds)
+        {
+            var nonEmptyMapCmds = mapCmds.Where(cmds => cmds.Count > 0).ToList();
+            if (nonEmptyMapCmds.Count == 0)
+                return worldCmds;
+
+            // OrderBy is stable
+            return worldCmds.Concat(nonEmptyMapCmds.SelectMany(cmds => cmds)).OrderBy(cmd => cmd.ticks).ToList();
         }
     }
 }

@@ -28,6 +28,11 @@ public abstract class ClientBaseState(ConnectionBase connection) : MpConnectionS
         Multiplayer.session.ProcessTimeControl();
     }
 
+    // Handled in every state: it can arrive while rejoining
+    [TypedPacketHandler]
+    public void HandleSyncReference(ServerSyncReferencePacket packet) =>
+        Multiplayer.session.isSyncReference = packet.isReference;
+
     // Currently handles disconnection only for Steam connections. See comment in ConnectionBase.Close for more info.
     [TypedPacketHandler]
     public virtual void HandleDisconnected(ServerDisconnectPacket packet)

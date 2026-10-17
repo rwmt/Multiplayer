@@ -5,7 +5,6 @@ using RimWorld;
 using RimWorld.Planet;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Threading;
 using System.Xml;
 using Multiplayer.Client.Saving;
@@ -38,7 +37,7 @@ namespace Multiplayer.Client
 
             var tweenedPos = new Dictionary<int, Vector3>();
             var localFactionId = Multiplayer.RealPlayerFaction.loadID;
-            var mapCmds = new Dictionary<int, Queue<ScheduledCommand>>();
+            var cmds = Multiplayer.AsyncWorldTime.cmds;
             var planetRenderMode = Find.World.renderer.wantedMode;
             var chatWindow = ChatWindow.Opened;
 
@@ -49,11 +48,7 @@ namespace Multiplayer.Client
             {
                 foreach (Pawn p in map.mapPawns.AllPawnsSpawned)
                     tweenedPos[p.thingIDNumber] = p.drawer.tweener.tweenedPos;
-
-                mapCmds[map.uniqueID] = map.AsyncTime().cmds;
             }
-
-            mapCmds[ScheduledCommand.Global] = Multiplayer.AsyncWorldTime.cmds;
 
             TempGameData gameData;
             using (DeepProfilerWrapper.Section("Multiplayer SaveAndReload: Save"))
@@ -97,8 +92,6 @@ namespace Multiplayer.Client
                         p.drawer.tweener.lastDrawFrame = Time.frameCount;
                     }
                 }
-
-                m.AsyncTime().cmds = mapCmds[m.uniqueID];
             }
 
             if (chatWindow != null)
@@ -108,7 +101,7 @@ namespace Multiplayer.Client
             Find.Selector.selected = SyncSerialization.ReadSync<List<ISelectable>>(selectedReader).AllNotNull().Cast<object>().ToList();
 
             Find.World.renderer.wantedMode = planetRenderMode;
-            Multiplayer.AsyncWorldTime.cmds = mapCmds[ScheduledCommand.Global];
+            Multiplayer.AsyncWorldTime.cmds = cmds;
 
             Multiplayer.reloading = false;
 
@@ -198,7 +191,6 @@ namespace Multiplayer.Client
             XmlNode gameNode = data.SaveData.DocumentElement["game"];
             XmlNode mapsNode = gameNode["maps"];
 
-            var mapCmdsDict = new Dictionary<int, List<ScheduledCommand>>();
             var mapDataDict = new Dictionary<int, byte[]>();
 
             foreach (XmlNode mapNode in mapsNode)
@@ -206,7 +198,6 @@ namespace Multiplayer.Client
                 int id = int.Parse(mapNode["uniqueID"].InnerText);
                 byte[] mapData = ScribeUtil.XmlToByteArray(mapNode);
                 mapDataDict[id] = mapData;
-                mapCmdsDict[id] = new List<ScheduledCommand>(Find.Maps.First(m => m.uniqueID == id).AsyncTime().cmds);
             }
 
             if (removeCurrentMapId)
@@ -215,14 +206,14 @@ namespace Multiplayer.Client
             mapsNode.RemoveAll();
 
             byte[] gameData = ScribeUtil.XmlToByteArray(data.SaveData);
-            mapCmdsDict[ScheduledCommand.Global] = new List<ScheduledCommand>(Multiplayer.AsyncWorldTime.cmds);
 
             return new GameDataSnapshot(
                 TickPatch.Timer,
                 gameData,
                 data.SessionData,
                 mapDataDict,
-                mapCmdsDict
+                // The commands not executed yet, in order (all of them are in the world's queue)
+                new List<ScheduledCommand>(Multiplayer.AsyncWorldTime.cmds)
             );
         }
 
@@ -231,11 +222,14 @@ namespace Multiplayer.Client
             var mapsData = new Dictionary<int, byte[]>(snapshot.MapData);
             var gameData = snapshot.GameData;
             var sessionData = snapshot.SessionData;
+            var tick = snapshot.CachedAtTime;
 
             void Send()
             {
                 var writer = new ByteWriter();
 
+                // The server only accepts the upload for the join point created at this tick
+                writer.WriteInt32(tick);
                 writer.WriteInt32(mapsData.Count);
                 foreach (var mapData in mapsData)
                 {
@@ -255,60 +249,6 @@ namespace Multiplayer.Client
                 ThreadPool.QueueUserWorkItem(c => Send());
             else
                 Send();
-        }
-
-        /// <summary>
-        /// Send per-map standalone snapshots to the server for all maps in the given snapshot.
-        /// Called after autosave when connected to a standalone server.
-        /// </summary>
-        public static void SendStandaloneMapSnapshots(GameDataSnapshot snapshot)
-        {
-            var tick = snapshot.CachedAtTime;
-
-            foreach (var (mapId, mapBytes) in snapshot.MapData)
-            {
-                var compressed = GZipStream.CompressBuffer(mapBytes);
-
-                byte[] hash;
-                using (var sha = SHA256.Create())
-                    hash = sha.ComputeHash(compressed);
-
-                var packet = new ClientStandaloneMapSnapshotPacket
-                {
-                    mapId = mapId,
-                    tick = tick,
-                    mapData = compressed,
-                    sha256Hash = hash,
-                };
-
-                OnMainThread.Enqueue(() => Multiplayer.Client?.SendFragmented(packet.Serialize()));
-            }
-        }
-
-        /// <summary>
-        /// Send the world + session standalone snapshot to the server.
-        /// Called after autosave when connected to a standalone server.
-        /// </summary>
-        public static void SendStandaloneWorldSnapshot(GameDataSnapshot snapshot)
-        {
-            var tick = snapshot.CachedAtTime;
-            var worldCompressed = GZipStream.CompressBuffer(snapshot.GameData);
-            var sessionCompressed = GZipStream.CompressBuffer(snapshot.SessionData);
-
-            using var hasher = SHA256.Create();
-            hasher.TransformBlock(worldCompressed, 0, worldCompressed.Length, null, 0);
-            hasher.TransformFinalBlock(sessionCompressed, 0, sessionCompressed.Length);
-            var hash = hasher.Hash ?? System.Array.Empty<byte>();
-
-            var packet = new ClientStandaloneWorldSnapshotPacket
-            {
-                tick = tick,
-                worldData = worldCompressed,
-                sessionData = sessionCompressed,
-                sha256Hash = hash,
-            };
-
-            OnMainThread.Enqueue(() => Multiplayer.Client?.SendFragmented(packet.Serialize()));
         }
     }
 

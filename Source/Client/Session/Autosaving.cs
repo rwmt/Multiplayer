@@ -11,7 +11,9 @@ namespace Multiplayer.Client;
 
 public static class Autosaving
 {
-    public static void DoAutosave()
+    // The local save isn't sent to the server: it's taken without the reload every client does at a join point
+    // (and in this client's faction context), so a joiner loading it wouldn't match the live clients.
+    public static void DoAutosave(bool requestJoinPoint = true)
     {
         LongEventHandler.QueueLongEvent(() =>
         {
@@ -20,14 +22,8 @@ public static class Autosaving
             if (!SaveGameToFile_Overwrite(GetNextAutosaveFileName(), snapshot))
                 return;
 
-            SendAutosavingRequest(JoinPointRequestReason.Save);
-
-            // When connected to a standalone server, also upload fresh snapshots
-            if (Multiplayer.session?.ConnectedToStandaloneServer == true)
-            {
-                SaveLoad.SendStandaloneMapSnapshots(snapshot);
-                SaveLoad.SendStandaloneWorldSnapshot(snapshot);
-            }
+            if (requestJoinPoint)
+                SendAutosavingRequest(JoinPointRequestReason.Save);
         }, "MpSaving", false, null);
     }
 

@@ -33,12 +33,8 @@ namespace Multiplayer.Client
             foreach (var (mapId, mapData) in gameData.MapData)
                 zip.AddEntry($"maps/{sectionId}_{mapId}_save", mapData);
 
-            foreach (var (mapId, mapCmdData) in gameData.MapCmds)
-                if (mapId >= 0)
-                    zip.AddEntry($"maps/{sectionId}_{mapId}_cmds", ScheduledCommand.SerializeCmds(mapCmdData));
-
-            if (gameData.MapCmds.TryGetValue(ScheduledCommand.Global, out var worldCmds))
-                zip.AddEntry($"world/{sectionId}_cmds", ScheduledCommand.SerializeCmds(worldCmds));
+            // All cmds in execution order. Map cmd entries (maps/N_M_cmds) are only read from older replays.
+            zip.AddEntry($"world/{sectionId}_cmds", ScheduledCommand.SerializeCmds(gameData.Cmds));
 
             zip.AddEntry($"world/{sectionId}_save", gameData.GameData);
             info.sections.Add(new ReplaySection(gameData.CachedAtTime, TickPatch.Timer));
@@ -59,7 +55,7 @@ namespace Multiplayer.Client
 
         public GameDataSnapshot LoadGameData(int sectionId)
         {
-            var mapCmdsDict = new Dictionary<int, List<ScheduledCommand>>();
+            var legacyMapCmds = new List<List<ScheduledCommand>>();
             var mapDataDict = new Dictionary<int, byte[]>();
 
             string sectionIdStr = sectionId.ToString("D3");
@@ -67,14 +63,12 @@ namespace Multiplayer.Client
             using var zip = OpenZipRead();
 
             foreach (var mapCmds in zip.GetEntries($"maps/{sectionIdStr}_*_cmds"))
-            {
-                int mapId = int.Parse(mapCmds.Name.Split('_')[1]);
-                mapCmdsDict[mapId] = ScheduledCommand.DeserializeCmds(mapCmds.GetBytes());
-            }
+                legacyMapCmds.Add(ScheduledCommand.DeserializeCmds(mapCmds.GetBytes()));
 
-            var worldCmds = zip.GetEntry($"world/{sectionIdStr}_cmds");
-            if (worldCmds != null)
-                mapCmdsDict[ScheduledCommand.Global] = ScheduledCommand.DeserializeCmds(worldCmds.GetBytes());
+            var worldCmdsEntry = zip.GetEntry($"world/{sectionIdStr}_cmds");
+            var worldCmds = worldCmdsEntry != null
+                ? ScheduledCommand.DeserializeCmds(worldCmdsEntry.GetBytes())
+                : new List<ScheduledCommand>();
 
             foreach (var mapSave in zip.GetEntries($"maps/{sectionIdStr}_*_save"))
             {
@@ -87,7 +81,7 @@ namespace Multiplayer.Client
                 zip.GetBytes($"world/{sectionIdStr}_save"),
                 Array.Empty<byte>(),
                 mapDataDict,
-                mapCmdsDict
+                ScheduledCommand.MergeLegacyCmds(worldCmds, legacyMapCmds)
             );
         }
 

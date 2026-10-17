@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Diagnostics;
-using LudeonTK;
 using Multiplayer.Client.Networking;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
@@ -39,6 +38,8 @@ namespace Multiplayer.Client
         public bool showTimeline;
 
         public bool desynced;
+        // Standalone: set by the server when this client's sync opinions are the ones compared against
+        public bool isSyncReference;
 
         public List<CSteamID> pendingSteam = new();
         public List<CSteamID> knownUsers = new();
@@ -131,20 +132,20 @@ namespace Multiplayer.Client
                 TickPatch.tickUntil = remoteTickUntil;
         }
 
-        [TweakValue("Multiplayer")] public static bool consistentCommandOrder = true;
+        // False while a (re)load is in progress: Loader.PostLoad then builds the command queue from dataSnapshot.Cmds,
+        // which also contains every command received in the meantime.
+        public bool cmdQueueReady = true;
+
         public void ScheduleCommand(ScheduledCommand cmd)
         {
             MpLog.Debug(cmd.ToString());
-            dataSnapshot.MapCmds.GetOrAddNew(cmd.mapId).Add(cmd);
+            dataSnapshot.Cmds.Add(cmd);
 
-            if (Current.ProgramState != ProgramState.Playing) return;
+            if (!cmdQueueReady) return;
 
-            // Minimal code impact fix for #733. Having all the commands be added to a single queue gets rid of the
-            // out-of-order execution problem.
-            if (cmd.mapId == ScheduledCommand.Global || consistentCommandOrder)
-                Multiplayer.AsyncWorldTime.Cmds.Enqueue(cmd);
-            else
-                cmd.GetMap()?.AsyncTime().Cmds.Enqueue(cmd);
+            // All commands (world and map) go to a single queue and run in arrival order, the same order the server
+            // stores them in for joiners (#733)
+            Multiplayer.AsyncWorldTime.Cmds.Enqueue(cmd);
         }
 
         public void Update()

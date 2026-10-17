@@ -7,6 +7,8 @@ namespace Tests;
 public class RecordingConnection : ConnectionBase
 {
     public List<Packets> SentPackets { get; } = new();
+    // Payloads of non-fragmented packets
+    public List<(Packets id, byte[] data)> SentMessages { get; } = new();
 
     public RecordingConnection(string username)
     {
@@ -21,6 +23,8 @@ public class RecordingConnection : ConnectionBase
             return;
 
         SentPackets.Add((Packets)(raw[0] & 0x3F));
+        if ((raw[0] & 0xC0) == 0)
+            SentMessages.Add(((Packets)(raw[0] & 0x3F), raw[1..]));
     }
 
     protected override void OnClose(ServerDisconnectPacket? goodbye) { }

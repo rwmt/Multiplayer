@@ -47,9 +47,8 @@ namespace Multiplayer.Client
 
         private static void TickAutosave()
         {
-            // When connected to a remote standalone server, the client drives
-            // the autosave timer using the interval received at connection time
-            // (from the server's TOML settings via ServerProtocolOkPacket).
+            // When connected to a remote standalone server, the client autosaves locally using the interval
+            // received at connection time (from the server's TOML settings via ServerProtocolOkPacket).
             if (Multiplayer.session?.ConnectedToStandaloneServer == true)
             {
                 var session = Multiplayer.session;
@@ -60,14 +59,18 @@ namespace Multiplayer.Client
                 {
                     session.autosaveCounter++;
 
+                    // This counter is per client (it starts when joining), so it must not request join points:
+                    // the server issues the autosave join points itself (WorldData.TickStandaloneAutosave)
                     if (session.autosaveCounter > session.autosaveInterval * TicksPerMinute)
                     {
                         session.autosaveCounter = 0;
-                        Autosaving.DoAutosave();
+                        Autosaving.DoAutosave(requestJoinPoint: false);
                     }
                 }
                 else if (session.autosaveUnit == AutosaveUnit.Days)
                 {
+                    // The map counters are synced game state, so every client requests at the same tick and the
+                    // server starts a single join point (duplicates are rejected while one is created/rate limited)
                     var anyMapCounterUp =
                         Multiplayer.game.mapComps
                         .Any(m => m.autosaveCounter > session.autosaveInterval * TicksPerIngameDay);
@@ -119,7 +122,10 @@ namespace Multiplayer.Client
 
                 try
                 {
-                    if (!TickPatch.Simulating && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
+                    // Only the sync reference's opinions are used by the server: host/arbiter, or the client the
+                    // standalone server picked. Opinions can be megabytes, others don't send them.
+                    if (!TickPatch.Simulating && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance ||
+                                                  Multiplayer.session.isSyncReference))
                         Multiplayer.Client.SendFragmented(
                             new ClientSyncInfoPacket { SyncOpinion = opinion.ToNet() }.Serialize());
                 }
