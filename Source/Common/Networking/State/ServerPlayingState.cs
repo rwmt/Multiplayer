@@ -225,22 +225,20 @@ namespace Multiplayer.Common
         [TypedPacketHandler]
         public void HandleAutosaving(ClientAutosavingPacket packet)
         {
-            var forceJoinPoint = packet.reason == JoinPointRequestReason.Save;
-
             ServerLog.Detail(
                 $"Received Client_Autosaving from {Player.Username}, standalone={Server.IsStandaloneServer}, " +
-                $"isHost={Player.IsHost}, reason={packet.reason}, force={forceJoinPoint}");
+                $"isHost={Player.IsHost}, reason={packet.reason}, tick={packet.tick}");
 
             // Every client reloads at a join point (and the game pauses), so per-player world travel join points
             // would interrupt everyone each time someone opens the world map. Standalone autosaves are server driven.
-            if (packet.reason == JoinPointRequestReason.WorldTravel)
+            if (packet.reason != JoinPointRequestReason.Save)
                 return;
 
-            // On standalone, any playing client can request one (saves; forced ones are rate limited)
+            // On standalone, any playing client can request one (forced ones are rate limited)
             // On hosted, only the host can trigger and only if the Autosave flag is set
             if (Server.IsStandaloneServer ||
                 (Player.IsHost && Server.settings.autoJoinPoint.HasFlag(AutoJoinPointFlags.Autosave)))
-                Server.worldData.TryStartJoinPointCreation(forceJoinPoint, sourcePlayer: Player);
+                Server.worldData.TryStartJoinPointForSave(packet.tick, sourcePlayer: Player);
         }
 
         [TypedPacketHandler]

@@ -146,7 +146,7 @@ namespace Multiplayer.Client.Patches
                     // On standalone with streaming, trigger a join point when leaving a map
                     // so each player can save independently without disturbing others
                     if (Multiplayer.session?.ConnectedToStandaloneServer == true && Multiplayer.GameComp.multifaction && Multiplayer.GameComp.asyncTime)
-                        Autosaving.SendAutosavingRequest(JoinPointRequestReason.WorldTravel);
+                        Autosaving.SendAutosavingRequest(JoinPointRequestReason.WorldTravel, TickPatch.Timer);
                 }
                 // Detect transition back to tile map
                 else if (__result != WorldRenderMode.Planet && lastRenderMode == WorldRenderMode.Planet)
