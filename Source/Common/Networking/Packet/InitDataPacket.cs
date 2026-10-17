@@ -20,6 +20,8 @@ public record struct ClientInitDataPacket : IPacket
     public const int MaxRawDataLength = 1 << 22;
     // rawMods additionally holds the length prefix of the compressed data
     public const int MaxRawModsLength = MaxRawDataLength + sizeof(int);
+    // Synced configs are plain text and compress well
+    public const int MaxDecompressedLength = 1 << 26;
 
     public string rwVersion;
     public int[] debugOnlySyncCmds;
@@ -103,7 +105,7 @@ public record struct ClientInitDataPacket : IPacket
         };
 
         public static Binder<List<ModData>> ListBinder =>
-            BinderOf.List(BinderOf.Identity<ModData>()).Gzipped(MaxRawDataLength);
+            BinderOf.List(BinderOf.Identity<ModData>()).Gzipped(MaxRawDataLength, MaxDecompressedLength);
     }
 
     public record struct ModFile : IPacketBufferable

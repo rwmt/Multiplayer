@@ -59,6 +59,9 @@ namespace Multiplayer.Common
 
         public static T[] SubArray<T>(this T[] data, int index, int length)
         {
+            if (index < 0 || length < 0 || index > data.Length - length)
+                throw new ArgumentOutOfRangeException(nameof(length), $"Sub array {index}+{length} out of range ({data.Length})");
+
             T[] result = new T[length];
             Array.Copy(data, index, result, 0, length);
             return result;
