@@ -277,7 +277,7 @@ namespace Multiplayer.Client
             if (Multiplayer.Client == null) return;
 
             // Trading window on resume save
-            if (!Multiplayer.WorldComp.trading.NullOrEmpty()) return;
+            if (Multiplayer.WorldComp.trading.NullOrEmpty()) return;
             // playerNegotiator == null can only happen during loading? Is this a resuming check?
             Multiplayer.WorldComp.trading.FirstOrDefault(t => t.playerNegotiator == null)?.OpenWindow();
         }
