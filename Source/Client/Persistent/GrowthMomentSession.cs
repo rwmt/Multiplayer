@@ -43,14 +43,17 @@ public class GrowthMomentSession(Map map) : ExposableSession(null), ITickingSess
     // LetterWithTimeout.LastTickBeforeTimeout adjusted to use the map's time instead of Find.TickManager.TicksGame
     private bool AtTimeout => letter.TimeoutActive && letter.disappearAtTick <= map.AsyncTime().mapTicks + 1;
 
-    public override bool IsCurrentlyPausing(Map map) => this.map == map && IsSessionValid && AtTimeout;
+    public override bool IsCurrentlyPausing(Map map) => this.map == map && IsActive && AtTimeout;
+
+    // Also checked right after loading, when pawns aren't spawned yet, so it mustn't depend on the child's map
+    public override bool IsSessionValid => map != null && Pawn != null && !letter.ArchiveView;
 
     // The child leaving the map (or dying) ends the session, the letter's timeout handles the rest
-    public override bool IsSessionValid => map != null && Pawn is { Dead: false } pawn && pawn.Map == map && !letter.ArchiveView;
+    private bool IsActive => IsSessionValid && Pawn.Map == map;
 
     public override FloatMenuOption GetBlockingWindowOptions(ColonistBar.Entry entry)
     {
-        if (Map != entry.map || !IsSessionValid) return null;
+        if (Map != entry.map || !IsActive) return null;
         return new FloatMenuOption("MpGrowthMomentSession".Translate(Pawn.Name.ToStringShort), OpenWindow);
     }
 
@@ -69,7 +72,7 @@ public class GrowthMomentSession(Map map) : ExposableSession(null), ITickingSess
 
     public void OpenWindow()
     {
-        if (!IsSessionValid) return;
+        if (!IsActive) return;
         letter.TrySetChoices();
         var window = new GrowthMomentWindow(letter.text, letter);
         Find.WindowStack.Add(window);
@@ -77,14 +80,14 @@ public class GrowthMomentSession(Map map) : ExposableSession(null), ITickingSess
 
     public void Tick()
     {
-        if (!IsSessionValid) map.MpComp().sessionManager.RemoveSession(this);
+        if (!IsActive) map.MpComp().sessionManager.RemoveSession(this);
         else if (AtTimeout && IsLocalPlayersChild) OpenWindow();
     }
 
     // UI only: reopen the window if it was closed while the map waits for the choice
     public void ReopenIfWaiting()
     {
-        if (IsSessionValid && AtTimeout && IsLocalPlayersChild)
+        if (IsActive && AtTimeout && IsLocalPlayersChild)
             OpenWindow();
     }
 
