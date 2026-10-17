@@ -258,10 +258,11 @@ namespace Multiplayer.Client.Patches
     [HarmonyPatch(typeof(PriorityWork), nameof(PriorityWork.Clear))]
     static class PriorityWorkClearNoInterface
     {
-        // This can get called in the UI but has side effects
+        // This can get called in the UI (IsPrioritized timeout check from the gizmos) but has side effects.
+        // Calls during ticking (e.g. JobGiver_Work after exhausting the prioritized work) are deterministic.
         static bool Prefix(PriorityWork __instance)
         {
-            return Multiplayer.Client == null || Multiplayer.ExecutingCmds;
+            return Multiplayer.Client == null || !Multiplayer.InInterface;
         }
     }
 
