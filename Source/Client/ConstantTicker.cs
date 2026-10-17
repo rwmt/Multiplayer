@@ -18,7 +18,7 @@ namespace Multiplayer.Client
 
             try
             {
-                TickShipCountdown(); // todo control the RNG seed here?
+                TickShipCountdown();
                 TickNonSimulation();
             }
             finally
@@ -140,7 +140,22 @@ namespace Multiplayer.Client
                 ShipCountdown.timeLeft -= 1f / GenTicks.TicksPerRealSecond;
 
                 if (ShipCountdown.timeLeft <= 0f)
-                    ShipCountdown.CountdownEnded();
+                {
+                    // This is game logic (destroys the ship, removes pawns): run it on the world's RNG and faction
+                    // context instead of the unsynced RNG outside of any tickable
+                    var world = Multiplayer.AsyncWorldTime;
+                    int randDepth = Rand.stateStack.Count;
+                    world.PreContext();
+                    try
+                    {
+                        ShipCountdown.CountdownEnded();
+                    }
+                    finally
+                    {
+                        AsyncTimeComp.RestoreRandStack(randDepth + 1, "ShipCountdown");
+                        world.PostContext();
+                    }
+                }
             }
         }
     }
