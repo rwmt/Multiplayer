@@ -136,6 +136,29 @@ public class SyncReferenceTest
     }
 
     [Test]
+    public void StandaloneForwardsLargeTracesFragmented()
+    {
+        server.IsStandaloneServer = true;
+        var reference = AddPlayer("reference");
+        var desynced = AddPlayer("desynced");
+
+        server.playerManager.OnDesync(desynced, 0, 0);
+        Assert.That(Conn(reference).SentPackets, Does.Contain(Packets.Server_Traces));
+
+        // Compressed traces and jitted methods can exceed a single packet
+        var traces = new byte[ConnectionBase.MaxSinglePacketSize * 2];
+        new Random(1).NextBytes(traces);
+        Assert.DoesNotThrow(() => reference.conn.GetState<ServerPlayingState>()!.HandleTraces(new ClientTracesPacket
+        {
+            playerId = desynced.id, rawTraces = traces, rawJittedMethods = [1]
+        }));
+
+        var sent = Conn(desynced).SentRaw.Where(raw => (Packets)(raw[0] & 0x3F) == Packets.Server_Traces).ToList();
+        Assert.That(sent, Has.Count.GreaterThan(1));
+        Assert.That(sent.All(raw => (raw[0] & 0xC0) != 0), Is.True);
+    }
+
+    [Test]
     public void HostedForwardsArbiterOpinionsToEveryoneButArbiter()
     {
         var host = AddPlayer("host");

@@ -184,12 +184,14 @@ namespace Multiplayer.Client
                 var info = Multiplayer.game.sync.knownClientOpinions.FirstOrDefault(b => b.startTick == packet.tick);
                 var response = info?.GetFormattedStackTracesForRange(packet.diffAt) ?? "Traces not available";
 
-                connection.Send(new ClientTracesPacket
+                // Fragmented: the traces and jitted methods can exceed the single packet limit, which would throw
+                // in this handler and disconnect this client (on standalone, the sync reference)
+                connection.SendFragmented(new ClientTracesPacket
                     {
                         playerId = packet.playerId,
                         rawTraces = GZipStream.CompressString(response),
                         rawJittedMethods = GZipStream.CompressString(JittedMethods.GetJittedMethodsString())
-                    });
+                    }.Serialize());
             }
             else if (packet.mode == ServerTracesPacket.Mode.Transfer)
             {
