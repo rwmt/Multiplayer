@@ -64,7 +64,11 @@ namespace Multiplayer.Client.Persistent
         [SyncMethod]
         public static void CreateSplittingSession(Caravan caravan)
         {
-            Multiplayer.WorldComp.sessionManager.AddSession(CaravanSplittingSession.Of(caravan));
+            var session = CaravanSplittingSession.Of(caravan);
+
+            // Only show the window to the caravan's players (everyone in a single faction game)
+            if (Multiplayer.WorldComp.sessionManager.AddSession(session) && caravan.Faction == Multiplayer.RealPlayerFaction)
+                session.OpenWindow();
         }
     }
 }

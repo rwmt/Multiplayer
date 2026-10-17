@@ -53,9 +53,14 @@ namespace Multiplayer.Client
 
         public TransporterLoading CreateTransporterLoadingSession(Faction faction, List<CompTransporter> transporters)
         {
-            var transporterLoading = sessionManager.GetFirstOfType<TransporterLoading>();
+            // Several groups of transporters can be loaded at once, only reuse the session of this group
+            var transporterLoading = TransporterLoading.GetSessionFor(map, transporters);
             if (transporterLoading == null)
             {
+                // The transporters' owner, Faction.OfPlayer can be e.g. the spectator faction when called during a tick
+                if (transporters.FirstOrDefault()?.parent.Faction is { IsPlayer: true } owner)
+                    faction = owner;
+
                 transporterLoading = new TransporterLoading(faction, map, transporters);
                 if (!sessionManager.AddSession(transporterLoading))
                 {
@@ -110,9 +115,15 @@ namespace Multiplayer.Client
                 foreach (var data in factionData)
                 {
                     map.PushFaction(data.Key);
-                    data.Value.listerHaulables.ListerHaulablesTick();
-                    data.Value.resourceCounter.ResourceCounterTick();
-                    map.PopFaction();
+                    try
+                    {
+                        data.Value.listerHaulables.ListerHaulablesTick();
+                        data.Value.resourceCounter.ResourceCounterTick();
+                    }
+                    finally
+                    {
+                        map.PopFaction();
+                    }
                 }
             }
             finally
@@ -121,10 +132,12 @@ namespace Multiplayer.Client
             }
         }
 
-        public void SetFaction(Faction faction)
+        public void SetFaction(Faction faction) => SetFaction(faction.loadID);
+
+        public bool SetFaction(int factionId)
         {
-            if (!factionData.TryGetValue(faction.loadID, out FactionMapData data))
-                return;
+            if (!factionData.TryGetValue(factionId, out FactionMapData data))
+                return false;
 
             map.designationManager = data.designationManager;
             map.areaManager = data.areaManager;
@@ -136,6 +149,16 @@ namespace Multiplayer.Client
             map.resourceCounter = data.resourceCounter;
             map.listerFilthInHomeArea = data.listerFilthInHomeArea;
             map.listerMergeables = data.listerMergeables;
+            return true;
+        }
+
+        // The faction whose managers are currently applied to the map, -1 if unknown
+        public int GetAppliedFactionId()
+        {
+            foreach (var (id, data) in factionData)
+                if (data.zoneManager == map.zoneManager)
+                    return id;
+            return -1;
         }
 
         public CustomFactionMapData GetCurrentCustomFactionData()
@@ -271,7 +294,7 @@ namespace Multiplayer.Client
             if (Multiplayer.Client == null) return;
 
             // Trading window on resume save
-            if (!Multiplayer.WorldComp.trading.NullOrEmpty()) return;
+            if (Multiplayer.WorldComp.trading.NullOrEmpty()) return;
             // playerNegotiator == null can only happen during loading? Is this a resuming check?
             Multiplayer.WorldComp.trading.FirstOrDefault(t => t.playerNegotiator == null)?.OpenWindow();
         }

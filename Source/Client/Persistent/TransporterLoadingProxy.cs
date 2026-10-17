@@ -11,7 +11,8 @@ namespace Multiplayer.Client
 
         public static TransporterLoadingProxy drawing;
 
-        public TransporterLoading Session => map.MpComp().sessionManager.GetFirstOfType<TransporterLoading>();
+        // Several transporter loading sessions can exist on a map, find the one for these transporters
+        public TransporterLoading Session => TransporterLoading.GetSessionFor(map, transporters);
 
         public TransporterLoadingProxy(Map map, List<CompTransporter> transporters) : base(map, transporters)
         {

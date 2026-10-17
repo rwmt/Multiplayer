@@ -49,11 +49,13 @@ namespace Multiplayer.Client.Persistent
 
             try
             {
-                if (session == null)
+                if (session == null || session.removed)
                 {
                     Close();
+                    return;
                 }
-                else if (session.uiDirty)
+
+                if (session.uiDirty)
                 {
                     CountToTransferChanged();
 

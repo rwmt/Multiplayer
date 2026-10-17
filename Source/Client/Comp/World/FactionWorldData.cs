@@ -42,8 +42,7 @@ public class FactionWorldData : IExposable
             playSettings ??= new PlaySettings();
 
             history ??= new History();
-            storyteller ??= new Storyteller(Find.Storyteller.def, Find.Storyteller.difficultyDef,
-                Find.Storyteller.difficulty);
+            storyteller ??= NewStoryteller();
             storyWatcher ??= new StoryWatcher();
         }
     }
@@ -73,9 +72,18 @@ public class FactionWorldData : IExposable
             playSettings = new PlaySettings(),
 
             history = new History(),
-            storyteller = new Storyteller(Find.Storyteller.def, Find.Storyteller.difficultyDef, Find.Storyteller.difficulty),
+            storyteller = NewStoryteller(),
             storyWatcher = new StoryWatcher()
         };
+    }
+
+    // Copies the current storyteller's settings. The difficulty is copied, not shared: a shared instance would only
+    // exist in memory (saving separates it), so changing one faction's difficulty would change both only on some clients
+    private static Storyteller NewStoryteller()
+    {
+        var current = Find.Storyteller;
+        var difficulty = current.difficulty != null ? Gen.MemberwiseClone(current.difficulty) : null;
+        return new Storyteller(current.def, current.difficultyDef, difficulty);
     }
 
     public static FactionWorldData FromCurrent(int factionId)

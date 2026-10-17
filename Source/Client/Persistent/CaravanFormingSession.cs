@@ -14,6 +14,8 @@ namespace Multiplayer.Client
         public Faction faction;
 
         public bool reform;
+        // Never invoked (and not saved): an Action can't be persisted, so running it would differ between
+        // clients that loaded the session from a save and clients that created it.
         public Action onClosed;
         public bool mapAboutToBeRemoved;
         public PlanetTile startingTile = -1;
@@ -175,7 +177,6 @@ namespace Multiplayer.Client
 
             Scribe_References.Look(ref faction, "faction");
             Scribe_Values.Look(ref reform, "reform");
-            Scribe_Values.Look(ref onClosed, "onClosed");
             Scribe_Values.Look(ref mapAboutToBeRemoved, "mapAboutToBeRemoved");
             Scribe_Values.Look(ref startingTile, "startingTile");
             Scribe_Values.Look(ref destinationTile, "destinationTile");

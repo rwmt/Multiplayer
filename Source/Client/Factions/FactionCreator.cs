@@ -46,6 +46,9 @@ public static class FactionCreator
 
         LongEventHandler.QueueLongEvent(() =>
         {
+            // The long event runs after the command, with each client's own faction data applied
+            using var _ = MpScope.PushFactionOutsideContext(Multiplayer.WorldComp.spectatorFaction);
+
             var scenario = creationData.scenarioDef?.scenario ?? Current.Game.Scenario;
             Map newMap = null;
 
@@ -232,7 +235,7 @@ public static class FactionCreator
         }
         else
         {
-            var newIdeo = GenerateIdeo(chooseIdeoInfo);
+            var newIdeo = GenerateIdeo(chooseIdeoInfo, def);
             faction.ideos.SetPrimary(newIdeo);
             Find.IdeoManager.Add(newIdeo);
         }
@@ -240,7 +243,10 @@ public static class FactionCreator
         foreach (Faction other in Find.FactionManager.AllFactionsListForReading)
             faction.TryMakeInitialRelationsWith(other);
 
+        // Add recaches Faction.OfPlayer to the first player faction, keep the current context
+        var ofPlayer = Find.FactionManager.ofPlayer;
         Find.FactionManager.Add(faction);
+        Find.FactionManager.ofPlayer = ofPlayer;
 
         var newWorldFactionData = FactionWorldData.New(faction.loadID);
         Multiplayer.WorldComp.factionData[faction.loadID] = newWorldFactionData;
@@ -257,16 +263,17 @@ public static class FactionCreator
         return faction;
     }
 
-    private static Ideo GenerateIdeo(IdeologyData chooseIdeoInfo)
+    // factionDef: the new faction's (from the chosen scenario), not Faction.OfPlayer's or the game scenario's
+    private static Ideo GenerateIdeo(IdeologyData chooseIdeoInfo, FactionDef factionDef)
     {
         List<MemeDef> list = chooseIdeoInfo.SelectedIdeo.memes.ToList();
 
         if (chooseIdeoInfo.SelectedStructure != null)
             list.Add(chooseIdeoInfo.SelectedStructure);
-        else if (DefDatabase<MemeDef>.AllDefsListForReading.Where(m => m.category == MemeCategory.Structure && IdeoUtility.IsMemeAllowedFor(m, Find.Scenario.playerFaction.factionDef)).TryRandomElement(out var result))
+        else if (DefDatabase<MemeDef>.AllDefsListForReading.Where(m => m.category == MemeCategory.Structure && IdeoUtility.IsMemeAllowedFor(m, factionDef)).TryRandomElement(out var result))
             list.Add(result);
 
-        Ideo ideo = IdeoGenerator.GenerateIdeo(new IdeoGenerationParms(Find.FactionManager.OfPlayer.def, forceNoExpansionIdeo: false, null, null, list, chooseIdeoInfo.SelectedIdeo.classicPlus, forceNoWeaponPreference: true));
+        Ideo ideo = IdeoGenerator.GenerateIdeo(new IdeoGenerationParms(factionDef, forceNoExpansionIdeo: false, null, null, list, chooseIdeoInfo.SelectedIdeo.classicPlus, forceNoWeaponPreference: true));
         new Page_ChooseIdeoPreset { selectedStyles = chooseIdeoInfo.SelectedStyles }.ApplySelectedStylesToIdeo(ideo);
 
         return ideo;
