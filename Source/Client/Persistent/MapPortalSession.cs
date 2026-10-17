@@ -6,7 +6,7 @@ using Verse;
 
 namespace Multiplayer.Client.Persistent;
 
-public class MapPortalSession : ExposableSession, ISessionWithTransferables, ISessionWithCreationRestrictions
+public class MapPortalSession : ExposableSession, ISessionWithTransferables, ISessionWithCreationRestrictions, ITickingSession
 {
     public MapPortal portal;
     public List<TransferableOneWay> transferables;
@@ -44,11 +44,20 @@ public class MapPortalSession : ExposableSession, ISessionWithTransferables, ISe
         transferables = dialog.transferables;
     }
 
-    public override bool IsCurrentlyPausing(Map map) => this.map == map && portal is { Spawned: true };
+    // Destroyed or moved (e.g. with a gravship) portals end the session, see Tick
+    private bool PortalOnMap => portal is { Spawned: true } && portal.Map == map;
+
+    public override bool IsCurrentlyPausing(Map map) => this.map == map && PortalOnMap;
+
+    public void Tick()
+    {
+        if (!PortalOnMap)
+            map.MpComp().sessionManager.RemoveSession(this);
+    }
 
     public override FloatMenuOption GetBlockingWindowOptions(ColonistBar.Entry entry)
     {
-        if (entry.map != Map || portal is not { Spawned: true })
+        if (entry.map != Map || !PortalOnMap)
             return null;
 
         return new FloatMenuOption("MpMapPortalSession".Translate(portal?.Label), () =>

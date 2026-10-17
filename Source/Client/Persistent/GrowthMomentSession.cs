@@ -9,13 +9,14 @@ namespace Multiplayer.Client.Persistent;
 
 public class GrowthMomentSession(Map map) : ExposableSession(null), ITickingSession
 {
-    // The child may have left the session's map (caravan, transport pod, death), so look on every map
+    // The child may have moved to another map, so look on every map. Sessions the child left (removed by their map's
+    // next tick) are skipped, so a new session can be created where the child is now.
     public static GrowthMomentSession GetSessionFor(Pawn pawn)
     {
         if (pawn == null) return null;
 
         foreach (var m in Find.Maps)
-            if (m.MpComp()?.sessionManager.GetFirstOfType<GrowthMomentSession>(sess => sess.Pawn == pawn) is { } session)
+            if (m.MpComp()?.sessionManager.GetFirstOfType<GrowthMomentSession>(sess => sess.Pawn == pawn && sess.IsActive) is { } session)
                 return session;
 
         return null;
@@ -35,7 +36,7 @@ public class GrowthMomentSession(Map map) : ExposableSession(null), ITickingSess
     public List<int> passionIndexes = [];
     public bool uiDirty; // if true, received or sent an update
 
-    public static GrowthMomentSession Create(ChoiceLetter_GrowthMoment letter) => new(letter.pawn.Map)
+    public static GrowthMomentSession Create(ChoiceLetter_GrowthMoment letter) => new(letter.pawn.MapHeld)
     {
         letter = letter
     };
@@ -48,8 +49,9 @@ public class GrowthMomentSession(Map map) : ExposableSession(null), ITickingSess
     // Also checked right after loading, when pawns aren't spawned yet, so it mustn't depend on the child's map
     public override bool IsSessionValid => map != null && Pawn != null && !letter.ArchiveView;
 
-    // The child leaving the map (or dying) ends the session, the letter's timeout handles the rest
-    private bool IsActive => IsSessionValid && Pawn.Map == map;
+    // The child leaving the map (or dying) ends the session, the letter's timeout handles the rest.
+    // MapHeld: the child can be on the map without being spawned (growth vat, carried, in a shuttle).
+    private bool IsActive => IsSessionValid && !Pawn.Dead && Pawn.MapHeld == map;
 
     public override FloatMenuOption GetBlockingWindowOptions(ColonistBar.Entry entry)
     {
@@ -106,8 +108,8 @@ public class GrowthMomentSession(Map map) : ExposableSession(null), ITickingSess
         if (letter.ArchiveView) return null;
         var pawn = letter.pawn;
         // Only children on a map can have a session (it pauses and is ticked by that map)
-        if (pawn?.Map == null) return null;
-        var sessionManager = pawn.Map.MpComp().sessionManager;
+        if (pawn?.MapHeld == null || pawn.Dead) return null;
+        var sessionManager = pawn.MapHeld.MpComp().sessionManager;
         var sess = sessionManager.GetFirstOfType<GrowthMomentSession>(sess => sess.Pawn == pawn);
         if (sess == null)
         {
