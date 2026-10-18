@@ -30,6 +30,11 @@ public class ConvertToSp
         var spectator = Multiplayer.WorldComp.spectatorFaction;
         if (spectator != null)
         {
+            // Destination reservations are keyed by faction and saved as references, an entry for the
+            // spectator (created e.g. in its simulation context) would be a dangling reference in the save
+            foreach (var map in Find.Maps)
+                map.pawnDestinationReservationManager.Notify_FactionRemoved(spectator);
+
             spectator.RemoveAllRelations();
             Find.FactionManager.allFactions.Remove(spectator);
         }
