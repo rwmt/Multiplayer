@@ -599,6 +599,34 @@ namespace Multiplayer.Client
         static void CompPlantable_AddCell(IntVec3 newValue, CompPlantable plantable) =>
             plantable.plantCells.Add(newValue);
 
+        // Float menu options (carry to shuttle, place carried pawn in a transporter, enter shuttle) call
+        // InitiateLoading from the interface right before the synced TryTakeOrderedJob, so the group id was
+        // set on the clicking client only. Both commands target the transporter's map and keep their order.
+        [MpPrefix(typeof(TransporterUtility), nameof(TransporterUtility.InitiateLoading))]
+        static bool InitiateLoading_Prefix(IEnumerable<CompTransporter> transporters, ref int __result)
+        {
+            if (!Multiplayer.ShouldSync)
+                return true;
+
+            SyncedInitiateLoading(transporters.ToList());
+            // Vanilla interface callers ignore the group id; -1 is the "no group" marker
+            __result = -1;
+            return false;
+        }
+
+        [SyncMethod]
+        static void SyncedInitiateLoading(List<CompTransporter> transporters)
+        {
+            transporters.RemoveAll(t => t == null);
+
+            // The interface callers only initiate loading when it isn't in progress; it may have started
+            // since the click (e.g. another player's order), don't replace the group then
+            if (transporters.Count == 0 || transporters.All(t => t.LoadingInProgressOrReadyToLaunch))
+                return;
+
+            TransporterUtility.InitiateLoading(transporters);
+        }
+
         // ===== CALLBACKS =====
 
         [MpPostfix(typeof(DrugPolicyDatabase), nameof(DrugPolicyDatabase.MakeNewDrugPolicy))]

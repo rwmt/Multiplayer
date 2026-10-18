@@ -24,7 +24,7 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_CaptureEntity),              "GetOptionsFor", 2).CancelIfAnyFieldNull().SetContext(mouseKeyContext);       // Capture entity
 
             // Other possible float menu options that could be added later:
-            // TODO maybe? TransporterUtility.InitiateLoading is not synced, not sure if significant
+            // Carry to shuttle: its TransporterUtility.InitiateLoading call is synced in SyncMethods
             // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_CarryToShuttle), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);           // Carry to shuttle
             // TODO: missing some flecks
             // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_DraftedAttack), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);            // Drafted attack
