@@ -221,8 +221,7 @@ namespace Multiplayer.Client
 
             if (LocalServer != null)
             {
-                LocalServer.running = false;
-                localServerThread?.Join();
+                // Waits for the server thread, which stops the server on its way out
                 LocalServer.TryStop();
                 LocalServer = null;
             }

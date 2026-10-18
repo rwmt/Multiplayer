@@ -76,9 +76,11 @@ public class ServerTest
     [Test]
     public void LoadingStateHandlesKeepAliveWhileWaitingForJoinPoint()
     {
-        var server = MakeServer(out var port);
-        AddHost(server);
-        Assert.That(server.worldData.TryStartJoinPointCreation(true), Is.True);
+        var server = MakeServer(out var port, s =>
+        {
+            AddHost(s);
+            Assert.That(s.worldData.TryStartJoinPointCreation(true), Is.True);
+        });
 
         _ = Task.Run(async () =>
         {
@@ -166,7 +168,8 @@ public class ServerTest
         }) { IsBackground = true }.Start();
     }
 
-    private MultiplayerServer MakeServer(out int port)
+    /// beforeStart sets up server state before the server thread runs, which owns it from then on
+    private MultiplayerServer MakeServer(out int port, Action<MultiplayerServer>? beforeStart = null)
     {
         var server = MultiplayerServer.instance = new MultiplayerServer(new ServerSettings
         {
@@ -190,14 +193,12 @@ public class ServerTest
 
         port = liteNet.netManagers[0].manager.LocalPort;
 
+        beforeStart?.Invoke(server);
+
         var serverThread = new Thread(server.Run) { IsBackground = true };
         serverThread.Start();
 
-        teardownActions.Add(() =>
-        {
-            server.running = false;
-            serverThread.Join(timeout: TimeSpan.FromSeconds(2));
-        });
+        teardownActions.Add(server.TryStop);
 
         return server;
     }
