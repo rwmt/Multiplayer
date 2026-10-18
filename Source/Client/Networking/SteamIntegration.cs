@@ -81,7 +81,8 @@ namespace Multiplayer.Client
             {
                 if (Current.Game == null)
                 {
-                    ClientUtil.TryConnectWithWindow(ConnectorRegistry.Steam(req.m_steamIDFriend), false);
+                    MainMenuPatch.ConfirmLoadingErrors(() =>
+                        ClientUtil.TryConnectWithWindow(ConnectorRegistry.Steam(req.m_steamIDFriend), false));
                 }
                 else
                 {

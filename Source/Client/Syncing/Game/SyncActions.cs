@@ -14,11 +14,7 @@ namespace Multiplayer.Client
 
         public static void Init()
         {
-            void Error(string error)
-            {
-                Multiplayer.loadingErrors = true;
-                Log.Error(error);
-            }
+            void Error(string error) => Multiplayer.LoadingError(error);
 
             // TODO: Use MpMethodUtil instead if we decide to make it work with generic types/methods (already in MP Compat, so use it). Or remove this TODO if we decide not to.
             CaravanActionConfirmationType = AccessTools.Inner(typeof(CaravanArrivalActionUtility), "<>c__DisplayClass0_1`1");

@@ -82,7 +82,26 @@ namespace Multiplayer.Client
 
         public static bool arbiterInstance;
         public static bool loadingErrors;
+        public static int loadingErrorCount;
+        // The first few, shown before hosting or joining
+        public static readonly List<string> loadingErrorMessages = new();
+        private const int MaxShownLoadingErrors = 20;
         public static Stopwatch harmonyWatch = new();
+
+        /// A patch or sync registration failed to load. Playing like that likely desyncs or breaks features, so
+        /// hosting and joining ask for a confirmation first.
+        public static void LoadingError(string message)
+        {
+            Log.Error(message);
+
+            lock (loadingErrorMessages)
+            {
+                loadingErrors = true;
+                loadingErrorCount++;
+                if (loadingErrorMessages.Count < MaxShownLoadingErrors)
+                    loadingErrorMessages.Add(message);
+            }
+        }
 
         public static ModContentPack modContentPack;
 

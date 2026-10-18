@@ -84,7 +84,7 @@ namespace Multiplayer.Client.Patches
             }
 
             if (patched == 0)
-                Log.Error($"MP: Couldn't find Gen.HashCombine<Map> in {original.DeclaringType}:{original.Name}. Was the original method changed?");
+                Multiplayer.LoadingError($"MP: Couldn't find Gen.HashCombine<Map> in {original.DeclaringType}:{original.Name}. Was the original method changed?");
         }
 
         static int CombineHashes(int seed, Map map) => Gen.HashCombineInt(seed, map?.uniqueID ?? -1);
