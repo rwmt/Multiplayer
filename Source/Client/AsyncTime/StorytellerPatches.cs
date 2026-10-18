@@ -39,7 +39,8 @@ public class StorytellerTargetsPatch
         if (Multiplayer.MapContext != null)
         {
             __result.Clear();
-            __result.Add(Multiplayer.MapContext);
+            if (FactionCanReceiveIncidentsOn(Multiplayer.MapContext, Faction.OfPlayer))
+                __result.Add(Multiplayer.MapContext);
         }
         else if (AsyncWorldTimeComp.tickingWorld)
         {
@@ -51,6 +52,21 @@ public class StorytellerTargetsPatch
 
             __result.Add(Find.World);
         }
+    }
+
+    // In multifaction every player faction's storyteller ticks on every map (FactionRepeater). Keep each one
+    // to its own maps and to unowned maps (sites etc.) where it has people, so faction A's incidents
+    // (e.g. Map_Misc ones while A's colonists visit) don't land on faction B's home.
+    static bool FactionCanReceiveIncidentsOn(Map map, Faction faction)
+    {
+        if (!Multiplayer.GameComp.multifaction)
+            return true;
+
+        if (map.ParentFaction == faction)
+            return true;
+
+        return map.ParentFaction is not { IsPlayer: true } &&
+               map.mapPawns.SpawnedPawnsInFaction(faction).Any(p => p.RaceProps.Humanlike);
     }
 }
 
