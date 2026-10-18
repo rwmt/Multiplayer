@@ -1,9 +1,12 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
 using RimWorld;
+using UnityEngine;
 using Verse;
+using Verse.AI.Group;
 
 namespace Multiplayer.Client.Patches
 {
@@ -72,6 +75,27 @@ namespace Multiplayer.Client.Patches
 
             __result = !(__instance.SpawnedOrAnyParentSpawned &&
                          __instance.MapHeld.reservationManager.IsReservedByAnyoneOf(__instance, Faction.OfPlayer));
+            return false;
+        }
+    }
+
+    // #855: vanilla moves the offering out of the invoker's inventory while enumerating it; moving a whole stack
+    // throws (collection modified) and the psychic ritual never completes. Same logic over a snapshot.
+    [HarmonyPatch(typeof(PsychicRitualToil_InvokeHorax), nameof(PsychicRitualToil_InvokeHorax.HoldRequiredOfferings))]
+    static class PsychicRitualToil_InvokeHorax_HoldRequiredOfferings
+    {
+        static bool Prefix(PsychicRitualToil_InvokeHorax __instance, PsychicRitual psychicRitual)
+        {
+            var offering = __instance.requiredOffering;
+            if (offering == null)
+                return false;
+
+            foreach (Pawn pawn in psychicRitual.assignments.AssignedPawns(__instance.invokerRole))
+                foreach (Thing thing in pawn.inventory.GetDirectlyHeldThings().ToList())
+                    if (offering.filter.Allows(thing))
+                        pawn.inventory.innerContainer.TryTransferToContainer(thing, pawn.carryTracker.innerContainer,
+                            Mathf.CeilToInt(offering.GetBaseCount()));
+
             return false;
         }
     }
