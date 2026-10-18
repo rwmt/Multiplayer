@@ -122,6 +122,11 @@ static class MapContextIncidentExecute
 {
     static void Prefix(IncidentParms parms, ref Map __state)
     {
+        // Incidents can execute nested ones (tickingWorld stays set); entering the context again would
+        // clear tickingMap and pop the outer context's state when the inner call returns
+        if (AsyncTimeComp.tickingMap != null)
+            return;
+
         if (AsyncWorldTimeComp.tickingWorld && parms.target is Map map)
         {
             AsyncTimeComp.tickingMap = map;
