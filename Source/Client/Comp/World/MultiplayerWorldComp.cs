@@ -26,6 +26,10 @@ public class MultiplayerWorldComp : IHasSessionData
     // letters to their faction's players, the letter stack itself is the same on every client.
     public Dictionary<int, int> letterFactions = new();
 
+    // Multifaction: faction load ID -> DateNotifier.lastSeason of that faction (see DateNotifierPatch). Kept here and
+    // not in FactionWorldData, which isn't saved for the faction applied when saving.
+    public Dictionary<int, Season> factionLastSeasons = new();
+
     private int currentFactionId;
 
     public MultiplayerWorldComp(World world)
@@ -39,6 +43,11 @@ public class MultiplayerWorldComp : IHasSessionData
     {
         ExposeFactionData();
         ExposeLetterFactions();
+
+        // Missing in old saves: the factions start Undefined, which vanilla initializes without notifying
+        Scribe_Collections.Look(ref factionLastSeasons, "factionLastSeasons", LookMode.Value, LookMode.Value);
+        if (Scribe.mode != LoadSaveMode.Saving)
+            factionLastSeasons ??= new Dictionary<int, Season>();
 
         sessionManager.ExposeSessions();
         // Ensure a pause lock session exists if there's any pause locks registered

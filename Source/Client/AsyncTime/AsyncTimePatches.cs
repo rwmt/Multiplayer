@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -50,26 +51,73 @@ namespace Multiplayer.Client.AsyncTime
         static bool Prefix() => Multiplayer.Client == null || !MapUpdateMarker.updating;
     }
 
+    // Season notifications run in the synced world tick and write saved state (lastSeason, letters), so they can't
+    // depend on the local player's faction. In multifaction every player faction gets its own pass under its context
+    // (which also routes its letters to its players) with its own saved lastSeason. Each pass uses the clock of the
+    // faction's home map with the minimum time zone, the map vanilla takes the season from.
     [HarmonyPatch(typeof(DateNotifier), nameof(DateNotifier.DateNotifierTick))]
     static class DateNotifierPatch
     {
-        static void Prefix(DateNotifier __instance, ref int? __state)
+        static bool running;
+
+        static bool Prefix(DateNotifier __instance)
         {
-            if (Multiplayer.Client == null && Multiplayer.RealPlayerFaction != null) return;
+            if (Multiplayer.Client == null || running) return true;
 
-            Map map = __instance.FindPlayerHomeWithMinTimezone();
-            if (map == null) return;
+            if (!Multiplayer.GameComp.multifaction)
+            {
+                // Every player plays the host's faction, the world tick runs under it
+                TickWithHomeTime(__instance);
+                return false;
+            }
 
-            __state = Find.TickManager.TicksGame;
-            FactionContext.Push(Multiplayer.RealPlayerFaction);
-            Find.TickManager.DebugSetTicksGame(map.AsyncTime().mapTicks);
+            var worldComp = Multiplayer.WorldComp;
+            foreach (var (factionId, _) in worldComp.factionData)
+            {
+                var faction = Find.FactionManager.GetById(factionId);
+                if (faction is not { IsPlayer: true } || faction == worldComp.spectatorFaction)
+                    continue;
+
+                var prevLastSeason = __instance.lastSeason;
+                __instance.lastSeason = worldComp.factionLastSeasons.TryGetValue(factionId, out var s) ? s : Season.Undefined;
+                ((Map)null).PushFaction(faction, force: true);
+
+                try
+                {
+                    TickWithHomeTime(__instance);
+                }
+                catch (Exception e)
+                {
+                    Log.Error($"Exception in DateNotifierTick for {faction}: {e}");
+                }
+                finally
+                {
+                    FactionExtensions.PopFaction();
+                    worldComp.factionLastSeasons[factionId] = __instance.lastSeason;
+                    __instance.lastSeason = prevLastSeason;
+                }
+            }
+
+            return false;
         }
 
-        static void Finalizer(int? __state)
+        static void TickWithHomeTime(DateNotifier notifier)
         {
-            if (!__state.HasValue) return;
-            Find.TickManager.DebugSetTicksGame(__state.Value);
-            FactionContext.Pop();
+            Map map = notifier.FindPlayerHomeWithMinTimezone();
+            int prevTicks = Find.TickManager.TicksGame;
+            if (map != null)
+                Find.TickManager.DebugSetTicksGame(map.AsyncTime().mapTicks);
+
+            running = true;
+            try
+            {
+                notifier.DateNotifierTick();
+            }
+            finally
+            {
+                running = false;
+                Find.TickManager.DebugSetTicksGame(prevTicks);
+            }
         }
     }
 
