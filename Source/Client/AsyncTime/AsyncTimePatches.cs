@@ -67,7 +67,7 @@ namespace Multiplayer.Client.AsyncTime
             if (!Multiplayer.GameComp.multifaction)
             {
                 // Every player plays the host's faction, the world tick runs under it
-                TickWithHomeTime(__instance);
+                TickWithHomeTime(__instance, requireHome: false);
                 return false;
             }
 
@@ -84,7 +84,9 @@ namespace Multiplayer.Client.AsyncTime
 
                 try
                 {
-                    TickWithHomeTime(__instance);
+                    // A faction without a home yet (e.g. just created) would take the season at 0,0 and could get a
+                    // notification when it settles
+                    TickWithHomeTime(__instance, requireHome: true);
                 }
                 catch (Exception e)
                 {
@@ -101,9 +103,11 @@ namespace Multiplayer.Client.AsyncTime
             return false;
         }
 
-        static void TickWithHomeTime(DateNotifier notifier)
+        static void TickWithHomeTime(DateNotifier notifier, bool requireHome)
         {
             Map map = notifier.FindPlayerHomeWithMinTimezone();
+            if (map == null && requireHome) return;
+
             int prevTicks = Find.TickManager.TicksGame;
             if (map != null)
                 Find.TickManager.DebugSetTicksGame(map.AsyncTime().mapTicks);
