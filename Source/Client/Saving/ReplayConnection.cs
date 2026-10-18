@@ -18,6 +18,9 @@ public class ReplayConnection : ConnectionBase
         }
     }
 
+    // Big commands are sent fragmented, catch them whole
+    public override void SendFragmented(Packets id, byte[] message) => Send(id, message);
+
     protected override void SendRaw(byte[] raw, bool reliable)
     {
     }

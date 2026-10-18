@@ -59,18 +59,13 @@ namespace Multiplayer.Common
             server.worldData.cmds.Add(toSave);
             server.worldData.tmpCmds?.Add(toSave);
 
-            if (server.CanUseStandaloneMapStreaming(mapId))
+            var serialized = ServerCommandPacket.From(cmd).Serialize();
+            var mapStreaming = server.CanUseStandaloneMapStreaming(mapId);
+            foreach (var player in server.PlayingPlayers)
             {
-                var serialized = ServerCommandPacket.From(cmd).Serialize();
-                foreach (var player in server.PlayingPlayers)
-                {
-                    if (!player.hasReportedCurrentMap || player.currentMapId < 0 || player.currentMapId == mapId)
-                        player.conn.Send(serialized, true);
-                }
-            }
-            else
-            {
-                server.SendToPlaying(ServerCommandPacket.From(cmd));
+                if (!mapStreaming || !player.hasReportedCurrentMap || player.currentMapId < 0 ||
+                    player.currentMapId == mapId)
+                    player.conn.SendFragmentedIfNeeded(serialized);
             }
 
             SentCmds++;
