@@ -62,6 +62,15 @@ namespace Multiplayer.Common
             return conn.serverPlayer;
         }
 
+        /// Drops a connection superseded by a new one from the same remote: its client is gone. Unlike Disconnect,
+        /// nothing is sent or closed. Steam carries all connections with a remote over one session, so the goodbye
+        /// would only reach the new client and closing would cut it off.
+        public void ReplaceStale(ServerPlayer stale, ConnectionBase replacement)
+        {
+            ServerLog.Log($"Replacing stale connection {stale.conn} with {replacement}");
+            SetDisconnected(stale.conn, MpDisconnectReason.ClientLeft);
+        }
+
         public void SetDisconnected(ConnectionBase conn, MpDisconnectReason reason)
         {
             if (conn.State == ConnectionStateEnum.Disconnected) return;

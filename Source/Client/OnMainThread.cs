@@ -27,7 +27,13 @@ namespace Multiplayer.Client
             RunScheduled();
 
             if (SteamManager.Initialized)
+            {
                 SteamIntegration.UpdateRichPresence();
+
+                // A running Steam server closes them on its thread, in step with the joins it handles
+                if (Multiplayer.LocalServer is not { running: true, settings.steam: true })
+                    SteamP2PIntegration.CloseDueSessions();
+            }
 
             if (Multiplayer.Client == null) return;
 
