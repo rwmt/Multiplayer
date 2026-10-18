@@ -234,6 +234,38 @@ namespace Multiplayer.Client
         }
     }
 
+    // Destroying a thing removes designations on it only from each map's installed designation manager, so other
+    // factions' managers kept designations on a destroyed thing (they're dropped on load, so a reloading client
+    // differed from the others). Designations on a thing live on its own map.
+    [HarmonyPatch(typeof(Thing), nameof(Thing.Destroy))]
+    static class ThingDestroyDesignationsPatch
+    {
+        static void Prefix(Thing __instance, ref Map __state)
+        {
+            if (Multiplayer.Client != null && __instance.def.category != ThingCategory.Mote)
+                __state = __instance.MapHeld;
+        }
+
+        static void Postfix(Thing __instance, Map __state)
+        {
+            if (__state == null || !__instance.Destroyed) return;
+
+            var factionData = __state.MpComp()?.factionData;
+            if (factionData == null || !factionData.Values.Any(d =>
+                    d.designationManager != __state.designationManager &&
+                    d.designationManager.AllDesignationsOn(__instance).Count > 0))
+                return;
+
+            var ignore = false;
+            FactionRepeater.Template(
+                factionData,
+                d => d.designationManager.RemoveAllDesignationsOn(__instance),
+                __state,
+                ref ignore
+            );
+        }
+    }
+
     // Fix for RimWorld 1.6 bug where HistoryAutoRecorder.Tick() calls .Last() on empty collection
     [HarmonyPatch(typeof(HistoryAutoRecorder), nameof(HistoryAutoRecorder.Tick))]
     static class HistoryAutoRecorderTickPatch
