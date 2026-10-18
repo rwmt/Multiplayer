@@ -59,6 +59,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
     public Queue<ScheduledCommand> cmds = new();
 
     public int CurrentPlayerCount { get; private set; }
+    public void ResetPlayerCount() => CurrentPlayerCount = 0;
     public int VTR => CurrentPlayerCount > 0 ? VTRSync.MinimumVtr : VTRSync.MaximumVtr;
 
     public int TickableId => -1;
@@ -256,6 +257,9 @@ public class AsyncWorldTimeComp : IExposable, ITickable
                 var canUseDevMode = data.ReadBool();
                 Multiplayer.GameComp.playerData[playerId] = new PlayerData { canUseDevMode = canUseDevMode };
             }
+
+            if (cmdType == CommandType.ResetPlayerCounts)
+                VTRSync.ResetAllPlayerCounts();
 
             if (cmdType == CommandType.PlayerCount)
             {

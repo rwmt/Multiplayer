@@ -88,6 +88,7 @@ namespace Multiplayer.Client
         public Queue<ScheduledCommand> cmds = new();
 
         public int CurrentPlayerCount { get; private set; }
+        public void ResetPlayerCount() => CurrentPlayerCount = 0;
         public int VTR => CurrentPlayerCount > 0 ? VTRSync.MinimumVtr : VTRSync.MaximumVtr;
 
         public AsyncTimeComp(Map map, int gameStartAbsTick = 0)

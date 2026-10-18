@@ -17,4 +17,7 @@ public enum CommandType : byte
     MapTimeSpeed,
     Designator,
     PlayerCount,
+
+    // Global scope, server only: viewer counts saved with the game belong to players of an earlier session
+    ResetPlayerCounts,
 }

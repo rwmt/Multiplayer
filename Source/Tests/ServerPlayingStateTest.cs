@@ -40,6 +40,7 @@ public class ServerPlayingStateTest
     [TestCase(CommandType.PauseAll, ScheduledCommand.Global)]
     [TestCase(CommandType.CreateJoinPoint, ScheduledCommand.Global)]
     [TestCase(CommandType.InitPlayerData, ScheduledCommand.Global)]
+    [TestCase(CommandType.ResetPlayerCounts, ScheduledCommand.Global)]
     [TestCase(CommandType.GlobalTimeSpeed, 0)]
     [TestCase(CommandType.TimeSpeedVote, 3)]
     [TestCase(CommandType.PlayerCount, 1)]

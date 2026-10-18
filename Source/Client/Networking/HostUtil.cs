@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Multiplayer.Client.AsyncTime;
 using Multiplayer.Client.Comp;
 using Multiplayer.Client.Networking;
+using Multiplayer.Client.Patches;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld;
@@ -38,6 +39,9 @@ namespace Multiplayer.Client
             PrepareGame();
             SetGameState(settings);
 
+            // Viewer counts saved in a replay belong to the players of that session
+            VTRSync.ResetAllPlayerCounts();
+
             Multiplayer.session.dataSnapshot = await CreateGameData();
 
             MakeHostOnServer(serverConn);
@@ -46,6 +50,7 @@ namespace Multiplayer.Client
             SaveLoad.SendGameData(Multiplayer.session.dataSnapshot, false);
 
             StartLocalServer();
+            VTRSync.AnnounceCurrentView();
         }
 
         private static void CreateSession(ServerSettings settings) =>

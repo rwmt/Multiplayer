@@ -62,9 +62,29 @@ namespace Multiplayer.Client.Patches
 
         public static int GetSynchronizedUpdateRate(Thing thing) => thing?.MapHeld?.AsyncTime()?.VTR ?? MaximumVtr;
 
+        public static int CurrentViewId() =>
+            WorldRendererUtility.WorldSelected ? WorldMapId : Find.CurrentMap?.uniqueID ?? InvalidMapId;
+
+        // Hosting creates the game with a save and reload, which doesn't report the view (see below), so the host
+        // announces the view it starts with. Without it the host's map ran at the no-viewer rate until the host
+        // switched maps. Joiners report theirs when their load sets the current map.
+        public static void AnnounceCurrentView() => SendViewedMapUpdate(lastMovedToMapId, CurrentViewId());
+
+        public static void ResetAllPlayerCounts()
+        {
+            Multiplayer.AsyncWorldTime.ResetPlayerCount();
+            foreach (var map in Find.Maps)
+                map.AsyncTime()?.ResetPlayerCount();
+        }
+
         public static void SendViewedMapUpdate(int previous, int current)
         {
+            // Join point reloads keep the saved counts, the view doesn't change
             if (Multiplayer.reloading)
+                return;
+
+            // The arbiter doesn't view anything; counting it kept its map at the full rate for everyone
+            if (Multiplayer.arbiterInstance)
                 return;
 
             string warn = string.Empty;
@@ -81,6 +101,7 @@ namespace Multiplayer.Client.Patches
         {
             lastMovedToMapId = InvalidMapId;
             lastSentAtTick = -1;
+            WorldRenderModePatch.lastRenderMode = WorldRenderMode.None;
         }
     }
 
@@ -127,7 +148,7 @@ namespace Multiplayer.Client.Patches
     [HarmonyPatch(typeof(WorldRendererUtility), nameof(WorldRendererUtility.CurrentWorldRenderMode), MethodType.Getter)]
     static class WorldRenderModePatch
     {
-        private static WorldRenderMode lastRenderMode = WorldRenderMode.None;
+        internal static WorldRenderMode lastRenderMode = WorldRenderMode.None;
 
         static void Postfix(WorldRenderMode __result)
         {
