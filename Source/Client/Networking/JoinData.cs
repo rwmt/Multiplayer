@@ -78,7 +78,8 @@ namespace Multiplayer.Client
                 remote.remoteRwVersion == VersionControl.CurrentVersionString &&
                 remote.CompareMods(activeModsSnapshot) == ModListDiff.None &&
                 remote.remoteFiles.DictsEqual(modFilesSnapshot) &&
-                (!remote.hasConfigs || remote.remoteModConfigs.EqualAsSets(SyncConfigs.GetSyncableConfigContents(remote.RemoteModIds.ToList())));
+                (!remote.hasConfigs || remote.remoteModConfigs.Select(c => c.Comparable()).EqualAsSets(
+                    SyncConfigs.GetSyncableConfigContents(remote.RemoteModIds.ToList()).Select(c => c.Comparable())));
         }
 
         internal static void TakeModDataSnapshot()
@@ -221,7 +222,13 @@ namespace Multiplayer.Client
         None, NoMatchAsSets, WrongOrder
     }
 
-    public record ModConfig(string ModId, string FileName, string Contents);
+    public record ModConfig(string ModId, string FileName, string Contents)
+    {
+        // Mods write their settings with the platform's line endings, the same settings shouldn't be a mismatch
+        public string ComparableContents => Contents?.Replace("\r\n", "\n").Replace('\r', '\n');
+
+        public ModConfig Comparable() => this with { Contents = ComparableContents };
+    }
 
     public class ModFileDict : IEnumerable<KeyValuePair<string, Dictionary<string, ModFile>>>
     {

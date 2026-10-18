@@ -157,14 +157,14 @@ namespace Multiplayer.Client
 
             void AddConfigs(List<ModConfig> one, List<ModConfig> two, NodeStatus notInTwo)
             {
-                var oneDict = one.ToDictionaryPermissive(m => m.ModId + "/" + m.FileName, m => m.Contents);
-                var twoDict = two.ToDictionaryPermissive(m => m.ModId + "/" + m.FileName, m => m.Contents);
+                var oneDict = one.ToDictionaryPermissive(m => m.ModId + "/" + m.FileName, m => m.ComparableContents);
+                var twoDict = two.ToDictionaryPermissive(m => m.ModId + "/" + m.FileName, m => m.ComparableContents);
 
                 foreach (var kv in oneDict){
                     AddNodesForPath(
                         kv.Key,
                         configsRoot,
-                        twoDict.TryGetValue(kv.Key, out var t) ? (t.Equals(kv.Value) ? NodeStatus.None : NodeStatus.Modified) : notInTwo
+                        twoDict.TryGetValue(kv.Key, out var t) ? (t == kv.Value ? NodeStatus.None : NodeStatus.Modified) : notInTwo
                     );
                 }
             }
