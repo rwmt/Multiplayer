@@ -47,4 +47,32 @@ namespace Multiplayer.Client.Patches
                 Rand.PopState();
         }
     }
+
+    // #959: vanilla checks whether the local camera sees the cell (map == Find.CurrentMap && view.Contains).
+    // An empty view makes the check camera independent; covers the container escape in UnnaturalCorpseTracker.
+    [HarmonyPatch(typeof(AnomalyUtility), nameof(AnomalyUtility.IsValidUnseenCell))]
+    static class AnomalyUtility_IsValidUnseenCell
+    {
+        static void Prefix(ref CellRect view)
+        {
+            if (Multiplayer.Client != null)
+                view = CellRect.Empty;
+        }
+    }
+
+    // #959: the corpse teleports/disappears only when the local camera doesn't see it.
+    // Keep the reservation check (shared state), treat the corpse as never seen by a camera.
+    [HarmonyPatch(typeof(UnnaturalCorpse), nameof(UnnaturalCorpse.IsOutsideView))]
+    static class UnnaturalCorpse_IsOutsideView
+    {
+        static bool Prefix(UnnaturalCorpse __instance, ref bool __result)
+        {
+            if (Multiplayer.Client == null)
+                return true;
+
+            __result = !(__instance.SpawnedOrAnyParentSpawned &&
+                         __instance.MapHeld.reservationManager.IsReservedByAnyoneOf(__instance, Faction.OfPlayer));
+            return false;
+        }
+    }
 }
