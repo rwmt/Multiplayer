@@ -48,6 +48,10 @@ namespace Multiplayer.Client
 
             int selectedId = data.ReadInt32();
 
+            // Replay under the acting player's view: vanilla debug actions read it (e.g. the incident
+            // actions pick their target from DebugActionsIncidents.GetTarget)
+            WorldSelectedPatch.result = data.ReadBool();
+
             if (Multiplayer.MapContext != null)
             {
                 var thing = Multiplayer.ThingsById.GetValueSafe(selectedId);
@@ -115,6 +119,7 @@ namespace Multiplayer.Client
 
                 MouseCellPatch.result = null;
                 MouseTilePatch.result = null;
+                WorldSelectedPatch.result = null;
                 Find.Selector.selected = prevSelected;
                 FieldRefs.worldSelected(Find.WorldSelector) = prevWorldSelected;
 
@@ -155,6 +160,9 @@ namespace Multiplayer.Client
                 writer.WriteInt32(Find.Selector.SingleSelectedThing?.thingIDNumber ?? -1);
             else
                 writer.WriteInt32(Find.WorldSelector.SingleSelectedObject?.ID ?? -1);
+
+            // Sent like the cursor and selection above, so the action resolves the same target everywhere
+            writer.WriteBool(WorldRendererUtility.WorldSelected);
 
             Multiplayer.WriterLog.AddCurrentNode(writer);
 

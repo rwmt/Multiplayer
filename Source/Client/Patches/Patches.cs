@@ -201,6 +201,26 @@ namespace Multiplayer.Client
         }
     }
 
+    // Set only while a debug command is executed (see DebugSync.HandleCmd)
+    [HarmonyPatch(typeof(WorldRendererUtility), nameof(WorldRendererUtility.WorldSelected), MethodType.Getter)]
+    public static class WorldSelectedPatch
+    {
+        public static bool? result;
+
+        static void Prepare(MethodBase original)
+        {
+            // A one-line getter: keep the JIT from inlining it into callers, which would skip the patch
+            if (original != null)
+                MpUtil.MarkNoInlining(original);
+        }
+
+        static void Postfix(ref bool __result)
+        {
+            if (result.HasValue)
+                __result = result.Value;
+        }
+    }
+
     [HarmonyPatch(typeof(KeyBindingDef), nameof(KeyBindingDef.IsDownEvent), MethodType.Getter)]
     public static class KeyIsDownPatch
     {
