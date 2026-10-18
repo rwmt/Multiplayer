@@ -120,6 +120,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
             catch (Exception e)
             {
                 Log.Error($"Exception in world DoSingleTick: {e}");
+                SimulationFailures.Record("world DoSingleTick", e);
             }
 
             // Matches how worldTicks is initialized after loading (ExposeData), so clients which joined later agree
@@ -133,6 +134,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
             catch (Exception e)
             {
                 Log.Error($"Exception ticking world sessions: {e}");
+                SimulationFailures.Record("world sessions", e);
             }
 
             if (ModsConfig.BiotechActive)
@@ -281,6 +283,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         catch (Exception e)
         {
             Log.Error($"World cmd exception ({cmdType}): {e}");
+            SimulationFailures.Record($"world command {cmdType}", e);
         }
         finally
         {

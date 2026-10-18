@@ -128,6 +128,7 @@ namespace Multiplayer.Client
                 catch (Exception e)
                 {
                     Log.Error($"Exception in MapPreTick of {map}: {e}");
+                    SimulationFailures.Record("MapPreTick", e);
                 }
 
                 mapTicks++;
@@ -150,6 +151,7 @@ namespace Multiplayer.Client
                 catch (Exception e)
                 {
                     Log.Error($"Exception ticking sessions of {map}: {e}");
+                    SimulationFailures.Record("map sessions", e);
                 }
 
                 try
@@ -159,6 +161,7 @@ namespace Multiplayer.Client
                 catch (Exception e)
                 {
                     Log.Error(e.ToString());
+                    SimulationFailures.Record("storyteller", e);
                 }
 
                 try
@@ -168,6 +171,7 @@ namespace Multiplayer.Client
                 catch (Exception e)
                 {
                     Log.Error(e.ToString());
+                    SimulationFailures.Record("story watcher", e);
                 }
 
                 try
@@ -177,6 +181,7 @@ namespace Multiplayer.Client
                 catch (Exception e)
                 {
                     Log.Error(e.ToString());
+                    SimulationFailures.Record("async quests", e);
                 }
 
                 map.MapPostTick();
@@ -352,6 +357,7 @@ namespace Multiplayer.Client
             catch (Exception e)
             {
                 MpLog.Error($"Map cmd exception ({cmdType}): {e}");
+                SimulationFailures.Record($"map command {cmdType}", e);
             }
             finally
             {

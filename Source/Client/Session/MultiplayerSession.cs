@@ -38,6 +38,9 @@ namespace Multiplayer.Client
         public bool showTimeline;
 
         public bool desynced;
+        // Caught exceptions in synced commands and ticks, see SimulationFailures
+        public int simulationFailures;
+        public string firstSimulationFailure;
         // Standalone: set by the server when this client's sync opinions are the ones compared against
         public bool isSyncReference;
 
