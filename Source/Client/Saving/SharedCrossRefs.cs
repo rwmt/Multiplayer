@@ -2,6 +2,7 @@
 using System.Linq;
 using RimWorld;
 using Verse;
+using Verse.AI.Group;
 
 namespace Multiplayer.Client;
 
@@ -31,7 +32,8 @@ public class SharedCrossRefs : LoadedObjectDirectory
         {
             if (val is Thing thing && thing.Map == map ||
                 val is PassingShip ship && ship.Map == map ||
-                val is Bill bill && bill.Map == map
+                val is Bill bill && bill.Map == map ||
+                val is Lord lord && lord.lordManager?.map == map
                )
             {
                 Unregister(val);
