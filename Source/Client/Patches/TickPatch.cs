@@ -24,6 +24,9 @@ namespace Multiplayer.Client
         public static int workTicks;
         public static bool currentExecutingCmdIssuedBySelf;
         public static CommandType? currentExecutingCmdType;
+        // Changes at the start of every command and every tick of a tickable. Interface code (and so a frame) can't run
+        // within one step, so caches keyed by it behave the same on every client, unlike ones keyed by frame.
+        public static int simStep;
         public static bool serverFrozen;
         public static int frozenAt;
 
@@ -196,7 +199,12 @@ namespace Multiplayer.Client
                 if (target == null)
                 {
                     Log.Error($"!!! Tickable of {cmd.mapId} not found! {cmd}");
-                } else target.ExecuteCmd(cmd);
+                }
+                else
+                {
+                    simStep++;
+                    target.ExecuteCmd(cmd);
+                }
 
                 if (LongEventHandler.eventQueue.Count > 0) return true; // Yield to e.g. join-point creation
             }
@@ -241,6 +249,7 @@ namespace Multiplayer.Client
                 TickTickable(tickable);
             }
 
+            simStep++;
             ConstantTicker.Tick();
 
             ticksToRun -= 1;
@@ -265,6 +274,7 @@ namespace Multiplayer.Client
                 if (timePerTick == 0) break;
 
                 tickable.TimeToTickThrough -= timePerTick;
+                simStep++;
 
                 try
                 {
