@@ -841,5 +841,25 @@ namespace Multiplayer.Client.Patches
             Multiplayer.Client != null ? length : UnityData.GetIdealBatchCount(length);
     }
 
+    // On a cache miss GetSituations fills the shared cache and runs CheckHostilityChanged (relation kind changes,
+    // letters). Called from the interface (e.g. the factions tab) that happened on one client only, and the values
+    // cached at that moment were what its simulation read until the next recalculation. Compute uncached values
+    // for the interface instead.
+    [HarmonyPatch(typeof(GoodwillSituationManager), nameof(GoodwillSituationManager.GetSituations))]
+    static class GoodwillSituationsInInterfacePatch
+    {
+        static bool Prefix(GoodwillSituationManager __instance, Faction other,
+            ref List<GoodwillSituationManager.CachedSituation> __result)
+        {
+            if (!Multiplayer.InInterface || other == null || other.IsPlayer || __instance.cachedData.ContainsKey(other))
+                return true;
+
+            var situations = new List<GoodwillSituationManager.CachedSituation>();
+            __instance.Recalculate(other, situations);
+            __result = situations;
+            return false;
+        }
+    }
+
 
 }
