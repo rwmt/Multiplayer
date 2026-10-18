@@ -50,7 +50,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         get => !Find.Maps.Any()
             ? timeSpeedInt
             : Find.Maps.Select(m => m.AsyncTime())
-                .Where(a => a.ActualRateMultiplier(a.DesiredTimeSpeed) != 0f)
+                .Where(a => a != null && a.ActualRateMultiplier(a.DesiredTimeSpeed) != 0f)
                 .Max(a => a?.DesiredTimeSpeed) ?? TimeSpeed.Paused;
         set => timeSpeedInt = value;
     }

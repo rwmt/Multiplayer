@@ -116,7 +116,8 @@ namespace Multiplayer.Client
         static void Prefix(Thing __instance)
         {
             if (Multiplayer.Client == null) return;
-            __instance.Map.MpComp().Notify_ThingDespawned(__instance);
+            // Despawning an unspawned thing only logs an error in vanilla
+            __instance.Map?.MpComp()?.Notify_ThingDespawned(__instance);
         }
     }
 }
