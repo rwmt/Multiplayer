@@ -72,10 +72,19 @@ namespace Multiplayer.Client
             return ModLister.GetModWithIdentifier(id);
         }
 
+        // Translated text is generated and saved during the simulation (names, letters) and name generation retries
+        // depend on it, so clients with different game languages can desync
+        public static string LocalLanguage => LanguageDatabase.activeLanguage?.folderName ?? "";
+
+        public static bool LanguageMatches(string remoteLanguage) =>
+            remoteLanguage == LocalLanguage ||
+            !remoteLanguage.NullOrEmpty() && remoteLanguage == LanguageDatabase.activeLanguage?.LegacyFolderName;
+
         public static bool CompareToLocal(RemoteData remote)
         {
             return
                 remote.remoteRwVersion == VersionControl.CurrentVersionString &&
+                LanguageMatches(remote.remoteLanguage) &&
                 remote.CompareMods(activeModsSnapshot) == ModListDiff.None &&
                 remote.remoteFiles.DictsEqual(modFilesSnapshot) &&
                 (!remote.hasConfigs || remote.remoteModConfigs.EqualAsSets(SyncConfigs.GetSyncableConfigContents(remote.RemoteModIds.ToList())));
@@ -150,6 +159,7 @@ namespace Multiplayer.Client
     {
         public string remoteRwVersion;
         public string remoteMpVersion;
+        public string remoteLanguage;
 
         public List<ModInfo> remoteMods = new();
         public ModFileDict remoteFiles = new();
@@ -178,6 +188,7 @@ namespace Multiplayer.Client
             {
                 remoteRwVersion = packet.rwVersion,
                 remoteMpVersion = packet.mpVersion,
+                remoteLanguage = packet.language,
                 hasConfigs = packet.configsIncluded,
             };
 

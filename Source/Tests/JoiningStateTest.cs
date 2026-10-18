@@ -63,6 +63,7 @@ public class JoiningStateTest
     private static ClientInitDataPacket InitData(params KeyedDefInfo[] defInfos) => new()
     {
         rwVersion = "1.0.0",
+        language = "English",
         debugOnlySyncCmds = [],
         hostOnlySyncCmds = [],
         modCtorRoundMode = RoundModeEnum.ToNearest,
@@ -180,6 +181,25 @@ public class JoiningStateTest
 
         Receive(firstConn, JoinData(a, b));
         Assert.That(first.hasJoined, Is.True);
+    }
+
+    [Test]
+    public void JoinDataCarriesTheInitDataLanguage()
+    {
+        var (_, firstConn) = Connect();
+        SendHandshake(firstConn, "first");
+        Receive(firstConn, InitData() with { language = "Russian" });
+
+        var (_, secondConn) = Connect();
+        SendHandshake(secondConn, "second");
+        Receive(secondConn, JoinData());
+
+        var raw = secondConn.SentRaw.Single(r => (Packets)(r[0] & 0x3F) == Packets.Server_JoinData);
+        var joinData = default(ServerJoinDataPacket);
+        joinData.Bind(new PacketReader(new ByteReader(raw.Skip(1).ToArray())));
+
+        // Joiners compare it with their own language and warn on a mismatch
+        Assert.That(joinData.language, Is.EqualTo("Russian"));
     }
 
     private static ClientJoinDataPacket JoinData(params KeyedDefInfo[] defInfos) => new()

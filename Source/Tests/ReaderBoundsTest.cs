@@ -111,7 +111,7 @@ public class ReaderBoundsTest
 
         var initData = new ClientInitDataPacket
         {
-            rwVersion = "1.6", debugOnlySyncCmds = [], hostOnlySyncCmds = [], defInfos = [], Mods = mods
+            rwVersion = "1.6", language = "English", debugOnlySyncCmds = [], hostOnlySyncCmds = [], defInfos = [], Mods = mods
         };
         // Bigger than the old 32 KiB and 512 KiB limits
         Assert.That(initData.rawMods, Has.Length.GreaterThan(1 << 19));
@@ -119,7 +119,7 @@ public class ReaderBoundsTest
         var roundtrip = Roundtrip(initData);
         var joinData = Roundtrip(new ServerJoinDataPacket
         {
-            gameName = "", rwVersion = "", mpVersion = "", defStatus = [], missingDefs = [],
+            gameName = "", rwVersion = "", mpVersion = "", language = "", defStatus = [], missingDefs = [],
             rawServerInitData = roundtrip.rawMods
         });
         Assert.That(joinData.ServerInitData, Has.Count.EqualTo(mods.Count));

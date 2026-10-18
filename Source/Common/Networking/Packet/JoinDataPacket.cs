@@ -11,6 +11,8 @@ public record struct ServerJoinDataPacket : IPacket
     public int playerId;
     public string rwVersion;
     public string mpVersion;
+    // Game language of the client which provided the server's init data
+    public string language;
     // Aligned with the client's def infos from ClientJoinDataPacket
     public DefCheckStatus[] defStatus;
     // Def types the server knows but the client didn't send
@@ -30,6 +32,7 @@ public record struct ServerJoinDataPacket : IPacket
         buf.Bind(ref playerId);
         buf.Bind(ref rwVersion);
         buf.Bind(ref mpVersion);
+        buf.Bind(ref language, maxLength: ClientInitDataPacket.MaxLanguageLength);
         buf.Bind(ref defStatus, BinderOf.Enum<DefCheckStatus>());
         buf.Bind(ref missingDefs, MissingDefBinder, maxLength: MaxMissingDefs);
         buf.Bind(ref configsIncluded);
