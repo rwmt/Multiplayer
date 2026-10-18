@@ -121,28 +121,22 @@ public class ServerTest
     [Test]
     public void StandaloneJoinWithExistingPlayer_DoesNotStartJoinPoint()
     {
-        var server = MakeServer(out var port);
-        server.IsStandaloneServer = true;
+        var server = MakeServer(out var port, s =>
+        {
+            s.IsStandaloneServer = true;
 
-        var existingConn = new RecordingConnection("existing");
-        existingConn.ChangeState(ConnectionStateEnum.ServerPlaying);
-        var existingPlayer = new ServerPlayer(100, existingConn);
-        existingConn.serverPlayer = existingPlayer;
-        server.playerManager.Players.Add(existingPlayer);
+            var existingConn = new RecordingConnection("existing");
+            existingConn.ChangeState(ConnectionStateEnum.ServerPlaying);
+            var existingPlayer = new ServerPlayer(100, existingConn);
+            existingConn.serverPlayer = existingPlayer;
+            s.playerManager.Players.Add(existingPlayer);
+        });
 
         ConnectClient(port, typeof(TestJoiningState));
 
-        var timeoutWatch = Stopwatch.StartNew();
-        while (true)
-        {
-            if (server.playerManager.Players.Count == 1)
-                break;
-
-            if (timeoutWatch.ElapsedMilliseconds > 2000)
-                Assert.Fail("Timeout");
-
-            Thread.Sleep(50);
-        }
+        // The existing player alone makes the count 1: wait for the client to come and go
+        WaitUntil(() => server.playerManager.Players.Count == 2);
+        WaitUntil(() => server.playerManager.Players.Count == 1);
 
         Assert.That(server.worldData.CreatingJoinPoint, Is.False);
     }

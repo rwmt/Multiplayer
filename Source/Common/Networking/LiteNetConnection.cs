@@ -9,10 +9,14 @@ namespace Multiplayer.Common
 
         protected override void SendRaw(byte[] raw, bool reliable)
         {
-            if (peer.ConnectionState == ConnectionState.Connected)
+            var state = peer.ConnectionState;
+            if (state == ConnectionState.Connected)
                 peer.Send(raw, reliable ? DeliveryMethod.ReliableOrdered : DeliveryMethod.Unreliable);
+            // LiteNetLib's thread changes the state, the server hears of the disconnect only on its next poll
+            else if ((state & (ConnectionState.ShutdownRequested | ConnectionState.Disconnected)) != 0)
+                ServerLog.Verbose($"Dropping a packet for {peer}, which is disconnecting ({state})");
             else
-                ServerLog.Error($"SendRaw() called with invalid connection state ({peer}): {peer.ConnectionState}");
+                ServerLog.Error($"SendRaw() called with invalid connection state ({peer}): {state}");
         }
 
         protected override void OnClose(ServerDisconnectPacket? goodbye)
