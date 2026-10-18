@@ -64,18 +64,9 @@ namespace Multiplayer.Client
 
         public int TickableId => map.uniqueID;
 
-        public int GameStartAbsTick
-        {
-            get
-            {
-                if (gameStartAbsTickMap == 0)
-                {
-                    gameStartAbsTickMap = Find.TickManager?.gameStartAbsTick ?? 0;
-                }
-
-                return gameStartAbsTickMap;
-            }
-        }
+        // No side effect: latching the global value on first read took whichever clock was set at that moment (another
+        // map's under async time). Saves without the field get the world's value when loading.
+        public int GameStartAbsTick => gameStartAbsTickMap != 0 ? gameStartAbsTickMap : Find.TickManager?.gameStartAbsTick ?? 0;
 
         public Map map;
         public int mapTicks;
@@ -216,7 +207,18 @@ namespace Multiplayer.Client
             map.glowGrid.GlowGridUpdate_First();
         }
 
-        private TimeSnapshot? prevTime;
+        private readonly struct ContextFrame(TimeSnapshot? prevTime, int outerRandDepth, bool continuesOuter)
+        {
+            public readonly TimeSnapshot? prevTime = prevTime;
+            public readonly int outerRandDepth = outerRandDepth;
+            public readonly bool continuesOuter = continuesOuter;
+        }
+
+        // Contexts nest (e.g. a quest's time getter enters its map's context while that map ticks the quest), so each
+        // PreContext keeps its own previous time. A single field made the outer PostContext restore the map's time
+        // instead of the world's, and the world clock then jumped to the map's.
+        private readonly Stack<ContextFrame> contextFrames = new();
+        private int contextRandDepth = -1;
 
         public void PreContext()
         {
@@ -226,10 +228,17 @@ namespace Multiplayer.Client
                     : Multiplayer.WorldComp.spectatorFaction,
                 force: true);
 
-            prevTime = TimeSnapshot.GetAndSetFromMap(map);
+            // Directly inside this map's own context: go on with its live random state instead of restarting from
+            // the state saved when the outer context began
+            bool continuesOuter = contextFrames.Count > 0 && Rand.stateStack.Count == contextRandDepth;
+            if (continuesOuter)
+                randState = Rand.StateCompressed;
+
+            contextFrames.Push(new ContextFrame(TimeSnapshot.GetAndSetFromMap(map), contextRandDepth, continuesOuter));
 
             Rand.PushState();
             Rand.StateCompressed = randState;
+            contextRandDepth = Rand.stateStack.Count;
 
             // Reset the effects of SkyManager.SkyManagerUpdate
             map.skyManager.curSkyGlowInt = map.skyManager.CurrentSkyTarget().glow;
@@ -237,10 +246,21 @@ namespace Multiplayer.Client
 
         public void PostContext()
         {
-            prevTime?.Set();
+            if (contextFrames.Count == 0)
+            {
+                Log.ErrorOnce($"Multiplayer: PostContext without PreContext on {map}", 0x2C7B90 ^ map.uniqueID);
+                return;
+            }
+
+            var frame = contextFrames.Pop();
+
+            frame.prevTime?.Set();
 
             randState = Rand.StateCompressed;
             Rand.PopState();
+            if (frame.continuesOuter)
+                Rand.StateCompressed = randState;
+            contextRandDepth = frame.outerRandDepth;
 
             map.PopFaction();
         }
@@ -265,11 +285,13 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref timeSpeedInt, "timeSpeed");
 
             Scribe_Values.Look(ref gameStartAbsTickMap, "gameStartAbsTickMap");
+            if (Scribe.mode == LoadSaveMode.LoadingVars && gameStartAbsTickMap == 0)
+                gameStartAbsTickMap = Find.TickManager.gameStartAbsTick;
 
             Scribe_Custom.LookULong(ref randState, "randState", 1);
 
-            // Affects the simulation through VTR. Saved so that it survives reloads, which can happen
-            // on one client only (standalone join points).
+            // Affects the simulation through VTR. Saved so that it survives join point reloads and joiners start
+            // with the same counts as everyone else.
             var playerCount = CurrentPlayerCount;
             Scribe_Values.Look(ref playerCount, "playerCount");
             CurrentPlayerCount = playerCount;

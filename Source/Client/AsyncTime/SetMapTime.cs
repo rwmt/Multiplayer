@@ -55,7 +55,7 @@ namespace Multiplayer.Client
         }
 
         [HarmonyPriority(MpPriority.MpLast)]
-        static void Postfix(TimeSnapshot? __state) => __state?.Set();
+        static void Finalizer(TimeSnapshot? __state) => __state?.Set();
     }
 
     [HarmonyPatch]
@@ -72,7 +72,7 @@ namespace Multiplayer.Client
             __state = TimeSnapshot.GetAndSetFromMap(pawn.MapHeld);
         }
 
-        static void Postfix(TimeSnapshot? __state) => __state?.Set();
+        static void Finalizer(TimeSnapshot? __state) => __state?.Set();
     }
 
     // TODO 1.3: set time on the new renderer
@@ -85,7 +85,7 @@ namespace Multiplayer.Client
             __state = TimeSnapshot.GetAndSetFromMap(__instance.pawn.MapHeld);
         }
 
-        static void Postfix(TimeSnapshot? __state) => __state?.Set();
+        static void Finalizer(TimeSnapshot? __state) => __state?.Set();
     }
 
     [HarmonyPatch(typeof(PawnTweener), nameof(PawnTweener.PreDrawPosCalculation))]
@@ -97,7 +97,7 @@ namespace Multiplayer.Client
             __state = TimeSnapshot.GetAndSetFromMap(__instance.pawn.Map);
         }
 
-        static void Postfix(TimeSnapshot? __state) => __state?.Set();
+        static void Finalizer(TimeSnapshot? __state) => __state?.Set();
     }
 
     [HarmonyPatch(typeof(DangerWatcher), nameof(DangerWatcher.DangerRating), MethodType.Getter)]
@@ -109,7 +109,7 @@ namespace Multiplayer.Client
             __state = TimeSnapshot.GetAndSetFromMap(__instance.map);
         }
 
-        static void Postfix(TimeSnapshot? __state) => __state?.Set();
+        static void Finalizer(TimeSnapshot? __state) => __state?.Set();
     }
 
     [HarmonyPatch]
@@ -127,7 +127,7 @@ namespace Multiplayer.Client
             __state = TimeSnapshot.GetAndSetFromMap(__instance.info.Maker.Map);
         }
 
-        static void Postfix(TimeSnapshot? __state) => __state?.Set();
+        static void Finalizer(TimeSnapshot? __state) => __state?.Set();
     }
 
     [HarmonyPatch(typeof(Sample), nameof(Sample.Update))]
@@ -139,7 +139,7 @@ namespace Multiplayer.Client
             __state = TimeSnapshot.GetAndSetFromMap(__instance.Map);
         }
 
-        static void Postfix(TimeSnapshot? __state) => __state?.Set();
+        static void Finalizer(TimeSnapshot? __state) => __state?.Set();
     }
 
     [HarmonyPatch(typeof(TipSignal), MethodType.Constructor, new[] { typeof(Func<string>), typeof(int) })]
@@ -228,12 +228,13 @@ namespace Multiplayer.Client
 
         public static TimeSnapshot? GetAndSetFromMap(Map map)
         {
-            if (map == null) return null;
+            // No comp yet while the map is being generated
+            var mapComp = map?.AsyncTime();
+            if (mapComp == null) return null;
 
             TimeSnapshot prev = Current();
 
             var tickManager = Find.TickManager;
-            var mapComp = map.AsyncTime();
 
             tickManager.ticksGameInt = mapComp.mapTicks;
             tickManager.slower = mapComp.slower;

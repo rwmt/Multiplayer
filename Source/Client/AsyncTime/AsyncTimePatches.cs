@@ -134,7 +134,8 @@ namespace Multiplayer.Client.AsyncTime
             if (WorldRendererUtility.WorldSelected) return;
 
             var map = PreDrawCalcMarker.calculating.Map ?? Find.CurrentMap;
-            var asyncTime = map.AsyncTime();
+            var asyncTime = map?.AsyncTime();
+            if (asyncTime == null) return;
             var timeSpeed = Multiplayer.IsReplay ? TickPatch.replayTimeSpeed : asyncTime.DesiredTimeSpeed;
 
             __result = TickPatch.Simulating ? 6 : asyncTime.ActualRateMultiplier(timeSpeed);
@@ -150,7 +151,8 @@ namespace Multiplayer.Client.AsyncTime
             if (WorldRendererUtility.WorldSelected) return;
             if (FactionCreator.generatingMap) return;
 
-            var asyncTime = Find.CurrentMap.AsyncTime();
+            var asyncTime = Find.CurrentMap?.AsyncTime();
+            if (asyncTime == null) return;
             var timeSpeed = Multiplayer.IsReplay ? TickPatch.replayTimeSpeed : asyncTime.DesiredTimeSpeed;
 
             __result = asyncTime.ActualRateMultiplier(timeSpeed) == 0;

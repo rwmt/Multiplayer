@@ -50,9 +50,11 @@ namespace Multiplayer.Client
             {
                 yield return Multiplayer.AsyncWorldTime;
 
+                // A map being generated is in Find.Maps before MapSetup gives it its comps
                 var maps = Find.Maps;
                 for (int i = maps.Count - 1; i >= 0; i--)
-                    yield return maps[i].AsyncTime();
+                    if (maps[i].AsyncTime() is { } comp)
+                        yield return comp;
             }
         }
 
@@ -305,7 +307,8 @@ namespace Multiplayer.Client
 
             var rate = Multiplayer.AsyncWorldTime.TickRateMultiplier(speed);
             foreach (var map in Find.Maps)
-                rate = Math.Min(rate, map.AsyncTime().TickRateMultiplier(speed));
+                if (map.AsyncTime() is { } comp)
+                    rate = Math.Min(rate, comp.TickRateMultiplier(speed));
 
             return rate;
         }
