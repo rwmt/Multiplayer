@@ -4,6 +4,10 @@ using Multiplayer.API;
 using System.Collections.Generic;
 using RimWorld;
 using System.Linq;
+using System.Reflection;
+using System.Reflection.Emit;
+using Multiplayer.Client.Patches;
+using UnityEngine;
 
 namespace Multiplayer.Client;
 
@@ -45,5 +49,49 @@ public static class Patch_Alert_AbandonedBaby_MultifactionWarning
 		if (!MP.IsInMultiplayer) return;
 
 		__result = __result.Where(pawn => !pawn.Faction.IsPlayer || pawn.MapHeld.ParentFaction == Faction.OfPlayer).ToList();
+	}
+}
+
+// Need_Food.TicksStarving compares TicksGame with a timestamp of the pawn's own clock (its map's or, in caravans, the
+// world's). The alerts run at the current map's time, which with async time made animals on other maps look starving
+// (or not) depending on which map is viewed. Interface only: these alerts don't run in the simulation.
+[HarmonyPatch]
+public static class AnimalHungerAlerts_OwnTime_Patch
+{
+	static IEnumerable<MethodBase> TargetMethods()
+	{
+		yield return AccessTools.PropertyGetter(typeof(Alert_StarvationAnimals), nameof(Alert_StarvationAnimals.StarvingAnimals));
+		yield return AccessTools.Method(typeof(Alert_PennedAnimalHungry), nameof(Alert_PennedAnimalHungry.CalculateTargets));
+		yield return AccessTools.Method(typeof(Alert_HitchedAnimalHungryNoFood), nameof(Alert_HitchedAnimalHungryNoFood.CalculateTargets));
+	}
+
+	static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts, MethodBase original)
+	{
+		var ticksStarving = AccessTools.PropertyGetter(typeof(Need_Food), nameof(Need_Food.TicksStarving));
+		var replacement = AccessTools.Method(typeof(AnimalHungerAlerts_OwnTime_Patch), nameof(TicksStarving));
+		var replaced = false;
+
+		foreach (var ci in insts)
+		{
+			if (ci.Calls(ticksStarving))
+			{
+				ci.opcode = OpCodes.Call;
+				ci.operand = replacement;
+				replaced = true;
+			}
+
+			yield return ci;
+		}
+
+		if (!replaced)
+			Log.Error($"Multiplayer: Need_Food.TicksStarving not found in {original.DeclaringType?.Name}.{original.Name}");
+	}
+
+	static int TicksStarving(Need_Food food)
+	{
+		if (Multiplayer.Client == null || !Multiplayer.InInterface)
+			return food.TicksStarving;
+
+		return Mathf.Max(0, StatWorkerGetValuePatch.TicksGameFor(Find.TickManager.TicksGame, food.pawn) - food.lastNonStarvingTick);
 	}
 }
