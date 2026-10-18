@@ -55,7 +55,8 @@ public class GrowthMomentSession(Map map) : ExposableSession(null), ITickingSess
 
     public override FloatMenuOption GetBlockingWindowOptions(ColonistBar.Entry entry)
     {
-        if (Map != entry.map || !IsActive) return null;
+        // Another faction's player with a pawn on the child's map mustn't choose the child's traits
+        if (Map != entry.map || !IsActive || !IsLocalPlayersChild) return null;
         return new FloatMenuOption("MpGrowthMomentSession".Translate(Pawn.Name.ToStringShort), OpenWindow);
     }
 
