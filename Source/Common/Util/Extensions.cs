@@ -136,6 +136,18 @@ namespace Multiplayer.Common
         public static T? ResultNowOrNull<T>(this Task<T> task) where T : class? =>
             task.Status == TaskStatus.RanToCompletion ? task.Result : null;
 
+        /// Keeps the first and the last lines of a long text and notes how many lines were left out in between
+        public static string KeepHeadAndTailLines(this string text, int headLines, int tailLines)
+        {
+            var lines = text.Split('\n');
+            var omitted = lines.Length - headLines - tailLines;
+            if (omitted <= 0) return text;
+
+            return string.Join("\n", lines, 0, headLines) +
+                   $"\n(... {omitted:N0} lines omitted ...)\n" +
+                   string.Join("\n", lines, lines.Length - tailLines, tailLines);
+        }
+
         public static string RemovePrefix(this string str, string? prefix)
         {
             if (prefix == null) return str;

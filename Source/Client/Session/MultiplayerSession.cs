@@ -41,6 +41,8 @@ namespace Multiplayer.Client
         // Caught exceptions in synced commands and ticks, see SimulationFailures
         public int simulationFailures;
         public string firstSimulationFailure;
+        // Set when the player connected despite mismatched game data
+        public string joinDataDiff;
         // Standalone: set by the server when this client's sync opinions are the ones compared against
         public bool isSyncReference;
 
