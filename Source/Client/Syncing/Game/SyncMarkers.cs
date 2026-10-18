@@ -9,6 +9,7 @@ public static class SyncMarkers
     [MpPrefix(typeof(MainTabWindow_Work), nameof(MainTabWindow_Work.DoManualPrioritiesCheckbox))]
     static void ManualPriorities_Prefix() => manualPriorities = true;
 
-    [MpPostfix(typeof(MainTabWindow_Work), nameof(MainTabWindow_Work.DoManualPrioritiesCheckbox))]
-    static void ManualPriorities_Postfix() => manualPriorities = false;
+    // A finalizer, so a throw in the checkbox doesn't leave the marker set
+    [MpFinalizer(typeof(MainTabWindow_Work), nameof(MainTabWindow_Work.DoManualPrioritiesCheckbox))]
+    static void ManualPriorities_Finalizer() => manualPriorities = false;
 }
