@@ -196,6 +196,44 @@ namespace Multiplayer.Client
             );
     }
 
+    // A building that can't overlap zones clears zone cells only from the installed (context faction's) zone
+    // manager, other factions' zones kept cells under it. Repeat it for them when any of them has a zone there.
+    [HarmonyPatch(typeof(ZoneManager), nameof(ZoneManager.Notify_NoZoneOverlapThingSpawned))]
+    static class ZoneOverlapSpawnedPatch
+    {
+        static bool ignore;
+
+        static void Prefix(ZoneManager __instance, Thing thing)
+        {
+            if (Multiplayer.Client == null || ignore) return;
+
+            var factionData = __instance.map.MpComp()?.factionData;
+            if (factionData == null || !AnyOtherFactionZoneUnder(factionData, __instance, thing)) return;
+
+            // The original then runs on the installed manager again, a no-op once its cells are cleared
+            FactionRepeater.Template(
+                factionData,
+                d => d.zoneManager.Notify_NoZoneOverlapThingSpawned(thing),
+                __instance.map,
+                ref ignore
+            );
+        }
+
+        static bool AnyOtherFactionZoneUnder(IDictionary<int, FactionMapData> factionData, ZoneManager installed, Thing thing)
+        {
+            var rect = thing.OccupiedRect();
+            foreach (var data in factionData.Values)
+            {
+                if (data.zoneManager == installed) continue;
+                foreach (var c in rect)
+                    if (c.InBounds(installed.map) && data.zoneManager.ZoneAt(c) != null)
+                        return true;
+            }
+
+            return false;
+        }
+    }
+
     // Fix for RimWorld 1.6 bug where HistoryAutoRecorder.Tick() calls .Last() on empty collection
     [HarmonyPatch(typeof(HistoryAutoRecorder), nameof(HistoryAutoRecorder.Tick))]
     static class HistoryAutoRecorderTickPatch
