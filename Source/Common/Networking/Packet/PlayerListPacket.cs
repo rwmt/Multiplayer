@@ -98,7 +98,7 @@ public record struct ServerPlayerListPacket : IPacket
             buf.BindEnum(ref type);
             buf.BindEnum(ref status);
             buf.Bind(ref steamId);
-            buf.Bind(ref steamPersonaName, maxLength: Constants.k_cwchPersonaNameMax);
+            buf.Bind(ref steamPersonaName, maxLength: Constants.k_cchPersonaNameMax);
             buf.Bind(ref ticksBehind);
             buf.Bind(ref simulating);
             buf.Bind(ref r);

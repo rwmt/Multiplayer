@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.IO.Compression;
+using System.Text;
 
 namespace Multiplayer.Common.Networking.Packet;
 
@@ -242,13 +243,17 @@ public sealed class PacketReader(ByteReader reader) : PacketBuffer(false)
         int len = reader.ReadInt32();
         if (len > maxLength && maxLength != -1) throw new ReaderException($"Array too big ({len}>{maxLength})");
 
-        obj = new T[len];
+        if (len < 0) throw new ReaderException($"Array length ({len}<0)");
+
+        // The length is remote data, don't allocate more than the packet could hold up front
+        var items = new List<T>(Math.Min(len, reader.Left));
         for (var i = 0; i < len; i++)
         {
             var item = default(T);
             bind(this, ref item);
-            obj[i] = item;
+            items.Add(item);
         }
+        obj = items.ToArray();
     }
 
     public override void BindRemaining(ref byte[] obj, int maxLength = DefaultMaxLength)
@@ -326,7 +331,10 @@ public sealed class PacketWriter(ByteWriter writer) : PacketBuffer(true)
 
     public override void Bind(ref string obj, int maxLength = DefaultMaxLength)
     {
-        if (obj != null && obj.Length > maxLength) throw new WriterException($"Too long string ({obj.Length}>{maxLength})");
+        // The reader limits UTF-8 bytes, not chars: checking chars here let non-ASCII strings through which every
+        // receiver then rejected
+        if (obj != null && Encoding.UTF8.GetByteCount(obj) is var bytes && bytes > maxLength)
+            throw new WriterException($"Too long string ({bytes} bytes>{maxLength})");
         writer.WriteString(obj);
     }
 

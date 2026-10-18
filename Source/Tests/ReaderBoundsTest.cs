@@ -75,6 +75,43 @@ public class ReaderBoundsTest
     }
 
     [Test]
+    public void ArrayBindRejectsNegativeAndUnbackedLengths()
+    {
+        int[] array = [];
+        Assert.Throws<ReaderException>(() => new PacketReader(LengthPrefixed(-1)).Bind(ref array, BinderOf.Int()));
+        // A huge claimed count fails on the missing data instead of allocating the array up front
+        Assert.Catch(() =>
+            new PacketReader(LengthPrefixed(int.MaxValue - 1)).Bind(ref array, BinderOf.Int(), maxLength: int.MaxValue));
+    }
+
+    [Test]
+    public void StringLimitCountsUtf8Bytes()
+    {
+        // 20 Cyrillic letters are 40 UTF-8 bytes: the writer has to refuse them for a 32 byte limit, the reader would
+        string tooLong = new('ж', 20);
+        Assert.Throws<WriterException>(() => new PacketWriter(new ByteWriter()).Bind(ref tooLong, maxLength: 32));
+
+        string fits = new('ж', 16);
+        var writer = new ByteWriter();
+        new PacketWriter(writer).Bind(ref fits, maxLength: 32);
+        string read = "";
+        new PacketReader(new ByteReader(writer.ToArray())).Bind(ref read, maxLength: 32);
+        Assert.That(read, Is.EqualTo(fits));
+    }
+
+    [Test]
+    public void PlayerListAcceptsLongNonAsciiSteamNames()
+    {
+        // Steam allows 32 characters, up to 128 UTF-8 bytes
+        var info = new ServerPlayerListPacket.PlayerInfo { username = "Host", steamPersonaName = new string('ж', 32) };
+        var writer = new ByteWriter();
+        info.Bind(new PacketWriter(writer));
+        var read = default(ServerPlayerListPacket.PlayerInfo);
+        read.Bind(new PacketReader(new ByteReader(writer.ToArray())));
+        Assert.That(read.steamPersonaName, Is.EqualTo(info.steamPersonaName));
+    }
+
+    [Test]
     public void GzippedRejectsDecompressionBomb()
     {
         var binder = BinderOf.Identity<Blob>().Gzipped(maxLength: 1 << 20, maxDecompressedLength: 1 << 16);
