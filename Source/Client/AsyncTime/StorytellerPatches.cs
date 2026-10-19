@@ -110,12 +110,14 @@ public class StorytellerTargetsPatch
     // In multifaction the single player faction whose storyteller runs the quest incident makers (threat generators)
     // of a map: its owner, else the lowest id player faction with pawns there, else the lowest id player faction.
     // Every faction's storyteller walks the same quest list, so without this each one fired the same raids.
+    // Only factions with world data have a storyteller (FactionRepeater).
     public static Faction QuestIncidentsFaction(Map map)
     {
         var worldComp = Multiplayer.WorldComp;
         var spectator = worldComp.spectatorFaction;
 
-        if (map != null && OwnerFaction(map) is { IsPlayer: true } owner && owner != spectator)
+        if (map != null && OwnerFaction(map) is { IsPlayer: true } owner && owner != spectator &&
+            worldComp.factionData.ContainsKey(owner.loadID))
             return owner;
 
         Faction first = null;
@@ -161,10 +163,12 @@ public class QuestPartsListForReadingPatch
             bool incidentMakersAllowed = !Multiplayer.GameComp.multifaction ||
                 Faction.OfPlayer == StorytellerTargetsPatch.QuestIncidentsFaction(mapContext);
 
+            // A threats generator makes incidents for its own map, so in that map's tick. Other (mods') incident makers
+            // only in the world tick: the storyteller ticks in the world tick and in every map tick.
             __result = __result.Where(questPart => questPart switch
             {
                 QuestPart_ThreatsGenerator threats => incidentMakersAllowed && threats.mapParent?.Map == mapContext,
-                IIncidentMakerQuestPart => incidentMakersAllowed,
+                IIncidentMakerQuestPart => incidentMakersAllowed && mapContext == null,
                 _ => true
             }).ToList();
         }
