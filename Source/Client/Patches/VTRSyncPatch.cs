@@ -54,7 +54,6 @@ namespace Multiplayer.Client.Patches
         public const int WorldMapId = -2;
         public const int InvalidMapId = -1;
         public static int lastMovedToMapId = InvalidMapId;
-        public static int lastSentAtTick = -1;
 
         // Vtr rates
         public const int MaximumVtr = 15;
@@ -65,9 +64,24 @@ namespace Multiplayer.Client.Patches
         public static int CurrentViewId() =>
             WorldRendererUtility.WorldSelected ? WorldMapId : Find.CurrentMap?.uniqueID ?? InvalidMapId;
 
-        // Hosting creates the game with a save and reload, which doesn't report the view (see below), so the host
-        // announces the view it starts with. Without it the host's map ran at the no-viewer rate until the host
-        // switched maps. Joiners report theirs when their load sets the current map.
+        // Called every frame. The counts follow what the player looks at however the view changed: catching only
+        // the CurrentMap setter and world map toggles missed views that never went through them. A multifaction
+        // joiner starts on the world without a current map, command execution changes the map index directly,
+        // and hosting creates the game with a save and reload (during which nothing is reported).
+        public static void UpdateView()
+        {
+            if (Multiplayer.arbiterInstance || Multiplayer.reloading || LongEventHandler.AnyEventNowOrWaiting)
+                return;
+
+            if (Multiplayer.session.client.State != ConnectionStateEnum.ClientPlaying)
+                return;
+
+            int view = CurrentViewId();
+            if (view != lastMovedToMapId)
+                SendViewedMapUpdate(lastMovedToMapId, view);
+        }
+
+        // The host reports its view as soon as its server runs
         public static void AnnounceCurrentView() => SendViewedMapUpdate(lastMovedToMapId, CurrentViewId());
 
         public static void ResetAllPlayerCounts()
@@ -77,6 +91,8 @@ namespace Multiplayer.Client.Patches
                 map.AsyncTime()?.ResetPlayerCount();
         }
 
+        // previous must be what the server last got from this client: the server and every client apply the
+        // transition to the synced counts
         public static void SendViewedMapUpdate(int previous, int current)
         {
             // Join point reloads keep the saved counts, the view doesn't change
@@ -87,68 +103,24 @@ namespace Multiplayer.Client.Patches
             if (Multiplayer.arbiterInstance)
                 return;
 
-            string warn = string.Empty;
-            if (previous != lastMovedToMapId)
-                warn = $" mismatch between expected previous map {previous} and last moved to map {lastMovedToMapId}";
-            else if (previous == current) return;
-            int currentTick = Find.TickManager?.TicksGame ?? 0;
-            MpLog.Debug($"VTR MapSwitchPatch: {lastMovedToMapId}->{current} @ tick {currentTick}{warn}");
+            if (previous == current) return;
+
+            MpLog.Debug($"VTR view: {previous}->{current} @ tick {Find.TickManager?.TicksGame ?? 0}");
             Multiplayer.Client.SendCommand(CommandType.PlayerCount, ScheduledCommand.Global, ByteWriter.GetBytes(previous, current));
             lastMovedToMapId = current;
         }
 
+        // A new connection starts unknown to the server (which counts its own record of the player's view)
         public static void Reset()
         {
             lastMovedToMapId = InvalidMapId;
-            lastSentAtTick = -1;
-            WorldRenderModePatch.lastRenderMode = WorldRenderMode.None;
-        }
-    }
-
-    [HarmonyPatch(typeof(Game), nameof(Game.CurrentMap), MethodType.Setter)]
-    static class MapSwitchPatch
-    {
-        static void Prefix(Map value)
-        {
-            if (Multiplayer.Client == null) return;
-
-            try
-            {
-                // WorldRenderModePatch will handle it
-                if (VTRSync.lastMovedToMapId == VTRSync.WorldMapId) return;
-                int previousMap = GetPreviousMapId();
-                int newMap = value?.uniqueID ?? VTRSync.InvalidMapId;
-                int currentTick = Find.TickManager?.TicksGame ?? 0;
-
-                if (previousMap == newMap) return;
-                if (VTRSync.lastMovedToMapId == newMap && currentTick == VTRSync.lastSentAtTick) return;
-
-                VTRSync.SendViewedMapUpdate(previousMap, newMap);
-                VTRSync.lastSentAtTick = currentTick;
-            }
-            catch (Exception ex)
-            {
-                MpLog.Error($"VTR MapSwitchPatch error: {ex}");
-            }
-        }
-
-        private static int GetPreviousMapId()
-        {
-            bool currentMapIsRemovedAndWasLatestMap = Current.Game.currentMapIndex >= Find.Maps.Count;
-
-            if (currentMapIsRemovedAndWasLatestMap)
-            {
-                return VTRSync.InvalidMapId;
-            }
-
-            return Find.CurrentMap?.uniqueID ?? VTRSync.InvalidMapId;
         }
     }
 
     [HarmonyPatch(typeof(WorldRendererUtility), nameof(WorldRendererUtility.CurrentWorldRenderMode), MethodType.Getter)]
     static class WorldRenderModePatch
     {
-        internal static WorldRenderMode lastRenderMode = WorldRenderMode.None;
+        private static WorldRenderMode lastRenderMode = WorldRenderMode.None;
 
         static void Postfix(WorldRenderMode __result)
         {
@@ -156,27 +128,13 @@ namespace Multiplayer.Client.Patches
 
             try
             {
-                // Detect transition to world map (Planet mode)
+                // Detect transition to world map (Planet mode). Viewer counts are updated by VTRSync.UpdateView.
                 if (__result == WorldRenderMode.Planet && lastRenderMode != WorldRenderMode.Planet)
                 {
-                    if (VTRSync.lastMovedToMapId != VTRSync.InvalidMapId && VTRSync.lastMovedToMapId != VTRSync.WorldMapId)
-                    {
-                        VTRSync.SendViewedMapUpdate(VTRSync.lastMovedToMapId, VTRSync.WorldMapId);
-                    }
-
                     // On standalone with streaming, trigger a join point when leaving a map
                     // so each player can save independently without disturbing others
                     if (Multiplayer.session?.ConnectedToStandaloneServer == true && Multiplayer.GameComp.multifaction && Multiplayer.GameComp.asyncTime)
                         Autosaving.SendAutosavingRequest(JoinPointRequestReason.WorldTravel, TickPatch.Timer);
-                }
-                // Detect transition back to tile map
-                else if (__result != WorldRenderMode.Planet && lastRenderMode == WorldRenderMode.Planet)
-                {
-                    var newMap = Find.CurrentMap?.uniqueID ?? VTRSync.InvalidMapId;
-                    if (newMap != VTRSync.InvalidMapId && VTRSync.lastMovedToMapId == VTRSync.WorldMapId)
-                    {
-                        VTRSync.SendViewedMapUpdate(VTRSync.WorldMapId, newMap);
-                    }
                 }
 
                 lastRenderMode = __result;

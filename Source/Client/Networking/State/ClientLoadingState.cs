@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Linq;
 using Ionic.Zlib;
+using Multiplayer.Client.Patches;
 using Multiplayer.Client.Saving;
 using Multiplayer.Common;
 using Verse;
@@ -69,6 +70,9 @@ public class ClientLoadingState(ConnectionBase connection) : ClientBaseState(con
 
         int factionId = data.ReadInt32();
         Multiplayer.session.myFactionId = factionId;
+
+        // The server knows this connection's view from scratch (also after a rejoin, which keeps the session)
+        VTRSync.Reset();
 
         // The server only picks caught up players as the sync reference
         Multiplayer.session.isSyncReference = false;

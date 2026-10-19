@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Multiplayer.Client.DebugUi;
 using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.Networking;
+using Multiplayer.Client.Patches;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using UnityEngine;
@@ -33,6 +34,7 @@ namespace Multiplayer.Client
 
             Multiplayer.session.Update();
             SyncFieldUtil.UpdateSync();
+            VTRSync.UpdateView();
 
             if (PerformanceRecorder.IsRecording)
             {
