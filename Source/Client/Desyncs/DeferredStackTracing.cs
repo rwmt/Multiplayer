@@ -32,6 +32,12 @@ namespace Multiplayer.Client.Desyncs
 
         private static bool loggedTraceFailure;
 
+        // Set by the first exception thrown by the stack walk, until the game restarts. On some setups (e.g. macOS
+        // through Rosetta) the walk throws on every Rand call, which stalls the game (#856). Traces are diagnostic
+        // only: the window being built is marked unreliable below and this client's later windows have no trace
+        // hashes, which aren't compared.
+        public static bool tracingFailed;
+
         public static void Postfix()
         {
             if (Native.LmfPtr == 0) return;
@@ -54,19 +60,21 @@ namespace Multiplayer.Client.Desyncs
                 }
                 catch (Exception e)
                 {
+                    tracingFailed = true;
                     LogTraceFailureOnce(e.ToString());
+                    Log.Warning("Multiplayer: desync stack traces are turned off until the game restarts");
                     depth = -1;
                 }
 
                 if (depth < 0)
                 {
-                    if (DeferredStackTracingImpl.lastFailureReason != null)
-                        LogTraceFailureOnce(DeferredStackTracingImpl.lastFailureReason);
-
                     // Keep the trace count in line with other clients but don't compare this window's trace hashes
                     depth = 0;
                     hash = 0;
                     Multiplayer.game.sync.MarkTracesUnreliable();
+
+                    if (DeferredStackTracingImpl.lastFailureReason != null)
+                        LogTraceFailureOnce(DeferredStackTracingImpl.lastFailureReason);
                 }
 
                 Multiplayer.game.sync.TryAddStackTraceForDesyncLogRaw(logItem, depth, hash);
@@ -99,6 +107,7 @@ namespace Multiplayer.Client.Desyncs
 
         public static bool ShouldAddStackTraceForDesyncLog()
         {
+            if (tracingFailed) return false;
             if (!SupportsDeferredStackTracing) return false;
             if (Multiplayer.Client == null) return false;
             if (Multiplayer.settings.desyncTracingMode == DesyncTracingMode.None) return false;
