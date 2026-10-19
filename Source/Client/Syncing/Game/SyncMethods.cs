@@ -982,5 +982,48 @@ namespace Multiplayer.Client
             return owner.TryDrop(thing, dropLoc, map, mode, count, out resultingThing,
                null, null);
         }
+
+        // The dev mode "remove hediff" button of the health tab calls RemoveHediff in its drawer lambda, which runs
+        // every frame and so can't be synced itself (as a SyncDelegate it would send a command each frame). Sync the
+        // call instead (#358).
+        [HarmonyPatch]
+        static class HealthCardDevRemoveHediff_Patch
+        {
+            private static readonly MethodInfo RemoveHediff =
+                AccessTools.Method(typeof(Pawn_HealthTracker), nameof(Pawn_HealthTracker.RemoveHediff));
+
+            static MethodBase TargetMethod()
+            {
+                // The only lambda of DrawHediffRow calling RemoveHediff
+                var lambdaPrefix = $"<{nameof(HealthCardUtility.DrawHediffRow)}>";
+                return typeof(HealthCardUtility).GetNestedTypes(AccessTools.all)
+                    .SelectMany(t => t.GetDeclaredMethods())
+                    .Where(m => m.Name.StartsWith(lambdaPrefix))
+                    .First(m => PatchProcessor.ReadMethodBody(m).Any(i => i.Value as MethodInfo == RemoveHediff));
+            }
+
+            static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+            {
+                var replacement = AccessTools.Method(typeof(SyncMethods), nameof(DevRemoveHediff));
+
+                foreach (var ci in insts)
+                {
+                    if (ci.Calls(RemoveHediff))
+                    {
+                        ci.opcode = OpCodes.Call;
+                        ci.operand = replacement;
+                    }
+
+                    yield return ci;
+                }
+            }
+        }
+
+        // Takes the arguments of the instance call it replaces
+        static void DevRemoveHediff(Pawn_HealthTracker health, Hediff hediff) =>
+            SyncedDevRemoveHediff(health.pawn, hediff);
+
+        [SyncMethod(debugOnly = true, cancelIfAnyArgNull = true)]
+        static void SyncedDevRemoveHediff(Pawn pawn, Hediff hediff) => pawn.health.RemoveHediff(hediff);
     }
 }
