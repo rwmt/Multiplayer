@@ -857,7 +857,8 @@ namespace Multiplayer.Client.Patches
         {
             if (Multiplayer.Client == null) return;
 
-            if (!Multiplayer.Ticking && !Multiplayer.ExecutingCmds)
+            // Also sim long events, loading etc.: every simulation step (TickPatch.simStep) starts with a new key
+            if (Multiplayer.InInterface)
             {
                 // May rescan and replace the contents
                 scanGame = null;

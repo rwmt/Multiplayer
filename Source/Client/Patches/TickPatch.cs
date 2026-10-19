@@ -24,7 +24,7 @@ namespace Multiplayer.Client
         public static int workTicks;
         public static bool currentExecutingCmdIssuedBySelf;
         public static CommandType? currentExecutingCmdType;
-        // Changes at the start of every command and every tick of a tickable. Interface code (and so a frame) can't run
+        // Changes at the start of every command, tick of a tickable and sim long event. Interface code (and so a frame) can't run
         // within one step, so caches keyed by it behave the same on every client, unlike ones keyed by frame.
         public static int simStep;
         public static bool serverFrozen;

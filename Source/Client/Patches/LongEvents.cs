@@ -202,6 +202,9 @@ namespace Multiplayer.Client.Patches
             prev = current;
             current = this;
 
+            // Runs in a later frame than the tick or command which queued it, so it's a step of its own
+            TickPatch.simStep++;
+
             Rand.PushState(seed);
 
             if (faction != null && game == Multiplayer.game)
