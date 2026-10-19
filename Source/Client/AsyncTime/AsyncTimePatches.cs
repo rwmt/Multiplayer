@@ -253,6 +253,26 @@ namespace Multiplayer.Client.AsyncTime
         static void Postfix(ref bool __result)
         {
             if (Multiplayer.Client == null) return;
+
+            // The simulation must not see the local view (the viewed map, the world view, vanilla's ForcePaused with
+            // e.g. TilePicker.Active): Pawn_JobTracker.StartJob counts a job given while paused only if it's the
+            // tracker's second in the same step, so the value changed jobsGivenThisTick per client.
+            // A world or map tick: not paused, as vanilla only ticks unpaused. Ticks can continue after a rate change
+            // in the same game tick (TickPatch.TickLockstep).
+            if (AsyncWorldTimeComp.tickingWorld || AsyncTimeComp.tickingMap != null)
+            {
+                __result = false;
+                return;
+            }
+
+            // Commands, the constant ticker and sim long events: whether their context's tickable is paused
+            if (Multiplayer.ExecutingCmds || ConstantTicker.ticking || Patches.SimLongEventContext.InSimulation)
+            {
+                var tickable = (ITickable)Multiplayer.MapContext?.AsyncTime() ?? Multiplayer.AsyncWorldTime;
+                __result = tickable.ActualRateMultiplier(tickable.DesiredTimeSpeed) == 0;
+                return;
+            }
+
             if (WorldRendererUtility.WorldSelected) return;
             if (FactionCreator.generatingMap) return;
 
@@ -309,6 +329,12 @@ namespace Multiplayer.Client.AsyncTime
                 return;
             }
 
+            SimPause();
+        }
+
+        // Pauses the context's tickable (everything without async time) from the simulation and resets the time votes
+        public static void SimPause()
+        {
             if (Multiplayer.GameComp.asyncTime)
             {
                 var tickable = (ITickable)Multiplayer.MapContext.AsyncTime() ?? Multiplayer.AsyncWorldTime;
@@ -321,6 +347,31 @@ namespace Multiplayer.Client.AsyncTime
                 foreach (var tickable in TickPatch.AllTickables)
                     Multiplayer.GameComp.ResetAllTimeVotes(tickable.TickableId);
             }
+        }
+    }
+
+    // Vanilla's Dialog_NodeTree force-pauses, but in MP WindowsForcePause is always false (windows differ between
+    // clients). The caravan meeting and demand incidents open one when they fire on a caravan, so pause the way a
+    // letter does, keyed on the incident's result, which every client shares (#512).
+    [HarmonyPatch]
+    static class PauseOnCaravanDialogIncident
+    {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(IncidentWorker_CaravanMeeting), nameof(IncidentWorker_CaravanMeeting.TryExecuteWorker));
+            yield return AccessTools.Method(typeof(IncidentWorker_CaravanDemand), nameof(IncidentWorker_CaravanDemand.TryExecuteWorker));
+        }
+
+        static void Postfix(bool __result, IncidentParms parms)
+        {
+            if (Multiplayer.Client == null || Multiplayer.InInterface || !__result || parms.target is not Caravan)
+                return;
+
+            // The host chose to never pause automatically
+            if (Multiplayer.GameComp.pauseOnLetter == Common.PauseOnLetter.Never)
+                return;
+
+            ReceiveLetterPause.SimPause();
         }
     }
 }

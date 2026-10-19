@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using HarmonyLib;
+using Multiplayer.Client.AsyncTime;
 using RimWorld;
 using Verse;
 
@@ -63,13 +64,24 @@ public static class MapSetup
         }
         else
         {
-            startingMapTicks = Find.Maps.Where(m => m != map).Select(m => m.AsyncTime()?.mapTicks).Max() ?? Find.TickManager.TicksGame;
+            // Without async time the maps tick in lockstep with the world (TickPatch.TickLockstep). A map generated
+            // during the world tick still ticks in the same game tick, so it starts where the maps were before it (also
+            // after DoSingleTick updated worldTicks, and with TicksGame of a nested map context). One generated later
+            // starts at worldTicks and ticks from the next game tick. The other maps' clocks differ from that in the
+            // middle of a game tick.
+            startingMapTicks = !Multiplayer.GameComp.asyncTime && Multiplayer.AsyncWorldTime is { } worldTime
+                ? AsyncWorldTimeComp.tickingWorld ? worldTime.TicksBeforeTick : worldTime.worldTicks
+                : Find.Maps.Where(m => m != map).Select(m => m.AsyncTime()?.mapTicks).Max() ?? Find.TickManager.TicksGame;
             gameStartAbsTick = Find.TickManager.gameStartAbsTick;
             startingTimeSpeed = TimeSpeed.Paused;
         }
 
+        // TickManager.CurTimeSpeed is the speed of the last context entered: a pausing letter earlier in the same world
+        // tick doesn't change it, and the new map would then unpause the game
         if (!Multiplayer.GameComp.asyncTime)
-            startingTimeSpeed = Find.TickManager.CurTimeSpeed;
+            startingTimeSpeed = !usingMapTimeFromSingleplayer && Multiplayer.AsyncWorldTime is { } world
+                ? world.GlobalTimeSpeed
+                : Find.TickManager.CurTimeSpeed;
 
         var asyncTimeCompForMap = new AsyncTimeComp(map, gameStartAbsTick)
         {

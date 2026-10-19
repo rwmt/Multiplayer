@@ -24,10 +24,59 @@ public static class FactionCreator
         pawnStore.Clear();
     }
 
-    [SyncMethod(exposeParameters = new[] { 1 })]
-    public static void SendPawn(int playerId, Pawn p)
+    // Set while SendPawn reads a starting pawn, see NoFallbackIdeoForStartingPawnPatch
+    public static bool readingStartingPawn;
+
+    [SyncMethod]
+    public static void SendPawn(int playerId, StartingPawnData data)
     {
-        pawnStore.GetOrAddNew(playerId).Add(p);
+        if (ReadStartingPawn(data.xml) is { } pawn)
+            pawnStore.GetOrAddNew(playerId).Add(pawn);
+    }
+
+    // The page's pawns believe in the temporary page faction's ideoligion, which isn't registered: on load the
+    // reference didn't resolve, the pawn got a random fallback ideoligion and CreateFaction's SetIdeo then recorded
+    // an ideo change and kept the fallback as a previous ideo (#537). Send them without one, CreateFaction sets it.
+    public static StartingPawnData WriteStartingPawn(Pawn pawn)
+    {
+        var tracker = pawn.ideo;
+        var ideo = tracker?.ideo;
+        if (tracker != null) tracker.ideo = null;
+
+        try
+        {
+            return new StartingPawnData { xml = ScribeUtil.WriteExposable(pawn) };
+        }
+        finally
+        {
+            if (tracker != null) tracker.ideo = ideo;
+        }
+    }
+
+    private static Pawn ReadStartingPawn(byte[] xml)
+    {
+        if (xml == null) return null;
+
+        // Vanilla loads pawns only while a game initializes. In Playing the needs tracker's constructor evaluates
+        // Need_Food.MaxLevel as a stat over hediffs whose pawn is set only when cross refs resolve (#536).
+        // Outside Playing some getters read the GameInitData (TicksAbs, Faction.OfPlayer, PawnsFinder), which
+        // differs between clients here (the issuer's pages, an earlier faction creation, none), so hide it.
+        var prevState = Current.programStateInt;
+        var prevInitData = Current.Game.InitData;
+        Current.programStateInt = ProgramState.MapInitializing;
+        Current.Game.InitData = null;
+        readingStartingPawn = true;
+
+        try
+        {
+            return ScribeUtil.ReadExposable<Pawn>(xml);
+        }
+        finally
+        {
+            readingStartingPawn = false;
+            Current.Game.InitData = prevInitData;
+            Current.programStateInt = prevState;
+        }
     }
 
     [SyncMethod]
@@ -302,6 +351,22 @@ public static class FactionCreator
         return 0;
     }
 }
+
+// A starting pawn's XML, read inside SendPawn (not by the sync layer) so that the read runs in a load-like state.
+// Same wire format as the exposed Pawn parameter it replaces.
+public class StartingPawnData : ISynchronizable
+{
+    public byte[] xml;
+
+    public void Sync(SyncWorker sync)
+    {
+        if (sync is WritingSyncWorker writer)
+            writer.Writer.WritePrefixedBytes(xml);
+        else if (sync is ReadingSyncWorker reader)
+            xml = reader.Reader.ReadPrefixedBytes();
+    }
+}
+
 public record FactionCreationData : ISyncSimple
 {
     public string factionName;

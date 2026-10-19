@@ -45,6 +45,20 @@ static class LifeStageWorker_Patch
     }
 }
 
+// Starting pawns are sent without an ideoligion (FactionCreator.WriteStartingPawn), CreateFaction gives them the new
+// faction's. Pawn_IdeoTracker's PostLoadInit would otherwise assign a random fallback one.
+[HarmonyPatch(typeof(Pawn), nameof(Pawn.ShouldHaveIdeo), MethodType.Getter)]
+static class NoFallbackIdeoForStartingPawnPatch
+{
+    static bool Prefix(ref bool __result)
+    {
+        if (!FactionCreator.readingStartingPawn) return true;
+
+        __result = false;
+        return false;
+    }
+}
+
 [HarmonyPatch(typeof(StartingPawnUtility), nameof(StartingPawnUtility.GetGenerationRequest))]
 static class StartingPawnUtility_GetGenerationRequest_Patch
 {
