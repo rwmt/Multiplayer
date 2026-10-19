@@ -72,8 +72,11 @@ static class CaravansBattlefieldCheckWonBattle_OwnerContext
 }
 
 // Ideos tick in the world tick: date ritual obligations (festivals) need Faction.OfPlayer to follow the ideo (and use
-// the time zone of its home), role activity letters go to it. Without a push no player ever got festivals. An ideo
-// shared by several player factions gets them for the first one.
+// the time zone of its home), role activity letters go to it. Without a push no player ever got festivals.
+// Limitation: with an ideo shared by several player factions only the first one gets the festival and role letters and
+// the festival timing of its home (the obligation itself is the ideo's). Before, none of them did.
+// The date is still the world's: the trigger fires on an exact tick each world tick, a map clock can pause (firing it
+// again) or run ahead (skipping it).
 [HarmonyPatch(typeof(Ideo), nameof(Ideo.IdeoTick))]
 static class IdeoTick_FollowerContext
 {
