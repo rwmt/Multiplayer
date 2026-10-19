@@ -73,6 +73,9 @@ public class AsyncWorldTimeComp : IExposable, ITickable
 
     public int worldTicks;
 
+    // worldTicks from before the world tick in progress: the game tick the maps are at until they tick in it
+    public int TicksBeforeTick { get; private set; }
+
     public AsyncWorldTimeComp(World world)
     {
         this.world = world;
@@ -112,6 +115,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
 
     public void Tick()
     {
+        TicksBeforeTick = worldTicks;
         tickingWorld = true;
         int randDepth = Rand.stateStack.Count;
         PreContext();
