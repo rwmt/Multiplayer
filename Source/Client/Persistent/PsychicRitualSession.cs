@@ -68,9 +68,16 @@ public class PsychicRitualSession : SemiPersistentSession, ISessionWithCreationR
         map.MpComp().sessionManager.RemoveSession(this);
     }
 
-    [SyncMethod]
-    public void Start()
+    // Called by the starting player's dialog
+    public void Start() => StartWithAssignments(assignments);
+
+    // See RitualSession.StartWithAssignments: without Prepatcher the role assignments may differ between clients
+    [SyncMethod(exposeParameters = new[] { 0 })]
+    private void StartWithAssignments(MpPsychicRitualAssignments startingAssignments)
     {
+        if (startingAssignments != null)
+            MpUtil.ShallowCopy<PsychicRitualRoleAssignments, MpPsychicRitualAssignments>(startingAssignments, assignments);
+
         Remove();
         ritual.MakeNewLord(assignments);
         Find.PsychicRitualManager.RegisterCooldown(ritual);

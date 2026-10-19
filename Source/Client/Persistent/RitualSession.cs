@@ -28,9 +28,19 @@ public class RitualSession : SemiPersistentSession
         map.MpComp().sessionManager.RemoveSession(this);
     }
 
-    [SyncMethod]
-    public void Start()
+    // Called by the starting player's dialog
+    public void Start() => StartWithAssignments(data.assignments);
+
+    // Without Prepatcher the role selection widget's methods aren't synced, so each client may have its own role
+    // assignments by now. The starting player's assignments are sent along and applied on every client (with
+    // Prepatcher they're the same everywhere already).
+    [SyncMethod(exposeParameters = new[] { 0 })]
+    private void StartWithAssignments(MpRitualAssignments startingAssignments)
     {
+        // Copied into the session's object, which the open dialogs and the assignments' sync worker refer to
+        if (startingAssignments != null)
+            MpUtil.ShallowCopy<RitualRoleAssignments, MpRitualAssignments>(startingAssignments, data.assignments);
+
         // Handle the same stuff as Dialog_BeginGravshipLaunch
         if (data.isGravshipRitual)
         {
