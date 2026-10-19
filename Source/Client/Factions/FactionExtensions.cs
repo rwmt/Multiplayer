@@ -24,6 +24,8 @@ public static class FactionExtensions
 
         if (force)
             FactionContext.SetTopState(AppliedFactions.Capture());
+        else if (map != null)
+            FactionContext.SetTopState(map); // Lets an unwind (FactionContext.RestoreStack) restore the map too
 
         Multiplayer.WorldComp?.SetFaction(faction);
         if (force)
@@ -52,7 +54,7 @@ public static class FactionExtensions
         }
 
         Multiplayer.WorldComp?.SetFaction(faction);
-        map?.MpComp().SetFaction(faction);
+        (map ?? state as Map)?.MpComp()?.SetFaction(faction);
 
         return faction;
     }
