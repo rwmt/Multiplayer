@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using HarmonyLib;
 using Multiplayer.API;
@@ -248,6 +249,57 @@ namespace Multiplayer.Client.Patches
 
             AsyncTimeComp.RestoreRandStack(__state + 1, nameof(WorldComponent_GravshipController.PlaceGravship));
             map.AsyncTime().PostContext();
+        }
+    }
+
+    /// <summary>
+    /// The takeoff counterpart of PatchPlaceGravshipInMapContext: the long event queued from the gravship capture's
+    /// callback (OnGravshipCaptureComplete) removes the gravship from the takeoff map, creating its world object, and
+    /// rebuilds the map's vacuum data. Run it in the takeoff map's context as well
+    /// (RemoveGravshipFromMap_Patch pushes the gravship's faction inside it).
+    /// </summary>
+    [HarmonyPatch]
+    public static class PatchGravshipRemovalInMapContext
+    {
+        static MethodBase TargetMethod()
+        {
+            // The only lambda of OnGravshipCaptureComplete calling RemoveGravshipFromMap
+            var removeGravship = AccessTools.Method(typeof(WorldComponent_GravshipController),
+                nameof(WorldComponent_GravshipController.RemoveGravshipFromMap));
+            var lambdaPrefix = $"<{nameof(WorldComponent_GravshipController.OnGravshipCaptureComplete)}>";
+
+            return typeof(WorldComponent_GravshipController).GetNestedTypes(AccessTools.all)
+                .SelectMany(t => t.GetDeclaredMethods())
+                .Where(m => m.Name.StartsWith(lambdaPrefix))
+                .First(m => PatchProcessor.ReadMethodBody(m).Any(i => i.Value as MethodInfo == removeGravship));
+        }
+
+        [HarmonyPriority(MpPriority.MpFirst)]
+        static void Prefix(out (Map map, int randDepth) __state)
+        {
+            __state = (null, -1);
+            if (Multiplayer.Client == null || Multiplayer.Ticking || Multiplayer.ExecutingCmds) return;
+
+            // The takeoff map, set by InitiateTakeoff
+            var map = Find.GravshipController?.map;
+            if (map?.AsyncTime() is not { } comp) return;
+
+            __state = (map, Rand.stateStack.Count);
+            comp.PreContext();
+        }
+
+        static void Postfix((Map map, int randDepth) __state)
+        {
+            __state.map?.AsyncTime().UpdateManagers();
+        }
+
+        [HarmonyPriority(MpPriority.MpLast)]
+        static void Finalizer((Map map, int randDepth) __state)
+        {
+            if (__state.map == null) return;
+
+            AsyncTimeComp.RestoreRandStack(__state.randDepth + 1, nameof(WorldComponent_GravshipController.RemoveGravshipFromMap));
+            __state.map.AsyncTime().PostContext();
         }
     }
 
