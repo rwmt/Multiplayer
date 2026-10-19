@@ -74,6 +74,10 @@ public class RitualBeginProxy : Dialog_BeginRitual, ISwitchToMap
                 Close();
             }
 
+            // In the space made for the "Switch to map" button (top right)
+            if (PrepatcherWarning.Show)
+                PrepatcherWarning.DrawLabel(inRect.Height(20f).Width(PrepatcherWarning.LabelWidth(GameFont.Tiny) + 10f), GameFont.Tiny);
+
             // Make space for the "Switch to map" button
             inRect.yMin += 20f;
 

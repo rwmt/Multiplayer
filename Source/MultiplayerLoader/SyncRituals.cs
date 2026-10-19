@@ -34,11 +34,41 @@ public static class SyncRituals
 
     private static MethodInfo syncMethod = AccessTools.Method("Multiplayer.Client.Sync:Method");
 
+    /// <summary>
+    /// Whether the methods below run the sync prefix, i.e. Prepatcher ran the first pass. Prepatcher is a mod
+    /// dependency but can be missing or fail to load (e.g. on macOS). Then the role assignments of ritual dialogs
+    /// stay local. Set by the second pass from the patched code itself: a flag set by the first pass is lost because
+    /// Prepatcher restarts the game with the patched assemblies.
+    /// </summary>
+    public static bool PrepatchesApplied { get; private set; }
+
+    private static bool HasPrepatcherPrefix(MethodBase method)
+    {
+        try
+        {
+            // By name: the patched assembly refers to this method through its own assembly reference
+            return PatchProcessor.ReadMethodBody(method).Any(inst =>
+                inst.Value is MethodInfo m &&
+                m.Name == nameof(PrepatcherPrefix) &&
+                m.DeclaringType?.FullName == typeof(SyncRituals).FullName);
+        }
+        catch (Exception e)
+        {
+            Verse.Log.Warning($"Multiplayer: couldn't check whether Prepatcher patched {method}: {e}");
+            return false;
+        }
+    }
+
     // This method is called twice (two passes)
     // The first pass with module != null is called from Prepatcher and applies prepatches
     // The second pass with module == null is called from Sync initialization and registers SyncMethods
     public static void ApplyPrepatches(ModuleDefinition module)
     {
+        if (module == null)
+            PrepatchesApplied = HasPrepatcherPrefix(AccessTools.Method(
+                typeof(PawnRoleSelectionWidgetBase<RitualRole>),
+                nameof(PawnRoleSelectionWidgetBase<RitualRole>.TryAssignReplace)));
+
         void Register(Type baseType, string method, Type derivedType, Action<ISyncMethodForPrepatcher> postProcess = null,
             Action<object> beforeExecuting = null)
         {
