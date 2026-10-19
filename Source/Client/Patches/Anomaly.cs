@@ -90,23 +90,45 @@ namespace Multiplayer.Client.Patches
     }
 
     // #855: vanilla moves the offering out of the invoker's inventory while enumerating it; moving a whole stack
-    // throws (collection modified) and the psychic ritual never completes. Same logic over a snapshot.
+    // throws (collection modified) and the psychic ritual never completes. Same logic over a snapshot, holding no
+    // more than the required count.
     [HarmonyPatch(typeof(PsychicRitualToil_InvokeHorax), nameof(PsychicRitualToil_InvokeHorax.HoldRequiredOfferings))]
     static class PsychicRitualToil_InvokeHorax_HoldRequiredOfferings
     {
         static bool Prefix(PsychicRitualToil_InvokeHorax __instance, PsychicRitual psychicRitual)
         {
+            if (Multiplayer.Client == null)
+                return true;
+
             var offering = __instance.requiredOffering;
             if (offering == null)
                 return false;
 
+            int required = Mathf.CeilToInt(offering.GetBaseCount());
+
             foreach (Pawn pawn in psychicRitual.assignments.AssignedPawns(__instance.invokerRole))
+            {
                 foreach (Thing thing in pawn.inventory.GetDirectlyHeldThings().ToList())
+                {
+                    int missing = required - HeldOfferingCount(pawn, offering);
+                    if (missing <= 0)
+                        break;
+
                     if (offering.filter.Allows(thing))
-                        pawn.inventory.innerContainer.TryTransferToContainer(thing, pawn.carryTracker.innerContainer,
-                            Mathf.CeilToInt(offering.GetBaseCount()));
+                        pawn.inventory.innerContainer.TryTransferToContainer(thing, pawn.carryTracker.innerContainer, missing);
+                }
+            }
 
             return false;
+        }
+
+        static int HeldOfferingCount(Pawn pawn, IngredientCount offering)
+        {
+            int count = 0;
+            foreach (Thing held in pawn.carryTracker.innerContainer)
+                if (offering.filter.Allows(held))
+                    count += held.stackCount;
+            return count;
         }
     }
 }
