@@ -72,6 +72,8 @@ public class ClientLoadingState(ConnectionBase connection) : ClientBaseState(con
 
         // The server only picks caught up players as the sync reference
         Multiplayer.session.isSyncReference = false;
+        // Also on a rejoin, which keeps the session
+        SimulationFailures.Reset(Multiplayer.session);
 
         int tickUntil = data.ReadInt32();
         int remoteSentCmds = data.ReadInt32();

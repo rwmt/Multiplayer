@@ -11,6 +11,13 @@ namespace Multiplayer.Client;
 /// </summary>
 public static class SimulationFailures
 {
+    /// The world from the server replaces whatever the failures did (joining, rejoining after a desync)
+    public static void Reset(MultiplayerSession session)
+    {
+        session.simulationFailures = 0;
+        session.firstSimulationFailure = null;
+    }
+
     /// Call from the catch block, next to logging the exception. Touches only local state.
     public static void Record(string where, Exception e)
     {
@@ -27,7 +34,7 @@ public static class SimulationFailures
         // Not translated: the strings live in the separate locale repository.
         OnMainThread.Enqueue(() =>
         {
-            if (Multiplayer.session != session) return;
+            if (Multiplayer.session != session || session.firstSimulationFailure == null) return;
 
             const string text = "Multiplayer: an error in the game simulation was skipped on this client. " +
                                 "This can cause a desync, the log has the details.";
