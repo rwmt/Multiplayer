@@ -84,9 +84,12 @@ public static class TimestampFixer
         ProcessExposable(p.skills);
         ProcessExposable(p.royalty);
 
+        // Also the abilities of titles, equipment, apparel and hediffs, like the save pass. Not the ideo roles' ones,
+        // the ideo holds those
         if (p.abilities != null)
-            foreach (var ability in p.abilities.abilities)
-                ProcessExposable(ability);
+            foreach (var ability in p.abilities.AllAbilitiesForReading)
+                if (ability.sourcePrecept is not Precept_Role)
+                    ProcessExposable(ability);
 
         if (p.royalty != null)
             foreach (var permit in p.royalty.AllFactionPermits)
