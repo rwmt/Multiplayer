@@ -323,6 +323,31 @@ namespace Multiplayer.Client.Patches
         static void Postfix() => GravshipCutsceneSync.ExposeData();
     }
 
+    /// <summary>
+    /// GravshipTravelSession isn't saved, so every reload (all clients reload at a join point) and every joiner lost
+    /// the pause of the landing map while the players choose where to land, which can take a while. Vanilla saves the
+    /// landing confirmation state (the landing marker), so recreate the session from it after loading. This runs at
+    /// the same point of every load on every client and joiner, so they all get the same session (and session id).
+    /// The takeoff side (prelaunch dialog and destination picker) isn't restored: it's UI which a reload closes, so a
+    /// restored session would keep the map paused with no way to continue or cancel. Neither is a landing cutscene
+    /// in progress: vanilla can't resume it after loading (the gravship it references isn't saved).
+    /// </summary>
+    [HarmonyPatch(typeof(Game), nameof(Game.LoadGame))]
+    public static class RestoreGravshipLandingSessionOnLoad
+    {
+        static void Postfix()
+        {
+            if (Multiplayer.Client == null || !ModsConfig.OdysseyActive) return;
+
+            var controller = Find.GravshipController;
+            if (controller is not { LandingAreaConfirmationInProgress: true }) return;
+
+            // The same tile ArriveExistingMap/ArriveNewMap open the session at
+            if (controller.landingMarker.gravship is { } gravship)
+                GravshipTravelUtils.OpenSessionAt(gravship.destinationTile);
+        }
+    }
+
     [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.WorldComponentUpdate))]
     public static class PatchGravshipCutsceneHoldLastFrame
     {
