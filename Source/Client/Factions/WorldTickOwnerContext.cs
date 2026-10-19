@@ -60,7 +60,8 @@ static class CaravansBattlefieldCheckWonBattle_OwnerContext
 {
     static void Prefix(CaravansBattlefield __instance, ref bool __state)
     {
-        if (WorldTickOwnerContext.Active && __instance.HasMap)
+        // The check does nothing once won, skip the owner scan
+        if (WorldTickOwnerContext.Active && !__instance.wonBattle && __instance.HasMap)
             __state = WorldTickOwnerContext.TryPush(WorldTickOwnerContext.MapOwner(__instance.Map));
     }
 
