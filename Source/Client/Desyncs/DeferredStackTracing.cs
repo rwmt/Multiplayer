@@ -60,7 +60,10 @@ namespace Multiplayer.Client.Desyncs
                 }
                 catch (Exception e)
                 {
+                    // Mark first: if logging throws, the outer catch skips the rest of this method
                     tracingFailed = true;
+                    Multiplayer.game.sync.MarkTracesUnreliable();
+
                     LogTraceFailureOnce(e.ToString());
                     Log.Warning("Multiplayer: desync stack traces are turned off until the game restarts");
                     depth = -1;
@@ -83,6 +86,17 @@ namespace Multiplayer.Client.Desyncs
             }
             catch (Exception e)
             {
+                try
+                {
+                    // Traces stop for this client mid-window, so its trace hashes can't be compared
+                    if (tracingFailed)
+                        Multiplayer.game?.sync.MarkTracesUnreliable();
+                }
+                catch
+                {
+                    // ignored
+                }
+
                 LogTraceFailureOnce(e.ToString());
             }
         }
