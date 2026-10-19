@@ -254,12 +254,22 @@ namespace Multiplayer.Client.AsyncTime
         {
             if (Multiplayer.Client == null) return;
 
-            // The rest of this reads the local view. A world or map tick is running, so report not paused (vanilla only
-            // ticks unpaused): ticks can continue after a rate change in the same game tick (TickPatch.TickLockstep),
-            // and while paused Pawn_JobTracker.StartJob counts jobs by the local frame count.
+            // The simulation must not see the local view (the viewed map, the world view, vanilla's ForcePaused with
+            // e.g. TilePicker.Active): Pawn_JobTracker.StartJob counts a job given while paused only if it's the
+            // tracker's second in the same step, so the value changed jobsGivenThisTick per client.
+            // A world or map tick: not paused, as vanilla only ticks unpaused. Ticks can continue after a rate change
+            // in the same game tick (TickPatch.TickLockstep).
             if (AsyncWorldTimeComp.tickingWorld || AsyncTimeComp.tickingMap != null)
             {
                 __result = false;
+                return;
+            }
+
+            // Commands, the constant ticker and sim long events: whether their context's tickable is paused
+            if (Multiplayer.ExecutingCmds || ConstantTicker.ticking || Patches.SimLongEventContext.InSimulation)
+            {
+                var tickable = (ITickable)Multiplayer.MapContext?.AsyncTime() ?? Multiplayer.AsyncWorldTime;
+                __result = tickable.ActualRateMultiplier(tickable.DesiredTimeSpeed) == 0;
                 return;
             }
 
