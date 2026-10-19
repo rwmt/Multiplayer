@@ -309,6 +309,12 @@ namespace Multiplayer.Client.AsyncTime
                 return;
             }
 
+            SimPause();
+        }
+
+        // Pauses the context's tickable (everything without async time) from the simulation and resets the time votes
+        public static void SimPause()
+        {
             if (Multiplayer.GameComp.asyncTime)
             {
                 var tickable = (ITickable)Multiplayer.MapContext.AsyncTime() ?? Multiplayer.AsyncWorldTime;
@@ -321,6 +327,31 @@ namespace Multiplayer.Client.AsyncTime
                 foreach (var tickable in TickPatch.AllTickables)
                     Multiplayer.GameComp.ResetAllTimeVotes(tickable.TickableId);
             }
+        }
+    }
+
+    // Vanilla's Dialog_NodeTree force-pauses, but in MP WindowsForcePause is always false (windows differ between
+    // clients). The caravan meeting and demand incidents open one when they fire on a caravan, so pause the way a
+    // letter does, keyed on the incident's result, which every client shares (#512).
+    [HarmonyPatch]
+    static class PauseOnCaravanDialogIncident
+    {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(IncidentWorker_CaravanMeeting), nameof(IncidentWorker_CaravanMeeting.TryExecuteWorker));
+            yield return AccessTools.Method(typeof(IncidentWorker_CaravanDemand), nameof(IncidentWorker_CaravanDemand.TryExecuteWorker));
+        }
+
+        static void Postfix(bool __result, IncidentParms parms)
+        {
+            if (Multiplayer.Client == null || Multiplayer.InInterface || !__result || parms.target is not Caravan)
+                return;
+
+            // The host chose to never pause automatically
+            if (Multiplayer.GameComp.pauseOnLetter == Common.PauseOnLetter.Never)
+                return;
+
+            ReceiveLetterPause.SimPause();
         }
     }
 }
