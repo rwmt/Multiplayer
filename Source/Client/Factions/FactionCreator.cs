@@ -59,8 +59,12 @@ public static class FactionCreator
 
         // Vanilla loads pawns only while a game initializes. In Playing the needs tracker's constructor evaluates
         // Need_Food.MaxLevel as a stat over hediffs whose pawn is set only when cross refs resolve (#536).
+        // Outside Playing some getters read the GameInitData (TicksAbs, Faction.OfPlayer, PawnsFinder), which
+        // differs between clients here (the issuer's pages, an earlier faction creation, none), so hide it.
         var prevState = Current.programStateInt;
+        var prevInitData = Current.Game.InitData;
         Current.programStateInt = ProgramState.MapInitializing;
+        Current.Game.InitData = null;
         readingStartingPawn = true;
 
         try
@@ -70,6 +74,7 @@ public static class FactionCreator
         finally
         {
             readingStartingPawn = false;
+            Current.Game.InitData = prevInitData;
             Current.programStateInt = prevState;
         }
     }
