@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Text;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using HarmonyLib;
@@ -31,10 +33,31 @@ namespace Multiplayer.Client.Desyncs
 
         public static void Postfix()
         {
-            if (Native.LmfPtr == 0) return;
+            if (Native.IsMonoRuntime && Native.LmfPtr == 0) return;
             if (!ShouldAddStackTraceForDesyncLog()) return;
 
             var logItem = StackTraceLogItemRaw.GetFromPool();
+            if (!Native.IsMonoRuntime)
+            {
+                // Managed fallback: never interpret CoreCLR addresses as Mono frames.
+                var frames = new StackTrace(1, false).GetFrames();
+                var text = new StringBuilder();
+                int managedHash = 17;
+                int managedDepth = System.Math.Min(frames?.Length ?? 0, StackTraceLogItemRaw.MaxDepth);
+                for (int i = 0; i < managedDepth; i++)
+                {
+                    var method = frames[i].GetMethod();
+                    var name = $"{method?.DeclaringType?.FullName}.{method}";
+                    text.AppendLine(name);
+                    // Explicit stable hashing; no process-randomized string hashes.
+                    foreach (char c in name)
+                        managedHash = unchecked(managedHash * 31 + c);
+                }
+                logItem.managedTrace = text.ToString();
+                Multiplayer.game.sync.TryAddStackTraceForDesyncLogRaw(logItem, managedDepth, managedHash);
+                acc++;
+                return;
+            }
             var trace = logItem.raw;
             int hash = 0;
             // Skip this (DeferredStackTracing.Postfix) frame. Keeping it in the trace doesn't provide any value.

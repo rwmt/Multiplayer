@@ -9,6 +9,10 @@ namespace Multiplayer.Client
 {
     public static class Native
     {
+        // Waylith uses CoreCLR. Never load Mono libraries or dereference Mono
+        // thread structures on that runtime, even when running old mod assemblies.
+        public static bool IsMonoRuntime => Type.GetType("Mono.Runtime") != null;
+
         public enum NativeOS
         {
             Windows, OSX, Linux, Dummy
@@ -24,6 +28,7 @@ namespace Multiplayer.Client
 
         public static void EarlyInit(NativeOS os)
         {
+            if (!IsMonoRuntime) return;
             if (os == NativeOS.Linux)
                 TheLinuxWay();
             if (os == NativeOS.OSX)
@@ -46,6 +51,7 @@ namespace Multiplayer.Client
 
         public static unsafe void InitLmfPtr(NativeOS os)
         {
+            if (!IsMonoRuntime) return;
             // Don't bother on 32 bit runtimes
             if (IntPtr.Size == 4)
                 return;

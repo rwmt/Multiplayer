@@ -19,7 +19,9 @@ namespace Multiplayer.Client
         {
             if (done) return;
             GUI.skin.font = Text.fontStyles[1].font;
+#if !RIMWORLD_1_7
             Text.fontStyles[1].font.fontNames = new[] { "arial", "arialbd", "ariali", "arialbi" };
+#endif
             done = true;
         }
     }

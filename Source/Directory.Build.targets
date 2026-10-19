@@ -1,0 +1,26 @@
+<Project>
+  <!-- Opt in explicitly; the upstream 1.6 build remains available. -->
+  <PropertyGroup Condition="'$(RimWorld17)' == 'true' and ('$(MSBuildProjectName)' == 'Multiplayer' or '$(MSBuildProjectName)' == 'MultiplayerLoader' or '$(MSBuildProjectName)' == 'Common')">
+    <TargetFramework>net10.0</TargetFramework>
+    <DefineConstants>$(DefineConstants);RIMWORLD_1_7</DefineConstants>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(RimWorld17)' == 'true' and ('$(MSBuildProjectName)' == 'Multiplayer' or '$(MSBuildProjectName)' == 'MultiplayerLoader' or '$(MSBuildProjectName)' == 'Common')">
+    <Using Include="HarmonyLib.MethodInvoker" Alias="MethodInvoker" />
+    <PackageReference Remove="Krafs.Rimworld.Ref" />
+    <!-- MultiplayerAPI also depends on the old reference package transitively. -->
+    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.6.4850" ExcludeAssets="all" PrivateAssets="all" />
+    <Reference Include="$(RimWorldDir)/Assembly-CSharp.dll;$(RimWorldDir)/UnityStubs.dll;$(RimWorldDir)/Waylith.UnityCompat.dll;$(RimWorldDir)/Waylith.dll;$(RimWorldDir)/com.rlabrecque.steamworks.net.dll">
+      <Private>false</Private>
+    </Reference>
+    <Publicize Remove="UnityEngine.IMGUIModule" />
+    <Publicize Include="Waylith.UnityCompat;UnityStubs" />
+  </ItemGroup>
+  <Target Name="ValidateRimWorld17References" BeforeTargets="ResolveReferences" Condition="'$(RimWorld17)' == 'true'">
+    <Error Condition="!Exists('$(RimWorldDir)/Assembly-CSharp.dll')" Text="Set RimWorldDir to a RimWorld 1.7 installation containing Assembly-CSharp.dll." />
+  </Target>
+  <!-- The old projects clear framework paths for the Mono reference package. -->
+  <Target Name="RemoveFramework" BeforeTargets="PrepareForBuild" DependsOnTargets="GetReferenceAssemblyPaths" Condition="'$(RimWorld17)' != 'true'">
+    <PropertyGroup><TargetFrameworkDirectory /></PropertyGroup>
+  </Target>
+</Project>

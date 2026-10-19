@@ -33,7 +33,7 @@ namespace Multiplayer.Client.Patches
             return MpMethodUtil.GetLambda(typeof(GravshipUtility), nameof(GravshipUtility.PreLaunchConfirmation), lambdaOrdinal: 4);
         }
 
-        static void Postfix(Dialog_MessageBox __instance)
+        static void Postfix()
         {
             if (Multiplayer.Client == null) return;
             if (!Multiplayer.ExecutingCmds) return;

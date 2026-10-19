@@ -40,6 +40,7 @@ namespace Multiplayer.Client
         public const int MaxDepth = 32;
         public long[] raw = new long[MaxDepth];
         public int depth;
+        public string managedTrace;
 
         public int ticksGame;
         public ulong rngState;
@@ -56,6 +57,7 @@ namespace Multiplayer.Client
         {
             get
             {
+                if (managedTrace != null) return managedTrace;
                 var builder = new StringBuilder();
                 for (int i = 0; i < depth; i++)
                 {
@@ -78,6 +80,7 @@ namespace Multiplayer.Client
 
         public override void Dispose()
         {
+            managedTrace = null;
             depth = 0;
             ticksGame = 0;
             rngState = 0;

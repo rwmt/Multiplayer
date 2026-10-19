@@ -263,8 +263,10 @@ namespace Multiplayer.Client.Util
             {
                 te.scrollOffset = scrollOffset;
                 te.text = new string(PassChar, password.Length);
+#if !RIMWORLD_1_7
                 AccessTools.Field(typeof(TextEditor), "m_RevealCursor").SetValue(te, true);
                 te.UpdateScrollOffsetIfNeeded(new Event());
+#endif
             }
         }
     }
