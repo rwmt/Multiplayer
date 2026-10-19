@@ -108,9 +108,9 @@ namespace Multiplayer.Client.AsyncTime
             Map map = notifier.FindPlayerHomeWithMinTimezone();
             if (map == null && requireHome) return;
 
-            int prevTicks = Find.TickManager.TicksGame;
-            if (map != null)
-                Find.TickManager.DebugSetTicksGame(map.AsyncTime().mapTicks);
+            // The map's whole clock: a faction created later in multifaction has its own game start tick, which
+            // TicksAbs (the season) depends on
+            var prevTime = TimeSnapshot.GetAndSetFromMap(map);
 
             running = true;
             try
@@ -120,7 +120,7 @@ namespace Multiplayer.Client.AsyncTime
             finally
             {
                 running = false;
-                Find.TickManager.DebugSetTicksGame(prevTicks);
+                prevTime?.Set();
             }
         }
     }
