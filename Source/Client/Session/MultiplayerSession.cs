@@ -47,6 +47,8 @@ namespace Multiplayer.Client
         public bool isSyncReference;
 
         public List<CSteamID> pendingSteam = new();
+        // Steam join requests the host rejected, by time (Time.realtimeSinceStartup)
+        public Dictionary<CSteamID, float> rejectedSteam = new();
         public List<CSteamID> knownUsers = new();
 
         public const int MaxMessages = 200;

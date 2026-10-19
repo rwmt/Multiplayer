@@ -37,6 +37,12 @@ namespace Multiplayer.Client
                 var session = Multiplayer.session;
                 if (Multiplayer.LocalServer?.settings.steam != true || session == null) return;
 
+                // The client's join packet is reliable and Steam keeps asking while it's resent: don't prompt again
+                // right after a reject
+                if (session.rejectedSteam.TryGetValue(remoteId, out var rejectedAt) &&
+                    Time.realtimeSinceStartup - rejectedAt < RejectedRequestCooldownSecs)
+                    return;
+
                 // The remote opens a new session, a delayed close of the old one would tear it down
                 SteamP2PIntegration.KeepSession(remoteId);
 
@@ -60,9 +66,7 @@ namespace Multiplayer.Client
                         if (accepted)
                             AcceptPlayerJoinRequest(joinReq.steamId.Value);
                         else
-                            // Rejecting leaves the request unanswered. Forget it, or the player's later requests
-                            // would be ignored as duplicates of this one.
-                            session.pendingSteam.Remove(joinReq.steamId.Value);
+                            RejectPlayerJoinRequest(session, joinReq.steamId.Value);
                     });
                 }
 
@@ -103,10 +107,22 @@ namespace Multiplayer.Client
                 Callback<AvatarImageLoaded_t>.Create(loaded => SteamImages.GetTexture(loaded.m_iImage, force: true));
         }
 
+        private const float RejectedRequestCooldownSecs = 30f;
+
+        private static void RejectPlayerJoinRequest(MultiplayerSession session, CSteamID id)
+        {
+            // Forget the request, or the player's later ones would be ignored as duplicates of it
+            session.pendingSteam.Remove(id);
+            session.rejectedSteam[id] = Time.realtimeSinceStartup;
+            // Drops what the player sent so far
+            SteamP2PIntegration.CloseSession(id);
+        }
+
         public static void AcceptPlayerJoinRequest(CSteamID id)
         {
             SteamNetworking.AcceptP2PSessionWithUser(id);
             Multiplayer.session?.pendingSteam.Remove(id);
+            Multiplayer.session?.rejectedSteam.Remove(id);
 
             Messages.Message("MpSteamAccepted".Translate(), MessageTypeDefOf.PositiveEvent, false);
         }
