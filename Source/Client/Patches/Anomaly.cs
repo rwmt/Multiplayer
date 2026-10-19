@@ -73,8 +73,18 @@ namespace Multiplayer.Client.Patches
             if (Multiplayer.Client == null)
                 return true;
 
-            __result = !(__instance.SpawnedOrAnyParentSpawned &&
-                         __instance.MapHeld.reservationManager.IsReservedByAnyoneOf(__instance, Faction.OfPlayer));
+            __result = !(__instance.SpawnedOrAnyParentSpawned && ReservedByAnyPlayer(__instance));
+            return false;
+        }
+
+        // Faction.OfPlayer is the spectator when ticking a map no player faction owns (multifaction), so check the
+        // reservations of every player faction
+        static bool ReservedByAnyPlayer(UnnaturalCorpse corpse)
+        {
+            var reservations = corpse.MapHeld.reservationManager;
+            foreach (var faction in Find.FactionManager.AllFactionsListForReading)
+                if (faction.IsPlayer && reservations.IsReservedByAnyoneOf(corpse, faction))
+                    return true;
             return false;
         }
     }
