@@ -90,59 +90,49 @@ public class QuestPartsListForReadingPatch
     }
 }
 
+// The world tick runs incident code for maps (incident parms, TryExecute); it runs in that map's context. Incidents can
+// nest (tickingWorld stays set): a nested call for the same map stays in its context, one for another map leaves the
+// outer map's context for the duration and re-enters it afterwards, so each map's time, Rand stream and faction apply.
+static class WorldTickMapContext
+{
+    public static void Enter(IIncidentTarget target, out (Map map, Map prev) state)
+    {
+        state = default;
+        if (!AsyncWorldTimeComp.tickingWorld || target is not Map map) return;
+
+        var prev = AsyncTimeComp.tickingMap;
+        if (prev == map) return;
+
+        prev?.AsyncTime().PostContext();
+        AsyncTimeComp.tickingMap = map;
+        map.AsyncTime().PreContext();
+        state = (map, prev);
+    }
+
+    public static void Exit((Map map, Map prev) state)
+    {
+        if (state.map == null) return;
+
+        state.map.AsyncTime().PostContext();
+        AsyncTimeComp.tickingMap = state.prev;
+        state.prev?.AsyncTime().PreContext();
+    }
+}
+
 [HarmonyPatch(typeof(StorytellerUtility), nameof(StorytellerUtility.DefaultParmsNow))]
 static class MapContextIncidentParms
 {
-    static void Prefix(IIncidentTarget target, ref Map __state)
-    {
-        // This may be running inside a context already
-        if (AsyncTimeComp.tickingMap != null)
-            return;
+    static void Prefix(IIncidentTarget target, out (Map, Map) __state) => WorldTickMapContext.Enter(target, out __state);
 
-        if (AsyncWorldTimeComp.tickingWorld && target is Map map)
-        {
-            AsyncTimeComp.tickingMap = map;
-            map.AsyncTime().PreContext();
-            __state = map;
-        }
-    }
-
-    static void Finalizer(Map __state)
-    {
-        if (__state != null)
-        {
-            __state.AsyncTime().PostContext();
-            AsyncTimeComp.tickingMap = null;
-        }
-    }
+    static void Finalizer((Map, Map) __state) => WorldTickMapContext.Exit(__state);
 }
 
 [HarmonyPatch(typeof(IncidentWorker), nameof(IncidentWorker.TryExecute))]
 static class MapContextIncidentExecute
 {
-    static void Prefix(IncidentParms parms, ref Map __state)
-    {
-        // Incidents can execute nested ones (tickingWorld stays set); entering the context again would
-        // clear tickingMap and pop the outer context's state when the inner call returns
-        if (AsyncTimeComp.tickingMap != null)
-            return;
+    static void Prefix(IncidentParms parms, out (Map, Map) __state) => WorldTickMapContext.Enter(parms.target, out __state);
 
-        if (AsyncWorldTimeComp.tickingWorld && parms.target is Map map)
-        {
-            AsyncTimeComp.tickingMap = map;
-            map.AsyncTime().PreContext();
-            __state = map;
-        }
-    }
-
-    static void Finalizer(Map __state)
-    {
-        if (__state != null)
-        {
-            __state.AsyncTime().PostContext();
-            AsyncTimeComp.tickingMap = null;
-        }
-    }
+    static void Finalizer((Map, Map) __state) => WorldTickMapContext.Exit(__state);
 }
 
 [HarmonyPatch(typeof(Settlement), nameof(Settlement.IncidentTargetTags))]
