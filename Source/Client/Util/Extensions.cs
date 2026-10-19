@@ -236,6 +236,15 @@ namespace Multiplayer.Client
             return new CRC32().GetCrc32(stream);
         }
 
+        // For text files whose line endings depend on the OS they were saved or checked out on (#386)
+        public static int CRC32IgnoringLineEndings(this FileInfo file)
+        {
+            var data = File.ReadAllBytes(file.FullName);
+            var crc = new CRC32();
+            crc.SlurpBlock(data, 0, Utils.NormalizeLineEndingsInPlace(data));
+            return crc.Crc32Result;
+        }
+
         public static int AggregateHash(this IEnumerable<int> e)
         {
             return e.Aggregate(0, (a, b) => Gen.HashCombineInt(a, b));

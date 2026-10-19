@@ -116,10 +116,11 @@ namespace Multiplayer.Client
                     fileDict.Add(modId, new ModFile(asm.FullName, relPath, asm.CRC32()));
                 }
 
+                // The XML parser normalizes line endings, so a mod copied between Windows and Linux isn't a mismatch
                 foreach (var xmlFile in GetModDefsAndPatches(contentPack))
                 {
                     var relPath = xmlFile.FullName.RemovePrefix(contentPack.RootDir).NormalizePath();
-                    fileDict.Add(modId, new ModFile(xmlFile.FullName, relPath, xmlFile.CRC32()));
+                    fileDict.Add(modId, new ModFile(xmlFile.FullName, relPath, xmlFile.CRC32IgnoringLineEndings()));
                 }
             }
 

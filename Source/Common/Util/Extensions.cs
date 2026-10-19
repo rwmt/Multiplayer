@@ -174,6 +174,27 @@ namespace Multiplayer.Common
         }
 
         public static long MillisNow => DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
+
+        // Rewrites CRLF and lone CR as LF in place and returns the new length. Byte-wise, so it's meant for hashing
+        // text files that may come from another OS, not for decoding them
+        public static int NormalizeLineEndingsInPlace(byte[] data)
+        {
+            int len = 0;
+            for (int i = 0; i < data.Length; i++)
+            {
+                byte b = data[i];
+                if (b == '\r')
+                {
+                    if (i + 1 < data.Length && data[i + 1] == '\n')
+                        i++;
+                    b = (byte)'\n';
+                }
+
+                data[len++] = b;
+            }
+
+            return len;
+        }
     }
 
 }
