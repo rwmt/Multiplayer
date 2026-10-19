@@ -12,6 +12,8 @@ public struct SessionDisconnectInfo
     public string descTranslated;
     public string specialButtonTranslated;
     public Action specialButtonAction;
+    // The window stays open after the special button, e.g. to save the game and then quit to the main menu
+    public bool specialButtonKeepsWindow;
     public bool wideWindow;
 
     public static SessionDisconnectInfo From(ServerDisconnectPacket goodbye) =>
