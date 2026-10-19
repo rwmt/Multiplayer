@@ -125,13 +125,16 @@ namespace Multiplayer.Client.Patches
             if (Multiplayer.ExecutingCmds) return true;
 
             confirmedLocally = __instance;
-            SyncBeginLanding(__instance);
+            SyncBeginLanding(__instance, __instance.GravshipRotation);
 
             return false;
         }
 
+        // The confirming player's rotation (vanilla only confirms without the move designator selected, so it's the
+        // last designated one): other players may still have the designator selected, and rotating its preview
+        // changes the marker's, and so the gravship's, rotation locally. BeginLanding lands with it.
         [SyncMethod]
-        public static void SyncBeginLanding(GravshipLandingMarker landingMarker)
+        public static void SyncBeginLanding(GravshipLandingMarker landingMarker, Rot4 rotation)
         {
             var gravshipController = Find.GravshipController;
 
@@ -145,6 +148,23 @@ namespace Multiplayer.Client.Patches
                 MpLog.Error($"[MP] SyncConfirmGravshipLanding: Marker [{landingMarker != null}] Tile [{landingMarker?.Tile != null}].");
                 return;
             }
+
+            // Deselect the designator everywhere: rotating its preview during the cutscene would change the rotation
+            // PlaceGravship places the ship with. Before setting the rotation, Deselected restores its own one.
+            if (Find.DesignatorManager.SelectedDesignator is Designator_MoveGravship)
+            {
+                CancelDesignatorDeselection.EnableCanceling();
+                try
+                {
+                    Find.DesignatorManager.Deselect();
+                }
+                finally
+                {
+                    CancelDesignatorDeselection.DisableCanceling();
+                }
+            }
+
+            landingMarker.GravshipRotation = rotation;
 
             gravshipController.landingMarker = landingMarker;
             landingMarker.BeginLanding(gravshipController);
