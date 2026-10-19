@@ -346,6 +346,47 @@ namespace Multiplayer.Client.Patches
             Unfreeze();
         }
 
+        /// <summary>
+        /// Vanilla can't finish a cutscene without its gravship, which nothing saves while it's neither on a map nor a
+        /// world object: a join point during a cutscene (e.g. right after the unfreeze, before the synced end) loses
+        /// it, and a catching-up joiner can execute the landing's end before its own PlaceGravship ran. TakeoffEnded
+        /// (after abandoning the map) and LandingEnded would throw and leave the game in the cutscene for good (no
+        /// world map, no saving, the map paused). End the cutscene without the gravship instead, which is lost.
+        /// Runs in the synced end command or at the same point of every load, so the same way on all clients.
+        /// </summary>
+        public static void EndWithoutGravship(WorldComponent_GravshipController controller, bool takeoff)
+        {
+            Log.Warning($"MP: Gravship {(takeoff ? "takeoff" : "landing")} ended without its gravship (lost by a reload during the cutscene or not placed here yet)");
+
+            pending = Cutscene.None;
+            endRequested = false;
+            Unfreeze();
+
+            var map = controller.map;
+            if (takeoff)
+            {
+                GravshipTravelUtils.CloseSessionAt(controller.takeoffTile);
+            }
+            else
+            {
+                GravshipTravelUtils.CloseSessionAt(map?.Tile ?? controller.landingTile);
+                if (map != null)
+                    PatchGravshipLandingEnded.SetNormalSpeedAfterLanding(map);
+                controller.moveDesignator = null;
+                Current.Game.Gravship = null;
+            }
+
+            controller.map = null;
+            controller.ResetCutscene();
+        }
+
+        // After loading, a cutscene in progress can't continue (its gravship isn't saved) and nobody would end it
+        public static void EndCutsceneLostByLoading(WorldComponent_GravshipController controller)
+        {
+            if (pending != Cutscene.None && controller.gravship == null)
+                EndWithoutGravship(controller, pending == Cutscene.Takeoff);
+        }
+
         [SyncMethod]
         public static void SyncTakeoffEnded()
         {
@@ -391,8 +432,8 @@ namespace Multiplayer.Client.Patches
     /// landing confirmation state (the landing marker), so recreate the session from it after loading. This runs at
     /// the same point of every load on every client and joiner, so they all get the same session (and session id).
     /// The takeoff side (prelaunch dialog and destination picker) isn't restored: it's UI which a reload closes, so a
-    /// restored session would keep the map paused with no way to continue or cancel. Neither is a landing cutscene
-    /// in progress: vanilla can't resume it after loading (the gravship it references isn't saved).
+    /// restored session would keep the map paused with no way to continue or cancel. A cutscene in progress can't
+    /// be resumed after loading (its gravship isn't saved), so it's ended instead (EndCutsceneLostByLoading).
     /// </summary>
     [HarmonyPatch(typeof(Game), nameof(Game.LoadGame))]
     public static class RestoreGravshipLandingSessionOnLoad
@@ -402,7 +443,11 @@ namespace Multiplayer.Client.Patches
             if (Multiplayer.Client == null || !ModsConfig.OdysseyActive) return;
 
             var controller = Find.GravshipController;
-            if (controller is not { LandingAreaConfirmationInProgress: true }) return;
+            if (controller == null) return;
+
+            GravshipCutsceneSync.EndCutsceneLostByLoading(controller);
+
+            if (!controller.LandingAreaConfirmationInProgress) return;
 
             // The same tile ArriveExistingMap/ArriveNewMap open the session at
             if (controller.landingMarker.gravship is { } gravship)
@@ -434,6 +479,12 @@ namespace Multiplayer.Client.Patches
             if (Multiplayer.InInterface)
             {
                 GravshipCutsceneSync.LocalCutsceneEnded(__instance, true);
+                return false;
+            }
+
+            if (__instance.gravship == null)
+            {
+                GravshipCutsceneSync.EndWithoutGravship(__instance, takeoff: true);
                 return false;
             }
 
@@ -471,6 +522,12 @@ namespace Multiplayer.Client.Patches
             if (Multiplayer.InInterface)
             {
                 GravshipCutsceneSync.LocalCutsceneEnded(__instance, false);
+                return false;
+            }
+
+            if (__instance.gravship == null)
+            {
+                GravshipCutsceneSync.EndWithoutGravship(__instance, takeoff: false);
                 return false;
             }
 
