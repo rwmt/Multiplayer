@@ -277,13 +277,20 @@ namespace Multiplayer.Client.Patches
         // already standing on gotoLoc and its current job is Goto, it calls EndCurrentJob directly. That
         // call isn't synced, so the pawn stops only for the player who issued the order while it keeps
         // walking for everyone else, causing a desync. Sync it the same way as the TryTakeOrderedJob call.
-        [SyncMethod]
         static void CustomEndCurrentJob(Pawn_JobTracker self, JobCondition condition,
             bool startNewJob = true, bool canReturnToPool = true)
         {
-            // The command executes ticks after the click: repeat vanilla's check so a job the pawn started
-            // in between isn't ended
-            if (self.curJob?.def != JobDefOf.Goto)
+            // Vanilla only calls this while the current job is a Goto: remember which one
+            SyncedEndGotoJob(self, condition, startNewJob, canReturnToPool, self.curJob?.loadID ?? -1);
+        }
+
+        [SyncMethod]
+        static void SyncedEndGotoJob(Pawn_JobTracker self, JobCondition condition, bool startNewJob,
+            bool canReturnToPool, int jobId)
+        {
+            // The command executes ticks after the click: end only the goto the order was aimed at, not a job or
+            // another goto the pawn started in between. Not its position: the pawn keeps walking until then.
+            if (self.curJob == null || self.curJob.loadID != jobId || self.curJob.def != JobDefOf.Goto)
                 return;
 
             self.EndCurrentJob(condition, startNewJob, canReturnToPool);
