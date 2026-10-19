@@ -253,6 +253,16 @@ namespace Multiplayer.Client.AsyncTime
         static void Postfix(ref bool __result)
         {
             if (Multiplayer.Client == null) return;
+
+            // The rest of this reads the local view. A world or map tick is running, so report not paused (vanilla only
+            // ticks unpaused): ticks can continue after a rate change in the same game tick (TickPatch.TickLockstep),
+            // and while paused Pawn_JobTracker.StartJob counts jobs by the local frame count.
+            if (AsyncWorldTimeComp.tickingWorld || AsyncTimeComp.tickingMap != null)
+            {
+                __result = false;
+                return;
+            }
+
             if (WorldRendererUtility.WorldSelected) return;
             if (FactionCreator.generatingMap) return;
 
