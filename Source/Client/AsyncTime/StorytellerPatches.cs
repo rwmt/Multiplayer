@@ -55,18 +55,33 @@ public class StorytellerTargetsPatch
     }
 
     // In multifaction every player faction's storyteller ticks on every map (FactionRepeater). Keep each one
-    // to its own maps and to unowned maps (sites etc.) where it has people, so faction A's incidents
+    // to its own maps and to unowned maps (sites etc.) where it has pawns, so faction A's incidents
     // (e.g. Map_Misc ones while A's colonists visit) don't land on faction B's home.
     static bool FactionCanReceiveIncidentsOn(Map map, Faction faction)
     {
         if (!Multiplayer.GameComp.multifaction)
             return true;
 
-        if (map.ParentFaction == faction)
+        var owner = OwnerFaction(map);
+        if (owner == faction)
             return true;
 
-        return map.ParentFaction is not { IsPlayer: true } &&
-               map.mapPawns.SpawnedPawnsInFaction(faction).Any(p => p.RaceProps.Humanlike);
+        if (owner is { IsPlayer: true })
+            return false;
+
+        // Also pawns held on the map (carried, in a shuttle or pod...). Only evaluated when the storyteller makes
+        // incidents (every 1000 ticks), the unspawned ones need a scan of the map's holders.
+        return map.mapPawns.SpawnedPawnsInFaction(faction).Count > 0 || map.mapPawns.PawnsInFaction(faction).Count > 0;
+    }
+
+    // A pocket map (e.g. an undercave) belongs to the owner of the map it was opened from
+    static Faction OwnerFaction(Map map)
+    {
+        var owningMap = map;
+        for (int i = 0; i < 8 && owningMap.IsPocketMap && owningMap.PocketMapParent?.sourceMap is { } source; i++)
+            owningMap = source;
+
+        return owningMap.ParentFaction;
     }
 }
 
