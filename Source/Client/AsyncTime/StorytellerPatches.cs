@@ -28,6 +28,36 @@ public class StorytellerTickPatch
     static void Finalizer() => updating = false;
 }
 
+// Set while a map tick calls StoryWatcherTick (see AsyncTimeComp.Tick): the periodic adaptation growth runs only in the
+// world tick, so once per game tick like vanilla
+public static class StoryWatcherMapTick
+{
+    public static bool downedOnly;
+}
+
+[HarmonyPatch(typeof(StoryWatcher_Adaptation), nameof(StoryWatcher_Adaptation.AdaptationWatcherTick))]
+static class AdaptationWatcherMapTickPatch
+{
+    static bool Prefix(StoryWatcher_Adaptation __instance)
+    {
+        if (!StoryWatcherMapTick.downedOnly) return true;
+
+        // The first half of the original
+        var downed = __instance.pawnsJustDownedThisTick;
+        for (int i = 0; i < downed.Count; i++)
+            __instance.ResolvePawnEvent(downed[i], AdaptationEvent.Downed);
+        downed.Clear();
+
+        return false;
+    }
+}
+
+[HarmonyPatch(typeof(StoryWatcher_PopAdaptation), nameof(StoryWatcher_PopAdaptation.PopAdaptationWatcherTick))]
+static class PopAdaptationWatcherMapTickPatch
+{
+    static bool Prefix() => !StoryWatcherMapTick.downedOnly;
+}
+
 [HarmonyPatch(typeof(Storyteller))]
 [HarmonyPatch(nameof(Storyteller.AllIncidentTargets), MethodType.Getter)]
 public class StorytellerTargetsPatch

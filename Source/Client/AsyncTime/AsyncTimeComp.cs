@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using HarmonyLib;
+using Multiplayer.Client.AsyncTime;
 using Multiplayer.Client.Comp;
 using Multiplayer.Client.Factions;
 using Multiplayer.Client.Patches;
@@ -157,6 +158,10 @@ namespace Multiplayer.Client
                     SimulationFailures.Record("storyteller", e);
                 }
 
+                // The world tick (vanilla DoSingleTick) already ticks the story watcher once per game tick, ticking it
+                // here too made adaptation and pop adaptation grow once more per map. Only resolve the colonists downed
+                // during this map tick, which vanilla does later in the same tick.
+                StoryWatcherMapTick.downedOnly = true;
                 try
                 {
                     Find.StoryWatcher.StoryWatcherTick();
@@ -165,6 +170,10 @@ namespace Multiplayer.Client
                 {
                     Log.Error(e.ToString());
                     SimulationFailures.Record("story watcher", e);
+                }
+                finally
+                {
+                    StoryWatcherMapTick.downedOnly = false;
                 }
 
                 try
