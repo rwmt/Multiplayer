@@ -275,6 +275,7 @@ namespace Multiplayer.Client
                 catch (Exception e)
                 {
                     Log.Error($"Exception during ticking {tickable}: {e}");
+                    SimulationFailures.Record($"ticking {tickable}", e);
                 }
             }
         }

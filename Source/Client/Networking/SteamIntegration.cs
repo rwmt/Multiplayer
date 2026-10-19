@@ -32,25 +32,49 @@ namespace Multiplayer.Client
 
             sessionReq = Callback<P2PSessionRequest_t>.Create(req =>
             {
-                ServerLog.Log($"Received P2P session request from {req.m_steamIDRemote}");
+                var remoteId = req.m_steamIDRemote;
+                ServerLog.Log($"Received P2P session request from {remoteId}");
                 var session = Multiplayer.session;
-                if (Multiplayer.LocalServer?.settings.steam == true && !session.pendingSteam.Contains(req.m_steamIDRemote))
-                {
-                    if (Multiplayer.settings.autoAcceptSteam)
-                        SteamNetworking.AcceptP2PSessionWithUser(req.m_steamIDRemote);
-                    else
-                    {
-                        session.pendingSteam.Add(req.m_steamIDRemote);
-                        PendingPlayerWindow.EnqueueJoinRequest(req.m_steamIDRemote, (joinReq, accepted) =>
-                        {
-                            if(joinReq.steamId.HasValue && accepted) AcceptPlayerJoinRequest(joinReq.steamId.Value);
-                        });
-                    }
-                    session.knownUsers.Add(req.m_steamIDRemote);
-                    session.NotifyChat();
+                if (Multiplayer.LocalServer?.settings.steam != true || session == null) return;
 
-                    SteamFriends.RequestUserInformation(req.m_steamIDRemote, true);
+                // The client's join packet is reliable and Steam keeps asking while it's resent: don't prompt again
+                // right after a reject
+                if (session.rejectedSteam.TryGetValue(remoteId, out var rejectedAt) &&
+                    Time.realtimeSinceStartup - rejectedAt < RejectedRequestCooldownSecs)
+                    return;
+
+                // The remote opens a new session, a delayed close of the old one would tear it down
+                SteamP2PIntegration.KeepSession(remoteId);
+
+                if (Multiplayer.settings.autoAcceptSteam)
+                {
+                    SteamNetworking.AcceptP2PSessionWithUser(remoteId);
+                    // A prompt from before auto accept was turned on
+                    session.pendingSteam.Remove(remoteId);
                 }
+                // Steam repeats the request while the remote keeps sending, the prompt for it is still unanswered
+                else if (session.pendingSteam.Contains(remoteId))
+                {
+                    return;
+                }
+                else
+                {
+                    session.pendingSteam.Add(remoteId);
+                    PendingPlayerWindow.EnqueueJoinRequest(remoteId, (joinReq, accepted) =>
+                    {
+                        if (!joinReq.steamId.HasValue) return;
+                        if (accepted)
+                            AcceptPlayerJoinRequest(joinReq.steamId.Value);
+                        else
+                            RejectPlayerJoinRequest(session, joinReq.steamId.Value);
+                    });
+                }
+
+                if (!session.knownUsers.Contains(remoteId))
+                    session.knownUsers.Add(remoteId);
+                session.NotifyChat();
+
+                SteamFriends.RequestUserInformation(remoteId, true);
             });
 
             friendRchpUpdate = Callback<FriendRichPresenceUpdate_t>.Create(update =>
@@ -61,7 +85,8 @@ namespace Multiplayer.Client
             {
                 if (Current.Game == null)
                 {
-                    ClientUtil.TryConnectWithWindow(ConnectorRegistry.Steam(req.m_steamIDFriend), false);
+                    MainMenuPatch.ConfirmLoadingErrors(() =>
+                        ClientUtil.TryConnectWithWindow(ConnectorRegistry.Steam(req.m_steamIDFriend), false));
                 }
                 else
                 {
@@ -82,10 +107,22 @@ namespace Multiplayer.Client
                 Callback<AvatarImageLoaded_t>.Create(loaded => SteamImages.GetTexture(loaded.m_iImage, force: true));
         }
 
+        private const float RejectedRequestCooldownSecs = 30f;
+
+        private static void RejectPlayerJoinRequest(MultiplayerSession session, CSteamID id)
+        {
+            // Forget the request, or the player's later ones would be ignored as duplicates of it
+            session.pendingSteam.Remove(id);
+            session.rejectedSteam[id] = Time.realtimeSinceStartup;
+            // Drops what the player sent so far
+            SteamP2PIntegration.CloseSession(id);
+        }
+
         public static void AcceptPlayerJoinRequest(CSteamID id)
         {
             SteamNetworking.AcceptP2PSessionWithUser(id);
-            Multiplayer.session.pendingSteam.Remove(id);
+            Multiplayer.session?.pendingSteam.Remove(id);
+            Multiplayer.session?.rejectedSteam.Remove(id);
 
             Messages.Message("MpSteamAccepted".Translate(), MessageTypeDefOf.PositiveEvent, false);
         }

@@ -38,10 +38,17 @@ namespace Multiplayer.Client
         public bool showTimeline;
 
         public bool desynced;
+        // Caught exceptions in synced commands and ticks, see SimulationFailures
+        public int simulationFailures;
+        public string firstSimulationFailure;
+        // Set when the player connected despite mismatched game data
+        public string joinDataDiff;
         // Standalone: set by the server when this client's sync opinions are the ones compared against
         public bool isSyncReference;
 
         public List<CSteamID> pendingSteam = new();
+        // Steam join requests the host rejected, by time (Time.realtimeSinceStartup)
+        public Dictionary<CSteamID, float> rejectedSteam = new();
         public List<CSteamID> knownUsers = new();
 
         public const int MaxMessages = 200;

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using HarmonyLib;
 using Multiplayer.Client.Saving;
@@ -29,6 +30,45 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]
     public static class MainMenuPatch
     {
+        private static bool loadingErrorsConfirmed;
+
+        /// Runs the action after the player confirms playing with loading errors, once per game start
+        public static void ConfirmLoadingErrors(Action action)
+        {
+            if (!Multiplayer.loadingErrors || loadingErrorsConfirmed)
+            {
+                action();
+                return;
+            }
+
+            static string FirstLine(string error)
+            {
+                var line = error.Split('\n')[0].Trim();
+                return line.Length > 150 ? line[..150] + "..." : line;
+            }
+
+            string errors;
+            int count;
+            lock (Multiplayer.loadingErrorMessages)
+            {
+                errors = Multiplayer.loadingErrorMessages.Select(e => "- " + FirstLine(e)).Join(delimiter: "\n");
+                count = Multiplayer.loadingErrorCount;
+                if (count > Multiplayer.loadingErrorMessages.Count)
+                    errors += $"\n... and {count - Multiplayer.loadingErrorMessages.Count} more";
+            }
+
+            // Not translated: the strings live in the separate locale repository
+            var text = $"Multiplayer had {count} error(s) while loading its patches and " +
+                       "sync handlers. Playing like this is likely to desync or break features.\n\n" +
+                       $"{errors}\n\nThe log has the full errors. Continue anyway?";
+
+            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(text, () =>
+            {
+                loadingErrorsConfirmed = true;
+                action();
+            }, true, layer: WindowLayer.Super));
+        }
+
         static void Prefix(Rect rect, List<ListableOption> optList)
         {
             if (!MainMenuMarker.drawing) return;
@@ -55,8 +95,11 @@ namespace Multiplayer.Client
                                 GUIUtility.systemCopyBuffer = version;
                             else
                             {
-                                Find.WindowStack.Add(new ServerBrowser());
-                                VersionChecker.OpenNewVersionDialogIfApplicable();
+                                ConfirmLoadingErrors(() =>
+                                {
+                                    Find.WindowStack.Add(new ServerBrowser());
+                                    VersionChecker.OpenNewVersionDialogIfApplicable();
+                                });
                             }
                         }));
                 }
@@ -67,13 +110,13 @@ namespace Multiplayer.Client
                 if (Multiplayer.session == null)
                     optList.Insert(0, new ListableOption(
                         "MpHostServer".Translate(),
-                        () => Find.WindowStack.Add(new HostWindow() { layer = WindowLayer.Super })
+                        () => ConfirmLoadingErrors(() => Find.WindowStack.Add(new HostWindow() { layer = WindowLayer.Super }))
                     ));
 
                 if (MpVersion.IsDebug && Multiplayer.IsReplay)
                     optList.Insert(0, new ListableOption(
                         "MpHostServer".Translate(),
-                        () => Find.WindowStack.Add(new HostWindow() { layer = WindowLayer.Super })
+                        () => ConfirmLoadingErrors(() => Find.WindowStack.Add(new HostWindow() { layer = WindowLayer.Super }))
                     ));
 
                 if (Multiplayer.Client != null)

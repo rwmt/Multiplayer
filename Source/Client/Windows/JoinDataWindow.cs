@@ -157,14 +157,14 @@ namespace Multiplayer.Client
 
             void AddConfigs(List<ModConfig> one, List<ModConfig> two, NodeStatus notInTwo)
             {
-                var oneDict = one.ToDictionaryPermissive(m => m.ModId + "/" + m.FileName, m => m.Contents);
-                var twoDict = two.ToDictionaryPermissive(m => m.ModId + "/" + m.FileName, m => m.Contents);
+                var oneDict = one.ToDictionaryPermissive(m => m.ModId + "/" + m.FileName, m => m.ComparableContents);
+                var twoDict = two.ToDictionaryPermissive(m => m.ModId + "/" + m.FileName, m => m.ComparableContents);
 
                 foreach (var kv in oneDict){
                     AddNodesForPath(
                         kv.Key,
                         configsRoot,
-                        twoDict.TryGetValue(kv.Key, out var t) ? (t.Equals(kv.Value) ? NodeStatus.None : NodeStatus.Modified) : notInTwo
+                        twoDict.TryGetValue(kv.Key, out var t) ? (t == kv.Value ? NodeStatus.None : NodeStatus.Modified) : notInTwo
                     );
                 }
             }
@@ -250,6 +250,9 @@ namespace Multiplayer.Client
             if (connectAnyway)
             {
                 Log.Message($"Multiplayer: Connecting anyway ({DiffString()})");
+                // For desync reports: whether everyone ran the same build is the first question
+                if (Multiplayer.session != null)
+                    Multiplayer.session.joinDataDiff = DiffString();
                 connectAnywayCallback();
                 Close(false);
             }
@@ -269,7 +272,8 @@ namespace Multiplayer.Client
         private string DiffString()
         {
             var str = "";
-            str += $"RW version match: {remote.remoteMpVersion == MpVersion.Version}, ";
+            str += $"RW version match: {remote.remoteRwVersion == VersionControl.CurrentVersionString}, ";
+            str += $"MP version match: {remote.remoteMpVersion == MpVersion.Version}, ";
             str += $"Mod list diff: {modListDiff}, ";
             str += $"Files match: {!filesRoot.children.Any()}, ";
             str += $"Config sync enabled: {remote.hasConfigs}, ";

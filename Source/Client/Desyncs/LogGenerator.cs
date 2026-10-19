@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Multiplayer.Common;
 using UnityEngine;
 using Verse;
 
@@ -13,6 +14,8 @@ namespace Multiplayer.Client
     public static class LogGenerator
     {
         private const int MaxLogLineCount = 10000;
+        // The start has the setup (mods, patching errors), the end the desync itself
+        private const int HeadLogLineCount = 2000;
 
         internal static string PrepareLogData()
         {
@@ -46,15 +49,8 @@ namespace Multiplayer.Client
             return log.Replace("\r\n", "\n");
         }
 
-        private static string TrimExcessLines(string log)
-        {
-            var indexOfLastNewline = log.IndexOfOccurrence('\n', MaxLogLineCount);
-            if (indexOfLastNewline >= 0)
-            {
-                log = $"{log.Substring(0, indexOfLastNewline + 1)}(log trimmed to {MaxLogLineCount:N0} lines.)";
-            }
-            return log;
-        }
+        private static string TrimExcessLines(string log) =>
+            log.KeepHeadAndTailLines(HeadLogLineCount, MaxLogLineCount - HeadLogLineCount);
 
         private static string RedactUselessLines(string log)
         {

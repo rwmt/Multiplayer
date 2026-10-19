@@ -48,7 +48,7 @@ namespace Multiplayer.Client
             }
 
             if (patched == 0)
-                Log.Error("MP: Couldn't find RealTime.frameCount in Pawn_JobTracker.StartJob. Was the original method changed?");
+                Multiplayer.LoadingError("MP: Couldn't find RealTime.frameCount in Pawn_JobTracker.StartJob. Was the original method changed?");
         }
 
         static int FrameCountReplacement(int frameCount, Pawn_JobTracker tracker)

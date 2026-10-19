@@ -84,7 +84,7 @@ namespace Multiplayer.Common
         private byte sendFragId;
 
         // All fragmented packets need to be sent from the same thread
-        public void SendFragmented(Packets id, byte[] message)
+        public virtual void SendFragmented(Packets id, byte[] message)
         {
             if (State == ConnectionStateEnum.Disconnected)
                 return;
@@ -143,6 +143,16 @@ namespace Multiplayer.Common
         }
 
         public void SendFragmented(SerializedPacket packet) => SendFragmented(packet.id, packet.data);
+
+        /// For packets which usually fit a single packet but can be bigger: fragments only those which don't fit.
+        /// The packet's handler must allow fragments, and the same thread rule as for SendFragmented applies.
+        public void SendFragmentedIfNeeded(SerializedPacket packet)
+        {
+            if (packet.data.Length > MaxSinglePacketSize)
+                SendFragmented(packet);
+            else
+                Send(packet);
+        }
 
         protected abstract void SendRaw(byte[] raw, bool reliable = true);
 

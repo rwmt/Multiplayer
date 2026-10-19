@@ -1,5 +1,6 @@
 using Multiplayer.Client.Networking;
 using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
 
 namespace Multiplayer.Client
 {
@@ -18,6 +19,14 @@ namespace Multiplayer.Client
         public void HandleSteamAccept(ByteReader data)
         {
             connection.ChangeState(new ClientJoiningState(connection, username));
+        }
+
+        // The server turned the connection away (server full, starting, throttled)
+        [TypedPacketHandler]
+        public void HandleDisconnected(ServerDisconnectPacket packet)
+        {
+            ConnectionStatusListeners.TryNotifyAll_Disconnected(SessionDisconnectInfo.From(packet));
+            Multiplayer.StopMultiplayer();
         }
     }
 

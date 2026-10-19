@@ -100,6 +100,8 @@ namespace Multiplayer.Common
         public void Run()
         {
             serverThread = Thread.CurrentThread;
+            // Pairs with TryStop: either it sees this thread and joins it, or this sees running cleared
+            Thread.MemoryBarrier();
             ServerLog.Detail("Server started");
 
             Stopwatch time = Stopwatch.StartNew();
@@ -211,14 +213,31 @@ namespace Multiplayer.Common
                 serverTimePerTick = StandardTimePerTick * 4f;
         }
 
+        public static readonly TimeSpan StopTimeout = TimeSpan.FromSeconds(5);
+        private int stopped;
+
+        /// Stops the server once, later calls do nothing. Server state isn't thread safe, so called from another
+        /// thread, this waits for the server thread to finish its iteration and stop the server on its way out
+        /// (Run). Only if that takes too long is the server stopped from the calling thread.
         public void TryStop()
         {
+            running = false;
+            Thread.MemoryBarrier();
+
+            var thread = serverThread;
+            if (thread != null && thread != Thread.CurrentThread && !thread.Join(StopTimeout))
+                ServerLog.Error($"The server thread didn't stop within {StopTimeout.TotalSeconds}s, " +
+                                $"stopping the server from thread {Thread.CurrentThread.ManagedThreadId}");
+
+            if (Interlocked.Exchange(ref stopped, 1) != 0) return;
+
             ServerLog.Detail("Server shutting down...");
 
             playerManager.OnServerStop();
             netManagers.ForEach(manager => manager.Stop());
 
-            instance = null;
+            // A server stopping late mustn't clear the instance of the next one
+            Interlocked.CompareExchange(ref instance, null, this);
         }
 
         public void Enqueue(Action action)

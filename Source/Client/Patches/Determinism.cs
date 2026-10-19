@@ -89,7 +89,7 @@ namespace Multiplayer.Client.Patches
 
             if (loadList == null)
             {
-                Log.Error("MP: Couldn't find the shuffled name list in PawnBioAndNameGenerator.TryGetRandomUnusedSolidName, assuming local 1. Was the original method changed?");
+                Multiplayer.LoadingError("MP: Couldn't find the shuffled name list in PawnBioAndNameGenerator.TryGetRandomUnusedSolidName, assuming local 1. Was the original method changed?");
                 loadList = new CodeInstruction(OpCodes.Ldloc_1);
             }
 
@@ -108,7 +108,7 @@ namespace Multiplayer.Client.Patches
             }
 
             if (patched == 0)
-                Log.Error("MP: Couldn't find FirstOrDefault in PawnBioAndNameGenerator.TryGetRandomUnusedSolidName. Was the original method changed?");
+                Multiplayer.LoadingError("MP: Couldn't find FirstOrDefault in PawnBioAndNameGenerator.TryGetRandomUnusedSolidName. Was the original method changed?");
 
             return insts;
         }
@@ -175,7 +175,7 @@ namespace Multiplayer.Client.Patches
             }
 
             if (patched == 0)
-                Log.Error("MP: Couldn't find CellRect.Contains in Pawn.ProcessPostTickVisuals. Was the original method changed?");
+                Multiplayer.LoadingError("MP: Couldn't find CellRect.Contains in Pawn.ProcessPostTickVisuals. Was the original method changed?");
         }
     }
 
@@ -197,7 +197,7 @@ namespace Multiplayer.Client.Patches
             }
 
             if (!found)
-                Log.Error($"MP: Couldn't patch the cell shuffle in {original.DeclaringType}:{original.Name}. Was the original method changed?");
+                Multiplayer.LoadingError($"MP: Couldn't patch the cell shuffle in {original.DeclaringType}:{original.Name}. Was the original method changed?");
         }
 
         // The shuffle uses Rand and its "shuffled" flag isn't saved, so whether a given access shuffles could differ
@@ -544,7 +544,7 @@ namespace Multiplayer.Client.Patches
             }
 
             if (patched == 0)
-                Log.Error("MP: Couldn't find TicksGame in StatWorker.GetValue. Was the original method changed?");
+                Multiplayer.LoadingError("MP: Couldn't find TicksGame in StatWorker.GetValue. Was the original method changed?");
 
             return result;
         }
@@ -608,7 +608,7 @@ namespace Multiplayer.Client.Patches
 
             const int expectedPatches = 1;
             if (patchCount != expectedPatches)
-                Log.Error($"Replaced an incorrect amount of Time.deltaTime calls for GameConditionManager.MapBrightnessTracker:Tick (expected: {expectedPatches}, patched: {patchCount}). Was the original method changed?");
+                Multiplayer.LoadingError($"Replaced an incorrect amount of Time.deltaTime calls for GameConditionManager.MapBrightnessTracker:Tick (expected: {expectedPatches}, patched: {patchCount}). Was the original method changed?");
         }
     }
 

@@ -84,7 +84,8 @@ public class PlayerCursors
 
         lastSelected = selected;
 
-        Multiplayer.Client.Send(new ClientSelectedPacket
-            { reset = reset, newlySelectedIds = add, unselectedIds = remove });
+        // Selections over the packet's limit used to throw here (#377)
+        foreach (var packet in ClientSelectedPacket.Split(reset, add, remove))
+            Multiplayer.Client.Send(packet);
     }
 }

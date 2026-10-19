@@ -14,8 +14,8 @@ static class WorkGiverTeachUnsetTarget
         // FloatMenuMakerMap.AddJobGiverWorkOrders despite not assigning the job yet.
         if (!Multiplayer.InInterface)
             return true;
-        // If target is not pawn, no result
-        if (t is not Pawn pawn)
+        // If target is not pawn (or has no lesson to give), no result
+        if (t is not Pawn pawn || pawn.CurJob == null)
             return false;
 
         // Alternative approach would be to store the current target of the lesson taking pawn in the

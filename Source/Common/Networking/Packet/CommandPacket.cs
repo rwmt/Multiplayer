@@ -1,12 +1,12 @@
 ﻿namespace Multiplayer.Common.Networking.Packet;
 
-[PacketDefinition(Packets.Server_Command)]
+// Commands which don't fit a single packet (designating or pasting big areas, reforming an ideo) are sent fragmented
+[PacketDefinition(Packets.Server_Command, allowFragmented: true)]
 public record struct ServerCommandPacket : IPacket
 {
-    // type + ticks + factionId + mapId + playerId
-    private const int HeaderSize = 1 + 4 * 4;
-    // Largest data that still fits the rebroadcast in a single packet
-    public const int MaxDataLength = ConnectionBase.MaxSinglePacketSize - HeaderSize;
+    // Commands go into the log joiners receive with the world data, which has to fit a fragmented packet
+    // (ConnectionBase.MaxFragmentedMessageLength) together with the save, so keep them well below that
+    public const int MaxDataLength = 1024 * 1024;
 
     public CommandType type;
     public int ticks;
@@ -39,7 +39,7 @@ public record struct ServerCommandPacket : IPacket
     }
 }
 
-[PacketDefinition(Packets.Client_Command)]
+[PacketDefinition(Packets.Client_Command, allowFragmented: true)]
 public record struct ClientCommandPacket(CommandType type, int mapId, byte[] data) : IPacket
 {
     public CommandType type = type;
