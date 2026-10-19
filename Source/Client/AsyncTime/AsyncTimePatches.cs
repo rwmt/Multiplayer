@@ -60,6 +60,9 @@ namespace Multiplayer.Client.AsyncTime
     {
         static bool running;
 
+        // The faction of the current multifaction pass
+        public static Faction factionPass;
+
         static bool Prefix(DateNotifier __instance)
         {
             if (Multiplayer.Client == null || running) return true;
@@ -81,6 +84,7 @@ namespace Multiplayer.Client.AsyncTime
                 var prevLastSeason = __instance.lastSeason;
                 __instance.lastSeason = worldComp.factionLastSeasons.TryGetValue(factionId, out var s) ? s : Season.Undefined;
                 ((Map)null).PushFaction(faction, force: true);
+                factionPass = faction;
 
                 try
                 {
@@ -94,6 +98,7 @@ namespace Multiplayer.Client.AsyncTime
                 }
                 finally
                 {
+                    factionPass = null;
                     FactionExtensions.PopFaction();
                     worldComp.factionLastSeasons[factionId] = __instance.lastSeason;
                     __instance.lastSeason = prevLastSeason;
@@ -122,6 +127,19 @@ namespace Multiplayer.Client.AsyncTime
                 running = false;
                 prevTime?.Set();
             }
+        }
+    }
+
+    // A faction's season pass looks only at its own homes. Gravship landing sites are homes of every faction in vanilla
+    // (and a map with the faction's gravship counts too), the other players' maps among them are left out.
+    [HarmonyPatch(typeof(Map), nameof(Map.IsPlayerHome), MethodType.Getter)]
+    static class DateNotifierOwnHomes
+    {
+        static void Postfix(Map __instance, ref bool __result)
+        {
+            if (__result && DateNotifierPatch.factionPass is { } faction &&
+                __instance.ParentFaction is { IsPlayer: true } owner && owner != faction)
+                __result = false;
         }
     }
 
