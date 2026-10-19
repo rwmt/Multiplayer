@@ -70,7 +70,8 @@ namespace Multiplayer.Client
             && !ExecutingCmds
             && !reloading
             && Current.ProgramState == ProgramState.Playing
-            && LongEventHandler.currentEvent == null;
+            && LongEventHandler.currentEvent == null
+            && !SimLongEventContext.InSimulation;
 
         public static string ReplaysDir => GenFilePaths.FolderUnderSaveData("MpReplays");
         public static string DesyncsDir => GenFilePaths.FolderUnderSaveData("MpDesyncs");
@@ -81,7 +82,26 @@ namespace Multiplayer.Client
 
         public static bool arbiterInstance;
         public static bool loadingErrors;
+        public static int loadingErrorCount;
+        // The first few, shown before hosting or joining
+        public static readonly List<string> loadingErrorMessages = new();
+        private const int MaxShownLoadingErrors = 20;
         public static Stopwatch harmonyWatch = new();
+
+        /// A patch or sync registration failed to load. Playing like that likely desyncs or breaks features, so
+        /// hosting and joining ask for a confirmation first.
+        public static void LoadingError(string message)
+        {
+            Log.Error(message);
+
+            lock (loadingErrorMessages)
+            {
+                loadingErrors = true;
+                loadingErrorCount++;
+                if (loadingErrorMessages.Count < MaxShownLoadingErrors)
+                    loadingErrorMessages.Add(message);
+            }
+        }
 
         public static ModContentPack modContentPack;
 
@@ -220,8 +240,7 @@ namespace Multiplayer.Client
 
             if (LocalServer != null)
             {
-                LocalServer.running = false;
-                localServerThread?.Join();
+                // Waits for the server thread, which stops the server on its way out
                 LocalServer.TryStop();
                 LocalServer = null;
             }

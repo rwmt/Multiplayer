@@ -5,11 +5,18 @@ namespace Multiplayer.Common.Networking.Packet;
 [PacketDefinition(Packets.Server_JoinData, allowFragmented: true)]
 public record struct ServerJoinDataPacket : IPacket
 {
+    public const int MaxMissingDefs = 512;
+
     public string gameName;
     public int playerId;
     public string rwVersion;
     public string mpVersion;
+    // Game language of the client which provided the server's init data
+    public string language;
+    // Aligned with the client's def infos from ClientJoinDataPacket
     public DefCheckStatus[] defStatus;
+    // Def types the server knows but the client didn't send
+    public string[] missingDefs;
     public bool configsIncluded;
     public byte[] rawServerInitData;
 
@@ -25,11 +32,17 @@ public record struct ServerJoinDataPacket : IPacket
         buf.Bind(ref playerId);
         buf.Bind(ref rwVersion);
         buf.Bind(ref mpVersion);
+        buf.Bind(ref language, maxLength: ClientInitDataPacket.MaxLanguageLength);
         buf.Bind(ref defStatus, BinderOf.Enum<DefCheckStatus>());
+        buf.Bind(ref missingDefs, MissingDefBinder, maxLength: MaxMissingDefs);
         buf.Bind(ref configsIncluded);
-        // Max 512KiB. Should be way more than enough. As an example, one game with ~100 mods used ~35KiB.
-        buf.BindRemaining(ref rawServerInitData, maxLength: 1<<19);
+        // The server forwards the first joiner's (or host's) ClientInitDataPacket.rawMods, so the limits must match.
+        // As an example, one game with ~100 mods used ~35KiB, synced configs can add a lot more.
+        buf.BindRemaining(ref rawServerInitData, maxLength: ClientInitDataPacket.MaxRawModsLength);
     }
+
+    private static readonly Binder<string> MissingDefBinder = (PacketBuffer buf, ref string name) =>
+        buf.Bind(ref name, maxLength: KeyedDefInfo.MaxNameLength);
 }
 
 [PacketDefinition(Packets.Client_JoinData, allowFragmented: true)]
@@ -49,13 +62,15 @@ public record struct ClientJoinDataPacket : IPacket
 
 public record struct KeyedDefInfo : IPacketBufferable
 {
+    public const int MaxNameLength = 128;
+
     public string name;
     public int count;
     public int hash;
 
     public void Bind(PacketBuffer buf)
     {
-        buf.Bind(ref name, maxLength: 128);
+        buf.Bind(ref name, maxLength: MaxNameLength);
         buf.Bind(ref count);
         buf.Bind(ref hash);
     }

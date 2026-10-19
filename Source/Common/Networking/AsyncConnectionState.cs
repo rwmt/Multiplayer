@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 using Multiplayer.Common.Networking.Packet;
 using Multiplayer.Common.Util;
@@ -9,9 +11,19 @@ namespace Multiplayer.Common;
 
 public abstract class AsyncConnectionState(ConnectionBase connection) : MpConnectionState(connection)
 {
+    private static readonly Stopwatch Clock = Stopwatch.StartNew();
+
     private PacketAwaitable<ByteReader?>? packetAwaitable;
+    private long waitDeadlineMs = long.MaxValue;
 
     public Task? CurrentTask { get; private set; }
+
+    /// The packet this state is waiting for, if any.
+    public Packets? AwaitedPacket => packetAwaitable?.PacketType;
+
+    /// True when the awaited packet didn't arrive within the timeout given when starting to wait. Checked by the
+    /// server loop, which disconnects the player.
+    public bool WaitTimedOut => packetAwaitable != null && Clock.ElapsedMilliseconds > waitDeadlineMs;
 
     public override void StartState()
     {
@@ -48,15 +60,16 @@ public abstract class AsyncConnectionState(ConnectionBase connection) : MpConnec
     /// An exception is thrown if this is called again before the packet arrives. The player is disconnected if a
     /// different packet type arrives.
     /// </summary>
-    protected PacketAwaitable<ByteReader> Packet(Packets packet)
+    protected PacketAwaitable<ByteReader> Packet(Packets packet, TimeSpan? timeout = null)
     {
         if (packetAwaitable != null)
             throw new Exception($"Already waiting for another packet: {packetAwaitable}");
 
         ServerLog.Verbose($"{connection} waiting for {packet}");
 
-        packetAwaitable = new PacketAwaitable<ByteReader?>(packet, false);
-        return packetAwaitable!;
+        var awaitable = new PacketAwaitable<ByteReader?>(packet, false);
+        StartWaiting(awaitable, timeout);
+        return awaitable!;
     }
 
     /// <summary>
@@ -64,16 +77,18 @@ public abstract class AsyncConnectionState(ConnectionBase connection) : MpConnec
     /// An exception is thrown if this is called again before the packet arrives. The player is disconnected if a
     /// different packet type arrives.
     /// </summary>
-    protected Task<T> TypedPacket<T>() where T: struct, IPacket
+    protected PacketAwaitable<T> TypedPacket<T>(TimeSpan? timeout = null) where T: struct, IPacket
     {
-        if (packetAwaitable != null)
-            throw new Exception($"Already waiting for another packet: {packetAwaitable}");
-
-        ServerLog.Verbose($"{connection} waiting for {PacketTypeInfo<T>.Id}");
-
-        packetAwaitable = TypedPacketAwaitable<T>(out var task, announcePacketFailure: false);
-        return task
-            .ContinueWith(finishedTask => (T)finishedTask.Result!, TaskContinuationOptions.OnlyOnRanToCompletion);
+        var typed = new PacketAwaitable<T>(PacketTypeInfo<T>.Id, announcePacketFailure: false);
+        WaitForTypedPacket<T>(announcePacketFailure: false, timeout, packet =>
+        {
+            if (packet.HasValue)
+                typed.SetResult(packet.Value);
+            else
+                // Packet failure isn't announced for this awaitable, so this shouldn't happen
+                typed.SetException(new InvalidOperationException($"Didn't receive {PacketTypeInfo<T>.Id}"));
+        }, typed.SetException);
+        return typed;
     }
 
     /// <summary>
@@ -82,15 +97,16 @@ public abstract class AsyncConnectionState(ConnectionBase connection) : MpConnec
     /// different packet type arrives.
     /// The result is null if the player is disconnected while waiting.
     /// </summary>
-    protected PacketAwaitable<ByteReader?> PacketOrNull(Packets packet)
+    protected PacketAwaitable<ByteReader?> PacketOrNull(Packets packet, TimeSpan? timeout = null)
     {
         if (packetAwaitable != null)
             throw new Exception($"Already waiting for another packet: {packetAwaitable}");
 
         ServerLog.Verbose($"{connection} waiting for {packet}");
 
-        packetAwaitable = new PacketAwaitable<ByteReader?>(packet, true);
-        return packetAwaitable;
+        var awaitable = new PacketAwaitable<ByteReader?>(packet, true);
+        StartWaiting(awaitable, timeout);
+        return awaitable;
     }
 
 
@@ -99,15 +115,57 @@ public abstract class AsyncConnectionState(ConnectionBase connection) : MpConnec
     /// An exception is thrown if this is called again before the packet arrives. The player is disconnected if a
     /// different packet type arrives.
     /// </summary>
-    protected Task<T?> TypedPacketOrNull<T>() where T: struct, IPacket
+    protected PacketAwaitable<T?> TypedPacketOrNull<T>(TimeSpan? timeout = null) where T: struct, IPacket
+    {
+        var typed = new PacketAwaitable<T?>(PacketTypeInfo<T>.Id, announcePacketFailure: true);
+        WaitForTypedPacket<T>(announcePacketFailure: true, timeout, typed.SetResult, typed.SetException);
+        return typed;
+    }
+
+    private void WaitForTypedPacket<T>(bool announcePacketFailure, TimeSpan? timeout, Action<T?> onResult,
+        Action<Exception> onError) where T : struct, IPacket
     {
         if (packetAwaitable != null)
             throw new Exception($"Already waiting for another packet: {packetAwaitable}");
 
         ServerLog.Verbose($"{connection} waiting for {PacketTypeInfo<T>.Id}");
 
-        packetAwaitable = TypedPacketAwaitable<T>(out var task, announcePacketFailure: true);
-        return task;
+        var raw = new PacketAwaitable<ByteReader?>(PacketTypeInfo<T>.Id, announcePacketFailure);
+        if (PacketTypeInfo<T>.AllowFragmented) raw.Fragmented();
+
+        // Bind and resume the awaiting state inline, on the thread that handles the packet (the server thread).
+        // Task continuations used to move the rest of the state onto the thread pool, racing the server loop.
+        raw.OnCompleted(() =>
+        {
+            var reader = raw.GetResult();
+            if (reader == null)
+            {
+                onResult(null);
+                return;
+            }
+
+            var packet = default(T);
+            try
+            {
+                packet.Bind(new PacketReader(reader));
+            }
+            catch (Exception e)
+            {
+                ServerLog.Error($"Failed to bind packet {PacketTypeInfo<T>.Id}: {e}");
+                onError(e);
+                return;
+            }
+
+            onResult(packet);
+        });
+
+        StartWaiting(raw, timeout);
+    }
+
+    private void StartWaiting(PacketAwaitable<ByteReader?> awaitable, TimeSpan? timeout)
+    {
+        packetAwaitable = awaitable;
+        waitDeadlineMs = timeout is { } t ? Clock.ElapsedMilliseconds + (long)t.TotalMilliseconds : long.MaxValue;
     }
 
     public override PacketHandlerInfo? GetPacketHandler(Packets packet)
@@ -129,52 +187,55 @@ public abstract class AsyncConnectionState(ConnectionBase connection) : MpConnec
             await new Blackhole();
         return true;
     }
-
-    private static PacketAwaitable<ByteReader?> TypedPacketAwaitable<TPacket>(out Task<TPacket?> task, bool announcePacketFailure) where TPacket : struct, IPacket
-    {
-        var awaitable = new PacketAwaitable<ByteReader?>(PacketTypeInfo<TPacket>.Id, announcePacketFailure);
-        if (PacketTypeInfo<TPacket>.AllowFragmented) awaitable.Fragmented();
-
-        task = CreateTask();
-        return awaitable;
-
-        async Task<TPacket?> CreateTask()
-        {
-            // Announce packet failure is false, so this won't be null.
-            var reader = await awaitable;
-            if (reader == null) return null;
-            var packet = default(TPacket);
-            try
-            {
-                packet.Bind(new PacketReader(reader));
-            }
-            catch (Exception e)
-            {
-                ServerLog.Error($"Failed to bind packet {PacketTypeInfo<TPacket>.Id}: {e}");
-                throw;
-            }
-            return packet;
-        }
-    }
 }
 
 public class PacketAwaitable<T>(Packets packetType, bool announcePacketFailure) : INotifyCompletion
 {
     private List<Action> continuations = new();
+    private bool completed;
+    private T result = default!;
+    private ExceptionDispatchInfo? exception;
+
     public Packets PacketType { get; } = packetType;
     public bool AnnouncePacketFailure { get; } = announcePacketFailure;
     public bool Fragment { get; private set; }
-    private T? result;
 
-    public void OnCompleted(Action continuation) => continuations.Add(continuation);
-    public bool IsCompleted => result != null;
-    public T GetResult() => result!;
+    public bool IsCompleted => completed;
     public PacketAwaitable<T> GetAwaiter() => this;
+
+    public void OnCompleted(Action continuation)
+    {
+        if (completed) continuation();
+        else continuations.Add(continuation);
+    }
+
+    public T GetResult()
+    {
+        exception?.Throw();
+        return result;
+    }
 
     public void SetResult(T r)
     {
         result = r;
-        foreach (var continuation in continuations)
+        Complete();
+    }
+
+    public void SetException(Exception e)
+    {
+        exception = ExceptionDispatchInfo.Capture(e);
+        Complete();
+    }
+
+    // Continuations run synchronously on the completing thread
+    private void Complete()
+    {
+        if (completed) throw new InvalidOperationException($"Awaitable for {PacketType} completed twice");
+        completed = true;
+
+        var toRun = continuations;
+        continuations = [];
+        foreach (var continuation in toRun)
             continuation();
     }
 

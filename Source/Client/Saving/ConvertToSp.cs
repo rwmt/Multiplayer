@@ -30,8 +30,11 @@ public class ConvertToSp
         var spectator = Multiplayer.WorldComp.spectatorFaction;
         if (spectator != null)
         {
-            spectator.RemoveAllRelations();
-            Find.FactionManager.allFactions.Remove(spectator);
+            // Vanilla's removal clears what refers to the faction (relations, its pawns, destination reservations,
+            // listers, letters, play log, quests, ideos, tales, map events) so the save has no dangling references.
+            // It only accepts temporary factions.
+            spectator.temporary = true;
+            Find.FactionManager.Remove(spectator);
         }
     }
 

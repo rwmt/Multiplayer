@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using HarmonyLib;
+using Multiplayer.Client.AsyncTime;
 using Multiplayer.Client.Comp;
 using Multiplayer.Client.Factions;
 using Multiplayer.Client.Patches;
@@ -64,18 +65,9 @@ namespace Multiplayer.Client
 
         public int TickableId => map.uniqueID;
 
-        public int GameStartAbsTick
-        {
-            get
-            {
-                if (gameStartAbsTickMap == 0)
-                {
-                    gameStartAbsTickMap = Find.TickManager?.gameStartAbsTick ?? 0;
-                }
-
-                return gameStartAbsTickMap;
-            }
-        }
+        // No side effect: latching the global value on first read took whichever clock was set at that moment (another
+        // map's under async time). Saves without the field get the world's value when loading.
+        public int GameStartAbsTick => gameStartAbsTickMap != 0 ? gameStartAbsTickMap : Find.TickManager?.gameStartAbsTick ?? 0;
 
         public Map map;
         public int mapTicks;
@@ -93,9 +85,11 @@ namespace Multiplayer.Client
         // Shared random state for ticking and commands
         public ulong randState;
 
+        // Always empty: map commands are queued in AsyncWorldTimeComp.cmds to keep a single global order
         public Queue<ScheduledCommand> cmds = new();
 
         public int CurrentPlayerCount { get; private set; }
+        public void ResetPlayerCount() => CurrentPlayerCount = 0;
         public int VTR => CurrentPlayerCount > 0 ? VTRSync.MinimumVtr : VTRSync.MaximumVtr;
 
         public AsyncTimeComp(Map map, int gameStartAbsTick = 0)
@@ -111,13 +105,26 @@ namespace Multiplayer.Client
         public void Tick()
         {
             tickingMap = map;
+            int randDepth = Rand.stateStack.Count;
             PreContext();
+            int factionDepth = FactionContext.stack.Count;
 
             //SimpleProfiler.Start();
 
             try
             {
-                map.MapPreTick();
+                // Like vanilla's DoSingleTick, an exception in one subsystem shouldn't skip the rest of the tick
+                // (in particular the mapTicks increment)
+                try
+                {
+                    map.MapPreTick();
+                }
+                catch (Exception e)
+                {
+                    Log.Error($"Exception in MapPreTick of {map}: {e}");
+                    SimulationFailures.Record("MapPreTick", e);
+                }
+
                 mapTicks++;
                 Find.TickManager.ticksGameInt = mapTicks;
 
@@ -131,12 +138,53 @@ namespace Multiplayer.Client
                 tickListRare.Tick();
                 tickListLong.Tick();
 
-                TickMapSessions();
+                try
+                {
+                    TickMapSessions();
+                }
+                catch (Exception e)
+                {
+                    Log.Error($"Exception ticking sessions of {map}: {e}");
+                    SimulationFailures.Record("map sessions", e);
+                }
 
-                Find.Storyteller.StorytellerTick();
-                Find.StoryWatcher.StoryWatcherTick();
+                try
+                {
+                    Find.Storyteller.StorytellerTick();
+                }
+                catch (Exception e)
+                {
+                    Log.Error(e.ToString());
+                    SimulationFailures.Record("storyteller", e);
+                }
 
-                QuestManagerTickAsyncTime();
+                // The world tick (vanilla DoSingleTick) already ticks the story watcher once per game tick, ticking it
+                // here too made adaptation and pop adaptation grow once more per map. Only resolve the colonists downed
+                // during this map tick, which vanilla does later in the same tick.
+                StoryWatcherMapTick.downedOnly = true;
+                try
+                {
+                    Find.StoryWatcher.StoryWatcherTick();
+                }
+                catch (Exception e)
+                {
+                    Log.Error(e.ToString());
+                    SimulationFailures.Record("story watcher", e);
+                }
+                finally
+                {
+                    StoryWatcherMapTick.downedOnly = false;
+                }
+
+                try
+                {
+                    QuestManagerTickAsyncTime();
+                }
+                catch (Exception e)
+                {
+                    Log.Error(e.ToString());
+                    SimulationFailures.Record("async quests", e);
+                }
 
                 map.MapPostTick();
                 Find.TickManager.ticksThisFrame = 1;
@@ -148,6 +196,8 @@ namespace Multiplayer.Client
             }
             finally
             {
+                RestoreRandStack(randDepth + 1, this);
+                FactionContext.RestoreStack(factionDepth, this);
                 PostContext();
                 Multiplayer.game.sync.TryAddMapRandomState(map.uniqueID, randState);
                 eventCount++;
@@ -174,7 +224,18 @@ namespace Multiplayer.Client
             map.glowGrid.GlowGridUpdate_First();
         }
 
-        private TimeSnapshot? prevTime;
+        private readonly struct ContextFrame(TimeSnapshot? prevTime, int outerRandDepth, bool continuesOuter)
+        {
+            public readonly TimeSnapshot? prevTime = prevTime;
+            public readonly int outerRandDepth = outerRandDepth;
+            public readonly bool continuesOuter = continuesOuter;
+        }
+
+        // Contexts nest (e.g. a quest's time getter enters its map's context while that map ticks the quest), so each
+        // PreContext keeps its own previous time. A single field made the outer PostContext restore the map's time
+        // instead of the world's, and the world clock then jumped to the map's.
+        private readonly Stack<ContextFrame> contextFrames = new();
+        private int contextRandDepth = -1;
 
         public void PreContext()
         {
@@ -184,10 +245,17 @@ namespace Multiplayer.Client
                     : Multiplayer.WorldComp.spectatorFaction,
                 force: true);
 
-            prevTime = TimeSnapshot.GetAndSetFromMap(map);
+            // Directly inside this map's own context: go on with its live random state instead of restarting from
+            // the state saved when the outer context began
+            bool continuesOuter = contextFrames.Count > 0 && Rand.stateStack.Count == contextRandDepth;
+            if (continuesOuter)
+                randState = Rand.StateCompressed;
+
+            contextFrames.Push(new ContextFrame(TimeSnapshot.GetAndSetFromMap(map), contextRandDepth, continuesOuter));
 
             Rand.PushState();
             Rand.StateCompressed = randState;
+            contextRandDepth = Rand.stateStack.Count;
 
             // Reset the effects of SkyManager.SkyManagerUpdate
             map.skyManager.curSkyGlowInt = map.skyManager.CurrentSkyTarget().glow;
@@ -195,12 +263,37 @@ namespace Multiplayer.Client
 
         public void PostContext()
         {
-            prevTime?.Set();
+            if (contextFrames.Count == 0)
+            {
+                Log.ErrorOnce($"Multiplayer: PostContext without PreContext on {map}", 0x2C7B90 ^ map.uniqueID);
+                return;
+            }
+
+            var frame = contextFrames.Pop();
+
+            frame.prevTime?.Set();
 
             randState = Rand.StateCompressed;
             Rand.PopState();
+            if (frame.continuesOuter)
+                Rand.StateCompressed = randState;
+            contextRandDepth = frame.outerRandDepth;
 
             map.PopFaction();
+        }
+
+        // A Rand push left unpopped by an exception would otherwise be saved as the context's state, orphan the
+        // context's own entry and keep the stack too deep (which disables desync traces) for the rest of the session
+        public static void RestoreRandStack(int depth, object context)
+        {
+            int count = Rand.stateStack.Count;
+            if (count == depth) return;
+
+            // Too shallow (an extra pop) can't be repaired, only reported
+            Log.ErrorOnce($"Multiplayer: unbalanced Rand push/pop in {context}: stack depth {count}, expected {depth}", 0x5A3D17 ^ depth);
+
+            while (Rand.stateStack.Count > depth)
+                Rand.PopState();
         }
 
         public void ExposeData()
@@ -209,8 +302,16 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref timeSpeedInt, "timeSpeed");
 
             Scribe_Values.Look(ref gameStartAbsTickMap, "gameStartAbsTickMap");
+            if (Scribe.mode == LoadSaveMode.LoadingVars && gameStartAbsTickMap == 0)
+                gameStartAbsTickMap = Find.TickManager.gameStartAbsTick;
 
             Scribe_Custom.LookULong(ref randState, "randState", 1);
+
+            // Affects the simulation through VTR. Saved so that it survives join point reloads and joiners start
+            // with the same counts as everyone else.
+            var playerCount = CurrentPlayerCount;
+            Scribe_Values.Look(ref playerCount, "playerCount");
+            CurrentPlayerCount = playerCount;
         }
 
         public int IncreasePlayerCount() => CurrentPlayerCount += 1;
@@ -220,11 +321,9 @@ namespace Multiplayer.Client
 
         public void FinalizeInit()
         {
-            cmds = new Queue<ScheduledCommand>(
-                Multiplayer.session.dataSnapshot?.MapCmds.GetValueSafe(map.uniqueID) ?? new List<ScheduledCommand>()
-            );
-
-            Log.Message($"Init map with cmds {cmds.Count}");
+            // Map commands live in the world's queue (see MultiplayerSession.ScheduleCommand) which is built only in
+            // Loader.PostLoad. Rebuilding a queue here (possibly on the loading thread, or for a map generated during
+            // play) used to drop or duplicate commands.
         }
 
         public static bool keepTheMap;
@@ -246,8 +345,10 @@ namespace Multiplayer.Client
             TickPatch.currentExecutingCmdIssuedBySelf = cmd.IsIssuedBySelf() && !TickPatch.Simulating;
             TickPatch.currentExecutingCmdType = cmdType;
 
+            int randDepth = Rand.stateStack.Count;
             PreContext();
             map.PushFaction(cmd.GetFaction(), force: true);
+            int factionDepth = FactionContext.stack.Count;
 
             context.map = map;
 
@@ -291,6 +392,7 @@ namespace Multiplayer.Client
             catch (Exception e)
             {
                 MpLog.Error($"Map cmd exception ({cmdType}): {e}");
+                SimulationFailures.Record($"map command {cmdType}", e);
             }
             finally
             {
@@ -304,8 +406,19 @@ namespace Multiplayer.Client
                 Find.Selector.selected = prevSelected;
                 prevSelected = null;
 
-                Find.MainButtonsRoot.tabs.Notify_SelectedObjectDespawned();
+                // Local UI, depends on the local selection
+                try
+                {
+                    using (LocalOnlyScope.Enter())
+                        Find.MainButtonsRoot.tabs.Notify_SelectedObjectDespawned();
+                }
+                catch (Exception e)
+                {
+                    Log.Error($"Exception updating main tabs after a command: {e}");
+                }
 
+                RestoreRandStack(randDepth + 1, this);
+                FactionContext.RestoreStack(factionDepth, this);
                 map.PopFaction();
                 PostContext();
 
@@ -410,6 +523,10 @@ namespace Multiplayer.Client
 
             var mode = SyncSerialization.ReadSync<DesignatorMode>(data);
             var designator = SyncSerialization.ReadSync<Designator>(data);
+
+            // A sync worker returns null when its designator's target is gone (e.g. Designator_MoveGravship once the
+            // landing started or was aborted, which happens in commands, so on every client at the same point)
+            if (designator == null) return;
 
             try
             {

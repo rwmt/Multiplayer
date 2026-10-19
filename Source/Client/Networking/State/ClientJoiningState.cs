@@ -55,6 +55,7 @@ namespace Multiplayer.Client
         public static ClientInitDataPacket CreateInitDataPacket(bool includeConfigs) => new()
         {
             rwVersion = VersionControl.CurrentVersionString,
+            language = JoinData.LocalLanguage,
             debugOnlySyncCmds = Sync.handlers.Where(h => h.debugOnly).Select(h => h.syncId).ToHashSet().ToArray(),
             hostOnlySyncCmds = Sync.handlers.Where(h => h.hostOnly).Select(h => h.syncId).ToHashSet().ToArray(),
             modCtorRoundMode = MultiplayerData.modCtorRoundMode,
@@ -83,7 +84,7 @@ namespace Multiplayer.Client
             Multiplayer.session.gameName = packet.gameName;
             Multiplayer.session.playerId = packet.playerId;
 
-            var defDiff = false;
+            var defDiff = packet.missingDefs.Length > 0;
             var defStatusMap = new Dictionary<DefInfo, DefCheckStatus>();
             var i = 0;
             foreach (var local in MultiplayerData.localDefInfos)
@@ -94,6 +95,8 @@ namespace Multiplayer.Client
                 if (status != DefCheckStatus.Ok)
                     defDiff = true;
             }
+
+            var missingDefs = packet.missingDefs;
 
             var remoteInfo = RemoteData.FromNet(packet);
             // Captured before Complete runs: StopMultiplayerAndClearAllWindows nulls the session
@@ -116,8 +119,11 @@ namespace Multiplayer.Client
                 var defDiffStr = "\n\n" + MultiplayerData.localDefInfos
                     .Select(kv => (name: kv.Key, def: kv.Value, status: defStatusMap[kv.Value]))
                     .Where(kv => kv.status != DefCheckStatus.Ok)
+                    .Select(kv => $"{kv.name}: {kv.status}")
+                    // Def types only the server has
+                    .Concat(missingDefs.Select(name => $"{name}: Missing"))
                     .Take(10)
-                    .Join(kv => $"{kv.name}: {kv.status}", "\n");
+                    .Join(s => s, "\n");
 
                 Find.WindowStack.Add(new JoinDataWindow(remoteInfo, connector)
                 {

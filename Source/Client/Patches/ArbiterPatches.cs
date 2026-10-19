@@ -71,6 +71,19 @@ namespace Multiplayer.Client
         static bool Prefix() => !Multiplayer.arbiterInstance;
     }
 
+    // A synchronous long event with a loading window only starts after the window was drawn once. In batch mode
+    // windows on the window stack are never drawn, so in-game events like join point creation never ran: the
+    // arbiter stopped simulating and the server stalled everyone waiting for it.
+    [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.LongEventsUpdate))]
+    static class ArbiterLongEventsDontWaitForWindow
+    {
+        static void Prefix()
+        {
+            if (Multiplayer.arbiterInstance && LongEventHandler.currentEvent != null)
+                LongEventHandler.currentEvent.alreadyDisplayed = true;
+        }
+    }
+
     // TODO test if this works.
     [HarmonyPatch(typeof(WorldGrid), (nameof(WorldGrid.InitializeGlobalLayers)))]
     static class NoWorldRenderLayersForArbiter

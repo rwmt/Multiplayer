@@ -59,6 +59,9 @@ namespace Multiplayer.Common
 
         public static T[] SubArray<T>(this T[] data, int index, int length)
         {
+            if (index < 0 || length < 0 || index > data.Length - length)
+                throw new ArgumentOutOfRangeException(nameof(length), $"Sub array {index}+{length} out of range ({data.Length})");
+
             T[] result = new T[length];
             Array.Copy(data, index, result, 0, length);
             return result;
@@ -133,6 +136,18 @@ namespace Multiplayer.Common
         public static T? ResultNowOrNull<T>(this Task<T> task) where T : class? =>
             task.Status == TaskStatus.RanToCompletion ? task.Result : null;
 
+        /// Keeps the first and the last lines of a long text and notes how many lines were left out in between
+        public static string KeepHeadAndTailLines(this string text, int headLines, int tailLines)
+        {
+            var lines = text.Split('\n');
+            var omitted = lines.Length - headLines - tailLines;
+            if (omitted <= 0) return text;
+
+            return string.Join("\n", lines, 0, headLines) +
+                   $"\n(... {omitted:N0} lines omitted ...)\n" +
+                   string.Join("\n", lines, lines.Length - tailLines, tailLines);
+        }
+
         public static string RemovePrefix(this string str, string? prefix)
         {
             if (prefix == null) return str;
@@ -159,6 +174,27 @@ namespace Multiplayer.Common
         }
 
         public static long MillisNow => DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
+
+        // Rewrites CRLF and lone CR as LF in place and returns the new length. Byte-wise, so it's meant for hashing
+        // text files that may come from another OS, not for decoding them
+        public static int NormalizeLineEndingsInPlace(byte[] data)
+        {
+            int len = 0;
+            for (int i = 0; i < data.Length; i++)
+            {
+                byte b = data[i];
+                if (b == '\r')
+                {
+                    if (i + 1 < data.Length && data[i + 1] == '\n')
+                        i++;
+                    b = (byte)'\n';
+                }
+
+                data[len++] = b;
+            }
+
+            return len;
+        }
     }
 
 }

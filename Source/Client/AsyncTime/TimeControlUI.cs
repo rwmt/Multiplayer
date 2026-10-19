@@ -161,8 +161,9 @@ public static class TimeControlPatch
             if (KeyBindingDefOf.TimeSpeed_Ultrafast.KeyDownEvent)
                 SendTimeVote(TimeVote.Ultrafast);
 
-            // Only for replaying
-            if (KeyBindingDefOf.Dev_TickOnce.KeyDownEvent && CurTimeSpeedGame == TimeVote.Paused)
+            // Only for replaying: in a live game this would run ticks and commands from OnGUI with a different call
+            // stack than other clients
+            if (Multiplayer.IsReplay && KeyBindingDefOf.Dev_TickOnce.KeyDownEvent && CurTimeSpeedGame == TimeVote.Paused)
             {
                 DoSingleTick();
                 SoundDefOf.Clock_Stop.PlayOneShotOnCamera();

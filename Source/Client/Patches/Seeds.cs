@@ -5,7 +5,9 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
+using Multiplayer.Client.Patches;
 using Multiplayer.Client.Util;
+using RimWorld.QuestGen;
 using Verse;
 using Verse.Grammar;
 
@@ -23,7 +25,7 @@ namespace Multiplayer.Client
             Rand.Seed = 1;
         }
 
-        static void Postfix()
+        static void Finalizer()
         {
             Rand.PopState();
         }
@@ -44,7 +46,7 @@ namespace Multiplayer.Client
             __state = true;
         }
 
-        static void Postfix(Map __instance, bool __state)
+        static void Finalizer(bool __state)
         {
             if (__state)
                 Rand.PopState();
@@ -65,7 +67,7 @@ namespace Multiplayer.Client
             __state = true;
         }
 
-        static void Postfix(Map __instance, bool __state)
+        static void Finalizer(bool __state)
         {
             if (__state)
                 Rand.PopState();
@@ -85,29 +87,36 @@ namespace Multiplayer.Client
             __state = true;
         }
 
-        static void Postfix(Map map, bool __state)
+        static void Finalizer(bool __state)
         {
             if (__state)
                 Rand.PopState();
         }
     }
 
+    // The seed and other simulation context are applied when the event runs, see SimLongEventContext
     [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.QueueLongEvent), typeof(Action), typeof(string), typeof(bool), typeof(Action<Exception>), typeof(bool), typeof(bool), typeof(Action))]
     static class SeedLongEvents
     {
-        static void Prefix(ref Action action, ref Action callback)
+        static void Prefix(string textKey, ref SimLongEventContext __state)
         {
-            if (Multiplayer.Client != null && (Multiplayer.Ticking || Multiplayer.ExecutingCmds))
-            {
-                var seed = Rand.Int;
-                action = (() => Rand.PushState(seed)) + action + Rand.PopState;
+            // MpSaving events (autosaves) are queued from the non-simulation part of ConstantTicker on some clients only
+            if (SimLongEventContext.ShouldCapture && textKey != "MpSaving")
+                __state = SimLongEventContext.Capture();
+        }
 
-                if (callback != null)
-                {
-                    var callbackSeed = Rand.Int;
-                    callback = (() => Rand.PushState(callbackSeed)) + callback + Rand.PopState;
-                }
-            }
+        static void Postfix(Action action, SimLongEventContext __state)
+        {
+            if (__state == null) return;
+
+            // Find the event that was just queued (it isn't if another prefix cancelled it)
+            LongEventHandler.QueuedLongEvent queued = null;
+            foreach (var ev in LongEventHandler.eventQueue)
+                if (ReferenceEquals(ev.eventAction, action))
+                    queued = ev;
+
+            if (queued != null)
+                SimLongEventContext.Attach(queued, __state);
         }
     }
 
@@ -152,11 +161,50 @@ namespace Multiplayer.Client
             __state = true;
         }
 
+        // For methods that may also run on worker threads (e.g. async long events), where touching the shared
+        // Rand state stack would race with the main thread
+        [HarmonyPriority(MpPriority.MpFirst)]
+        public static void PrefixMainThread(ref bool __state)
+        {
+            if (!UnityData.IsInMainThread) return;
+            Rand.PushState();
+            __state = true;
+        }
+
         [HarmonyPriority(MpPriority.MpLast)]
         public static void Finalizer(bool __state)
         {
             if (__state)
                 Rand.PopState();
+        }
+    }
+
+    /// <summary>
+    /// For code inside a tick or command which runs only on some clients, e.g. a window opened only for the issuer of
+    /// a command or local UI updates. Keeps it off the shared RNG stream, unique id counters and desync traces.
+    /// </summary>
+    public readonly struct LocalOnlyScope : IDisposable
+    {
+        private readonly bool prevLocalIds;
+
+        private LocalOnlyScope(bool prevLocalIds) => this.prevLocalIds = prevLocalIds;
+
+        public static LocalOnlyScope Enter()
+        {
+            var scope = new LocalOnlyScope(Patches.UniqueIdsPatch.useLocalIdsOverride);
+
+            Rand.PushState();
+            Desyncs.DeferredStackTracing.ignoreTraces++;
+            Patches.UniqueIdsPatch.useLocalIdsOverride = true;
+
+            return scope;
+        }
+
+        public void Dispose()
+        {
+            Patches.UniqueIdsPatch.useLocalIdsOverride = prevLocalIds;
+            Desyncs.DeferredStackTracing.ignoreTraces--;
+            Rand.PopState();
         }
     }
 
@@ -168,6 +216,11 @@ namespace Multiplayer.Client
             yield return AccessTools.Method(typeof(GrammarResolver), nameof(GrammarResolver.Resolve));
             yield return AccessTools.Method(typeof(PawnBioAndNameGenerator), nameof(PawnBioAndNameGenerator.GeneratePawnName));
             yield return AccessTools.Method(typeof(NameGenerator), nameof(NameGenerator.GenerateName), [typeof(RulePackDef), typeof(Predicate<string>), typeof(bool), typeof(string), typeof(string), typeof(List<Rule>)]);
+            // Called directly by quest, ideo, deity and unique weapon naming; its validator retries depend on the
+            // generated text, so on the game language
+            yield return AccessTools.Method(typeof(NameGenerator), nameof(NameGenerator.GenerateName), [typeof(GrammarRequest), typeof(Predicate<string>), typeof(bool), typeof(string), typeof(string)]);
+            // Retries whole GenerateName calls while the name collides with an existing quest's name
+            yield return AccessTools.Method(typeof(QuestNode_ResolveQuestName), nameof(QuestNode_ResolveQuestName.Resolve));
         }
 
         [HarmonyPriority(MpPriority.MpFirst)]
@@ -179,7 +232,7 @@ namespace Multiplayer.Client
         }
 
         [HarmonyPriority(MpPriority.MpLast)]
-        static void Postfix(bool __state)
+        static void Finalizer(bool __state)
         {
             if (__state)
                 Rand.PopState();
@@ -202,7 +255,7 @@ namespace Multiplayer.Client
         }
 
         [HarmonyPriority(MpPriority.MpLast)]
-        static void Postfix(bool __state)
+        static void Finalizer(bool __state)
         {
             if (__state)
                 Rand.PopState();

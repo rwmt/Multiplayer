@@ -72,13 +72,23 @@ namespace Multiplayer.Client
             return ModLister.GetModWithIdentifier(id);
         }
 
+        // Translated text is generated and saved during the simulation (names, letters) and name generation retries
+        // depend on it, so clients with different game languages can desync
+        public static string LocalLanguage => LanguageDatabase.activeLanguage?.folderName ?? "";
+
+        public static bool LanguageMatches(string remoteLanguage) =>
+            remoteLanguage == LocalLanguage ||
+            !remoteLanguage.NullOrEmpty() && remoteLanguage == LanguageDatabase.activeLanguage?.LegacyFolderName;
+
         public static bool CompareToLocal(RemoteData remote)
         {
             return
                 remote.remoteRwVersion == VersionControl.CurrentVersionString &&
+                LanguageMatches(remote.remoteLanguage) &&
                 remote.CompareMods(activeModsSnapshot) == ModListDiff.None &&
                 remote.remoteFiles.DictsEqual(modFilesSnapshot) &&
-                (!remote.hasConfigs || remote.remoteModConfigs.EqualAsSets(SyncConfigs.GetSyncableConfigContents(remote.RemoteModIds.ToList())));
+                (!remote.hasConfigs || remote.remoteModConfigs.Select(c => c.Comparable()).EqualAsSets(
+                    SyncConfigs.GetSyncableConfigContents(remote.RemoteModIds.ToList()).Select(c => c.Comparable())));
         }
 
         internal static void TakeModDataSnapshot()
@@ -98,16 +108,19 @@ namespace Multiplayer.Client
 
                 var contentPack = MultiplayerData.DummyContentPack(mod);
 
-                foreach (var asm in MultiplayerData.GetModAssemblies(contentPack))
+                // Include AssembliesCustom so that different Multiplayer builds show up as a mismatch
+                foreach (var asm in MultiplayerData.GetModAssemblies(contentPack)
+                             .Concat(MultiplayerData.GetModCustomAssemblies(contentPack)))
                 {
                     var relPath = asm.FullName.RemovePrefix(contentPack.RootDir).NormalizePath();
                     fileDict.Add(modId, new ModFile(asm.FullName, relPath, asm.CRC32()));
                 }
 
+                // The XML parser normalizes line endings, so a mod copied between Windows and Linux isn't a mismatch
                 foreach (var xmlFile in GetModDefsAndPatches(contentPack))
                 {
                     var relPath = xmlFile.FullName.RemovePrefix(contentPack.RootDir).NormalizePath();
-                    fileDict.Add(modId, new ModFile(xmlFile.FullName, relPath, xmlFile.CRC32()));
+                    fileDict.Add(modId, new ModFile(xmlFile.FullName, relPath, xmlFile.CRC32IgnoringLineEndings()));
                 }
             }
 
@@ -148,6 +161,7 @@ namespace Multiplayer.Client
     {
         public string remoteRwVersion;
         public string remoteMpVersion;
+        public string remoteLanguage;
 
         public List<ModInfo> remoteMods = new();
         public ModFileDict remoteFiles = new();
@@ -176,6 +190,7 @@ namespace Multiplayer.Client
             {
                 remoteRwVersion = packet.rwVersion,
                 remoteMpVersion = packet.mpVersion,
+                remoteLanguage = packet.language,
                 hasConfigs = packet.configsIncluded,
             };
 
@@ -219,7 +234,13 @@ namespace Multiplayer.Client
         None, NoMatchAsSets, WrongOrder
     }
 
-    public record ModConfig(string ModId, string FileName, string Contents);
+    public record ModConfig(string ModId, string FileName, string Contents)
+    {
+        // Mods write their settings with the platform's line endings, the same settings shouldn't be a mismatch
+        public string ComparableContents => Contents?.Replace("\r\n", "\n").Replace('\r', '\n');
+
+        public ModConfig Comparable() => this with { Contents = ComparableContents };
+    }
 
     public class ModFileDict : IEnumerable<KeyValuePair<string, Dictionary<string, ModFile>>>
     {

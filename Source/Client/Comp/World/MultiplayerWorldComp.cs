@@ -22,6 +22,14 @@ public class MultiplayerWorldComp : IHasSessionData
 
     public Faction spectatorFaction;
 
+    // Multifaction: letter ID -> load ID of Faction.OfPlayer when the letter was received. Only used by the UI to show
+    // letters to their faction's players, the letter stack itself is the same on every client.
+    public Dictionary<int, int> letterFactions = new();
+
+    // Multifaction: faction load ID -> DateNotifier.lastSeason of that faction (see DateNotifierPatch). Kept here and
+    // not in FactionWorldData, which isn't saved for the faction applied when saving.
+    public Dictionary<int, Season> factionLastSeasons = new();
+
     private int currentFactionId;
 
     public MultiplayerWorldComp(World world)
@@ -34,6 +42,12 @@ public class MultiplayerWorldComp : IHasSessionData
     public void ExposeData()
     {
         ExposeFactionData();
+        ExposeLetterFactions();
+
+        // Missing in old saves: the factions start Undefined, which vanilla initializes without notifying
+        Scribe_Collections.Look(ref factionLastSeasons, "factionLastSeasons", LookMode.Value, LookMode.Value);
+        if (Scribe.mode != LoadSaveMode.Saving)
+            factionLastSeasons ??= new Dictionary<int, Season>();
 
         sessionManager.ExposeSessions();
         // Ensure a pause lock session exists if there's any pause locks registered
@@ -128,6 +142,40 @@ public class MultiplayerWorldComp : IHasSessionData
         }
     }
 
+    private void ExposeLetterFactions()
+    {
+        List<int> letterIds = null;
+        List<int> factionIds = null;
+
+        if (Scribe.mode == LoadSaveMode.Saving)
+        {
+            // Only letters still in the stack (or waiting to be received) matter
+            letterIds = new List<int>();
+            factionIds = new List<int>();
+
+            var stack = Find.LetterStack;
+            foreach (var letter in stack.letters.Concat(stack.letterQueue))
+            {
+                if (letter != null && letterFactions.TryGetValue(letter.ID, out var factionId))
+                {
+                    letterIds.Add(letter.ID);
+                    factionIds.Add(factionId);
+                }
+            }
+        }
+
+        Scribe_Collections.Look(ref letterIds, "letterIds", LookMode.Value);
+        Scribe_Collections.Look(ref factionIds, "letterFactionIds", LookMode.Value);
+
+        if (Scribe.mode == LoadSaveMode.LoadingVars)
+        {
+            letterFactions = new Dictionary<int, int>();
+            if (letterIds != null && factionIds != null)
+                for (int i = 0; i < letterIds.Count && i < factionIds.Count; i++)
+                    letterFactions[letterIds[i]] = factionIds[i];
+        }
+    }
+
     public void WriteSessionData(ByteWriter writer)
     {
         sessionManager.WriteSessionData(writer);
@@ -149,10 +197,12 @@ public class MultiplayerWorldComp : IHasSessionData
         sessionManager.RemoveSession(session);
     }
 
-    public void SetFaction(Faction faction)
+    public void SetFaction(Faction faction) => SetFaction(faction.loadID);
+
+    public bool SetFaction(int factionId)
     {
-        if (!factionData.TryGetValue(faction.loadID, out FactionWorldData data))
-            return;
+        if (!factionData.TryGetValue(factionId, out FactionWorldData data))
+            return false;
 
         Game game = Current.Game;
         game.researchManager = data.researchManager;
@@ -164,11 +214,24 @@ public class MultiplayerWorldComp : IHasSessionData
         game.history = data.history;
         game.storyteller = data.storyteller;
         game.storyWatcher = data.storyWatcher;
+        return true;
     }
+
+    // The faction whose data is currently applied to the game, -1 if unknown
+    public int GetAppliedFactionId()
+    {
+        foreach (var (id, data) in factionData)
+            if (data.researchManager == Find.ResearchManager)
+                return id;
+        return -1;
+    }
+
+    // Loading respawns things (and so triggers these) only on the loading client, while the trade dirty state is saved
+    private static bool IgnoreTradeDirtying => Multiplayer.reloading || Current.ProgramState != ProgramState.Playing;
 
     public void DirtyColonyTradeForMap(Map map)
     {
-        if (map == null) return;
+        if (map == null || IgnoreTradeDirtying) return;
         foreach (MpTradeSession session in trading)
             if (session.playerNegotiator.Map == map)
                 session.deal.recacheColony = true;
@@ -176,7 +239,7 @@ public class MultiplayerWorldComp : IHasSessionData
 
     public void DirtyTraderTradeForTrader(ITrader trader)
     {
-        if (trader == null) return;
+        if (trader == null || IgnoreTradeDirtying) return;
         foreach (MpTradeSession session in trading)
             if (session.trader == trader)
                 session.deal.recacheTrader = true;
@@ -184,7 +247,7 @@ public class MultiplayerWorldComp : IHasSessionData
 
     public void DirtyTradeForSpawnedThing(Thing t)
     {
-        if (t is not { Spawned: true }) return;
+        if (t is not { Spawned: true } || IgnoreTradeDirtying) return;
         foreach (MpTradeSession session in trading)
             if (session.playerNegotiator.Map == t.Map)
                 session.deal.recacheThings.Add(t);

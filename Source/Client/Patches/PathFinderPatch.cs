@@ -6,6 +6,24 @@ using System.Reflection;
 using System.Reflection.Emit;
 using Verse;
 
+namespace Multiplayer.Client.Patches
+{
+    // Path jobs scheduled by PathFinderTick run on worker threads and read live map state (e.g. pawn positions).
+    // AsyncTimeComp.Tick already completes them right after MapPreTick; also do it right after PathFinderTick so
+    // that they can never overlap main thread changes, whoever calls it (rest of MapPreTick, mods).
+    [HarmonyPatch(typeof(PathFinder), nameof(PathFinder.PathFinderTick))]
+    static class PathFinderTickCompleteJobs
+    {
+        static void Postfix(PathFinder __instance)
+        {
+            if (Multiplayer.Client != null)
+                __instance.ForceCompleteScheduledJobs();
+        }
+    }
+}
+
+// Disabled alternative to ForceCompleteScheduledJobs (see #900): snapshot the data worker threads read instead of
+// waiting for them. Kept for reference only, it isn't compiled.
 #if false
 namespace Multiplayer.Client.Patches
 {

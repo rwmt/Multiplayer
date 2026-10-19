@@ -62,20 +62,35 @@ namespace Multiplayer.Common
             return conn.serverPlayer;
         }
 
+        /// Drops a connection superseded by a new one from the same remote: its client is gone. Unlike Disconnect,
+        /// nothing is sent or closed. Steam carries all connections with a remote over one session, so the goodbye
+        /// would only reach the new client and closing would cut it off.
+        public void ReplaceStale(ServerPlayer stale, ConnectionBase replacement)
+        {
+            ServerLog.Log($"Replacing stale connection {stale.conn} with {replacement}");
+            SetDisconnected(stale.conn, MpDisconnectReason.ClientLeft);
+        }
+
         public void SetDisconnected(ConnectionBase conn, MpDisconnectReason reason)
         {
             if (conn.State == ConnectionStateEnum.Disconnected) return;
+            server.CheckServerThread();
 
-            conn.StateObj?.OnDisconnect();
+            if (conn.StateObj is { } stateObj)
+            {
+                // OnDisconnect can synchronously resume the state's async flow (e.g. a pending init data request).
+                // Mark it dead first so that it stops instead of continuing on the dying connection.
+                stateObj.alive = false;
+                stateObj.OnDisconnect();
+            }
 
             ServerPlayer player = conn.serverPlayer;
             Players.Remove(player);
 
+            server.worldData.OnPlayerUnavailable(player, "disconnected");
+            UpdateSyncReference();
             if (server.worldData.CreatingJoinPoint && (player.IsHost || !Players.Any(p => p.hasJoined)))
-            {
-                server.worldData.AbortJoinPointCreation();
-                ServerLog.Log("Aborted join point creation because no players remain.");
-            }
+                server.worldData.AbortJoinPointCreation("The host left or no players remain.");
 
             if (player.hasJoined)
             {
@@ -106,10 +121,49 @@ namespace Multiplayer.Common
             ServerLog.Log($"Disconnected ({reason}): {conn}");
         }
 
+        // The transport keeps a hung game connected. A playing client that doesn't answer keep alives anymore stalls
+        // everyone through its ticks behind, so drop it after a generous delay (loading and saving big games blocks
+        // the client's main thread for a while).
+        public const int StaleKeepAliveNetTicks = 10 * 60 * MultiplayerServer.NetTicksPerSecond;
+
+        public void CheckTimeouts()
+        {
+            // Disconnecting modifies Players
+            foreach (var player in Players.ToArray())
+            {
+                if (player.conn.State == ConnectionStateEnum.Disconnected) continue;
+
+                if (player.conn.StateObj is AsyncConnectionState { WaitTimedOut: true } state)
+                {
+                    ServerLog.Log($"{player.conn} timed out waiting for {state.AwaitedPacket} in {player.conn.State}");
+                    player.Disconnect("Timed out while joining the server");
+                    continue;
+                }
+
+                // The hosting player is connected in memory
+                var localHost = player.IsHost && !server.IsStandaloneServer;
+                if (player.IsPlaying && player.status == PlayerStatus.Playing && !localHost &&
+                    server.NetTimer - player.keepAliveAt > StaleKeepAliveNetTicks)
+                {
+                    ServerLog.Log($"{player.conn} stopped answering keep alives");
+                    player.Disconnect("Timed out: the game stopped responding");
+                }
+            }
+        }
+
         public void OnDesync(ServerPlayer player, int tick, int diffAt)
         {
+            // A desynced client reports once and then rejoins; ignore repeats (each one pauses and forces a join point)
+            if (player.status == PlayerStatus.Desynced) return;
+
             player.UpdateStatus(PlayerStatus.Desynced);
-            server.HostPlayer.SendPacket(ServerTracesPacket.Request(tick, diffAt, player.id));
+            server.worldData.OnPlayerUnavailable(player, "desynced");
+            UpdateSyncReference();
+
+            // Traces come from the client whose opinions the desynced player was compared against (no host on standalone)
+            var traceSource = PlayingPlayers.FirstOrDefault(p => p.IsHost && p != player) ?? SyncReference;
+            if (traceSource != null && traceSource != player)
+                traceSource.SendPacket(ServerTracesPacket.Request(tick, diffAt, player.id));
 
             player.ResetTimeVotes();
 
@@ -118,6 +172,52 @@ namespace Multiplayer.Common
 
             if (server.settings.autoJoinPoint.HasFlag(AutoJoinPointFlags.Desync))
                 server.worldData.TryStartJoinPointCreation(true);
+        }
+
+        /// <summary>
+        /// The client treated as the truth: its sync opinions are forwarded to everyone else and it uploads join
+        /// points. The arbiter if playing, else the host; standalone has no host, so the longest connected player
+        /// which is caught up and in sync.
+        /// </summary>
+        public ServerPlayer? SyncReference
+        {
+            get
+            {
+                var arbiter = PlayingPlayers.FirstOrDefault(p => p.IsArbiter && p.status == PlayerStatus.Playing);
+                if (arbiter != null)
+                    return arbiter;
+
+                if (!server.IsStandaloneServer)
+                    return PlayingPlayers.FirstOrDefault(p => p.IsHost);
+
+                return PlayingPlayers
+                    .Where(p => !p.IsArbiter && p.status == PlayerStatus.Playing)
+                    .OrderBy(p => p.id)
+                    .FirstOrDefault();
+            }
+        }
+
+        private int syncReferenceId = ScheduledCommand.NoPlayer;
+
+        /// Call after player status changes and disconnects
+        public void UpdateSyncReference()
+        {
+            var reference = SyncReference;
+            var referenceId = reference?.id ?? ScheduledCommand.NoPlayer;
+            if (referenceId == syncReferenceId) return;
+
+            var previous = GetPlayer(syncReferenceId);
+            syncReferenceId = referenceId;
+            ServerLog.Detail($"Sync reference changed to {reference?.Username ?? "none"}");
+
+            // Joiners compare their catch-up against these, keep only the current reference's opinions
+            server.worldData.syncInfos.Clear();
+
+            // Hosted clients know their role (host/arbiter)
+            if (!server.IsStandaloneServer) return;
+
+            previous?.SendPacket(new ServerSyncReferencePacket(false));
+            reference?.SendPacket(new ServerSyncReferencePacket(true));
         }
 
         public static ColorRGB[] PlayerColors =
@@ -135,6 +235,7 @@ namespace Multiplayer.Common
 
         public void OnJoin(ServerPlayer player)
         {
+            server.CheckServerThread();
             player.hasJoined = true;
             var standalonePrimaryPlayer = server.IsStandaloneServer &&
                 !server.JoinedPlayers.Any(p => p != player && !p.IsArbiter);
@@ -181,6 +282,7 @@ namespace Multiplayer.Common
             host.SendPlayerList();
             SendInitDataCommand(host);
             host.UpdateStatus(PlayerStatus.Playing);
+            UpdateSyncReference();
         }
 
         public ServerPlayer? GetPlayer(string username)

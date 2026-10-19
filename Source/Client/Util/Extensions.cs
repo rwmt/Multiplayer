@@ -75,8 +75,19 @@ namespace Multiplayer.Client
             return null;
         }
 
-        public static void SendCommand(this ConnectionBase conn, CommandType type, int mapId, byte[] data) =>
-            conn.Send(new ClientCommandPacket(type, mapId, data));
+        public static void SendCommand(this ConnectionBase conn, CommandType type, int mapId, byte[] data)
+        {
+            // The server would drop it: tell the player instead of throwing in the middle of their action
+            if (data.Length > ServerCommandPacket.MaxDataLength)
+            {
+                Log.Error($"Multiplayer: {type} command too big to send ({data.Length} > {ServerCommandPacket.MaxDataLength} bytes)");
+                Messages.Message("Multiplayer: this action is too big to send to the server.",
+                    MessageTypeDefOf.RejectInput, historical: false);
+                return;
+            }
+
+            conn.SendFragmentedIfNeeded(new ClientCommandPacket(type, mapId, data).Serialize());
+        }
 
         public static void SendCommand(this ConnectionBase conn, CommandType type, int mapId, params object[] data) =>
             SendCommand(conn, type, mapId, ByteWriter.GetBytes(data));
@@ -223,6 +234,15 @@ namespace Multiplayer.Client
         {
             using var stream = file.OpenRead();
             return new CRC32().GetCrc32(stream);
+        }
+
+        // For text files whose line endings depend on the OS they were saved or checked out on (#386)
+        public static int CRC32IgnoringLineEndings(this FileInfo file)
+        {
+            var data = File.ReadAllBytes(file.FullName);
+            var crc = new CRC32();
+            crc.SlurpBlock(data, 0, Utils.NormalizeLineEndingsInPlace(data));
+            return crc.Crc32Result;
         }
 
         public static int AggregateHash(this IEnumerable<int> e)

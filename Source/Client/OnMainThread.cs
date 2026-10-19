@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Multiplayer.Client.DebugUi;
 using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.Networking;
+using Multiplayer.Client.Patches;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using UnityEngine;
@@ -27,12 +28,19 @@ namespace Multiplayer.Client
             RunScheduled();
 
             if (SteamManager.Initialized)
+            {
                 SteamIntegration.UpdateRichPresence();
+
+                // A running Steam server closes them on its thread, in step with the joins it handles
+                if (Multiplayer.LocalServer is not { running: true, settings.steam: true })
+                    SteamP2PIntegration.CloseDueSessions();
+            }
 
             if (Multiplayer.Client == null) return;
 
             Multiplayer.session.Update();
             SyncFieldUtil.UpdateSync();
+            VTRSync.UpdateView();
 
             if (PerformanceRecorder.IsRecording)
             {

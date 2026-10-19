@@ -1,6 +1,7 @@
 using System;
 using HarmonyLib;
 using Multiplayer.Client.Desyncs;
+using Multiplayer.Client.Factions;
 using Multiplayer.Common;
 using Multiplayer.Common.Networking.Packet;
 using RimWorld;
@@ -18,7 +19,7 @@ namespace Multiplayer.Client
 
             try
             {
-                TickShipCountdown(); // todo control the RNG seed here?
+                TickShipCountdown();
                 TickNonSimulation();
             }
             finally
@@ -47,9 +48,8 @@ namespace Multiplayer.Client
 
         private static void TickAutosave()
         {
-            // When connected to a remote standalone server, the client drives
-            // the autosave timer using the interval received at connection time
-            // (from the server's TOML settings via ServerProtocolOkPacket).
+            // When connected to a remote standalone server, the client autosaves locally using the interval
+            // received at connection time (from the server's TOML settings via ServerProtocolOkPacket).
             if (Multiplayer.session?.ConnectedToStandaloneServer == true)
             {
                 var session = Multiplayer.session;
@@ -60,14 +60,18 @@ namespace Multiplayer.Client
                 {
                     session.autosaveCounter++;
 
+                    // This counter is per client (it starts when joining), so it must not request join points:
+                    // the server issues the autosave join points itself (WorldData.TickStandaloneAutosave)
                     if (session.autosaveCounter > session.autosaveInterval * TicksPerMinute)
                     {
                         session.autosaveCounter = 0;
-                        Autosaving.DoAutosave();
+                        Autosaving.DoAutosave(requestJoinPoint: false);
                     }
                 }
                 else if (session.autosaveUnit == AutosaveUnit.Days)
                 {
+                    // The map counters are synced game state, so every client saves at the same tick and the server
+                    // starts a single join point for it (WorldData.TryStartJoinPointForSave)
                     var anyMapCounterUp =
                         Multiplayer.game.mapComps
                         .Any(m => m.autosaveCounter > session.autosaveInterval * TicksPerIngameDay);
@@ -119,7 +123,10 @@ namespace Multiplayer.Client
 
                 try
                 {
-                    if (!TickPatch.Simulating && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
+                    // Only the sync reference's opinions are used by the server: host/arbiter, or the client the
+                    // standalone server picked. Opinions can be megabytes, others don't send them.
+                    if (!TickPatch.Simulating && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance ||
+                                                  Multiplayer.session.isSyncReference))
                         Multiplayer.Client.SendFragmented(
                             new ClientSyncInfoPacket { SyncOpinion = opinion.ToNet() }.Serialize());
                 }
@@ -140,7 +147,27 @@ namespace Multiplayer.Client
                 ShipCountdown.timeLeft -= 1f / GenTicks.TicksPerRealSecond;
 
                 if (ShipCountdown.timeLeft <= 0f)
-                    ShipCountdown.CountdownEnded();
+                {
+                    // This is game logic (destroys the ship, removes pawns): run it on the world's RNG and faction
+                    // context instead of the unsynced RNG outside of any tickable
+                    var world = Multiplayer.AsyncWorldTime;
+                    var shipMap = ShipCountdown.shipRoot?.Map;
+                    int randDepth = Rand.stateStack.Count;
+                    world.PreContext();
+                    shipMap.PushFaction(ShipCountdown.shipRoot?.Faction, force: true);
+                    int factionDepth = FactionContext.stack.Count;
+                    try
+                    {
+                        ShipCountdown.CountdownEnded();
+                    }
+                    finally
+                    {
+                        AsyncTimeComp.RestoreRandStack(randDepth + 1, "ShipCountdown");
+                        FactionContext.RestoreStack(factionDepth, "ShipCountdown");
+                        shipMap.PopFaction();
+                        world.PostContext();
+                    }
+                }
             }
         }
     }

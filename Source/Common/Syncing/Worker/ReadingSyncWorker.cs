@@ -8,8 +8,6 @@ namespace Multiplayer.Client
     public class ReadingSyncWorker(ByteReader reader, SyncSerialization serialization) : SyncWorker(false)
     {
         internal readonly ByteReader reader = reader;
-        readonly int initialPos = reader.Position;
-
         public ByteReader Reader => reader;
 
         public override void Bind<T>(ref T obj, SyncType type)
@@ -96,9 +94,11 @@ namespace Multiplayer.Client
             type = serialization.TypeHelper.GetImplementationByIndex(typeof(T), reader.ReadUShort());
         }
 
-        internal void Reset()
+        internal int Position => reader.Position;
+
+        internal void Reset(int position)
         {
-            reader.Seek(initialPos);
+            reader.Seek(position);
         }
     }
 }

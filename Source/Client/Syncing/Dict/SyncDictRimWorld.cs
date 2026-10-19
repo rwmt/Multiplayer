@@ -161,7 +161,7 @@ namespace Multiplayer.Client
                             return;
                         }
 
-                        hediff = pawn.health.hediffSet.hediffs.First(x => x.loadID == id);
+                        hediff = pawn.health.hediffSet.hediffs.FirstOrDefault(x => x.loadID == id);
 
                         if (hediff == null)
                         {
@@ -174,8 +174,10 @@ namespace Multiplayer.Client
                 (SyncWorker data, ref HediffComp hediffComp) => {
                     if (data.isWriting) {
                         if (hediffComp != null) {
-                            ushort index = (ushort)Array.IndexOf(hediffCompTypes, hediffComp.GetType());
-                            data.Write(index);
+                            int index = Array.IndexOf(hediffCompTypes, hediffComp.GetType());
+                            if (index == -1)
+                                throw new SerializationException($"Unknown {hediffComp.GetType()}, not in hediffCompTypes");
+                            data.Write((ushort)index);
                             data.Write(hediffComp.parent);
                             var tempComp = hediffComp;
                             var compIndex = hediffComp.parent.comps.Where(x => x.props.compClass == tempComp.props.compClass).FirstIndexOf(x => x == tempComp);
@@ -329,8 +331,10 @@ namespace Multiplayer.Client
                 (SyncWorker data, ref AbilityComp comp) => {
                     if (data.isWriting) {
                         if (comp != null) {
-                            ushort index = (ushort)Array.IndexOf(abilityCompTypes, comp.GetType());
-                            data.Write(index);
+                            int index = Array.IndexOf(abilityCompTypes, comp.GetType());
+                            if (index == -1)
+                                throw new SerializationException($"Unknown {comp.GetType()}, not in abilityCompTypes");
+                            data.Write((ushort)index);
                             data.Write(comp.parent);
                         } else {
                             data.Write(ushort.MaxValue);
@@ -669,7 +673,7 @@ namespace Multiplayer.Client
             {
                 (SyncWorker sync, ref Designator_MoveGravship moveGravship) => {
                     if (sync.isWriting)
-                        sync.Write(moveGravship.marker.GravshipRotation);
+                        sync.Write(moveGravship.marker?.GravshipRotation ?? Rot4.North);
                     else
                     {
                         var rot = sync.Read<Rot4>();
@@ -677,11 +681,20 @@ namespace Multiplayer.Client
                         var gravController = Find.GravshipController;
                         var marker = gravController.landingMarker;
 
-                        if (marker != null)
-                            marker.GravshipRotation = rot;
+                        // The landing was confirmed or aborted before this command, the same on every client
+                        if (marker == null)
+                        {
+                            moveGravship = null;
+                            return;
+                        }
 
-                        moveGravship = gravController.moveDesignator;
-                        moveGravship.deselectedRotation = moveGravship.marker.GravshipRotation;
+                        marker.GravshipRotation = rot;
+
+                        // Not the moveDesignator field: the landing UI creates it lazily when drawn, which it isn't on
+                        // clients viewing the world or in screenshot mode, or right after loading. The command
+                        // failed there and the landing marker (and so the landing spot) differed between clients.
+                        moveGravship = gravController.MoveDesignator();
+                        moveGravship.deselectedRotation = rot;
                     }
                 }, true, false
             },
@@ -815,6 +828,8 @@ namespace Multiplayer.Client
                             holder = worldObj;
                         else if (RwSerialization.GetAnyParent<WorldObjectComp>(thing) is { } worldObjComp)
                             holder = worldObjComp;
+                        else if (thing is Pawn pawn && pawn.IsWorldPawn())
+                            holder = Find.WorldPawns; // E.g. pawns only referenced by quests or letters
 
                         RwSerialization.GetImpl(holder, RwSerialization.supportedThingHolders, out Type implType, out int index);
                         if (index == -1)
@@ -826,7 +841,7 @@ namespace Multiplayer.Client
 
                         data.WriteByte((byte)index);
 
-                        if (implType != typeof(Map))
+                        if (implType != typeof(Map) && implType != typeof(WorldPawns))
                         {
                             context.syncingThingParent = true;
                             WriteSyncObject(data, holder, implType);
@@ -849,6 +864,9 @@ namespace Multiplayer.Client
 
                         Type implType = RwSerialization.supportedThingHolders[implIndex];
 
+                        if (implType == typeof(WorldPawns))
+                            return Find.WorldPawns.AllPawnsAliveOrDead.FirstOrDefault(p => p.thingIDNumber == thingId);
+
                         if (implType != typeof(Map))
                         {
                             context.syncingThingParent = true;
@@ -868,8 +886,10 @@ namespace Multiplayer.Client
                 (SyncWorker data, ref ThingComp comp) => {
                     if (data.isWriting) {
                         if (comp != null) {
-                            ushort index = (ushort)Array.IndexOf(thingCompTypes, comp.GetType());
-                            data.Write(index);
+                            int index = Array.IndexOf(thingCompTypes, comp.GetType());
+                            if (index == -1)
+                                throw new SerializationException($"Unknown {comp.GetType()}, not in thingCompTypes");
+                            data.Write((ushort)index);
                             data.Write(comp.parent);
                             var tempComp = comp;
                             var compIndex = comp.parent.AllComps.Where(x => x.props.compClass == tempComp.props.compClass).FirstIndexOf(x => x == tempComp);
@@ -944,8 +964,10 @@ namespace Multiplayer.Client
                 (SyncWorker data, ref MapComponent comp) => {
                     if (data.isWriting) {
                         if (comp != null) {
-                            ushort index = (ushort)Array.IndexOf(mapCompTypes, comp.GetType());
-                            data.Write(index);
+                            int index = Array.IndexOf(mapCompTypes, comp.GetType());
+                            if (index == -1)
+                                throw new SerializationException($"Unknown {comp.GetType()}, not in mapCompTypes");
+                            data.Write((ushort)index);
                             data.Write(comp.map);
                         } else {
                             data.Write(ushort.MaxValue);
@@ -988,8 +1010,10 @@ namespace Multiplayer.Client
                 (SyncWorker data, ref WorldObjectComp comp) => {
                     if (data.isWriting) {
                         if (comp != null) {
-                            ushort index = (ushort)Array.IndexOf(worldObjectCompTypes, comp.GetType());
-                            data.Write(index);
+                            int index = Array.IndexOf(worldObjectCompTypes, comp.GetType());
+                            if (index == -1)
+                                throw new SerializationException($"Unknown {comp.GetType()}, not in worldObjectCompTypes");
+                            data.Write((ushort)index);
                             data.Write(comp.parent);
                         } else {
                             data.Write(ushort.MaxValue);
@@ -1012,8 +1036,10 @@ namespace Multiplayer.Client
                 (SyncWorker data, ref WorldComponent comp) => {
                     if (data.isWriting) {
                         if (comp != null) {
-                            ushort index = (ushort)Array.IndexOf(worldCompTypes, comp.GetType());
-                            data.Write(index);
+                            int index = Array.IndexOf(worldCompTypes, comp.GetType());
+                            if (index == -1)
+                                throw new SerializationException($"Unknown {comp.GetType()}, not in worldCompTypes");
+                            data.Write((ushort)index);
                             data.Write(comp.world);
                         } else {
                             data.Write(ushort.MaxValue);
@@ -1047,10 +1073,9 @@ namespace Multiplayer.Client
                 (ByteReader data) => new PlanetTile(data.ReadInt32(), data.ReadInt32()), true // Implicit
             },
             {
-                (ByteWriter data, PlanetLayer workGiver) =>
+                (ByteWriter data, PlanetLayer layer) =>
                 {
-                    int layerId = workGiver?.LayerID ?? -1;
-                    WriteSync(data, workGiver.LayerID);
+                    WriteSync(data, layer?.LayerID ?? -1);
                 },
                 (ByteReader data) => {
 
@@ -1095,8 +1120,10 @@ namespace Multiplayer.Client
                 (SyncWorker data, ref GameComponent comp) => {
                     if (data.isWriting) {
                         if (comp != null) {
-                            ushort index = (ushort)Array.IndexOf(gameCompTypes, comp.GetType());
-                            data.Write(index);
+                            int index = Array.IndexOf(gameCompTypes, comp.GetType());
+                            if (index == -1)
+                                throw new SerializationException($"Unknown {comp.GetType()}, not in gameCompTypes");
+                            data.Write((ushort)index);
                         } else {
                             data.Write(ushort.MaxValue);
                         }

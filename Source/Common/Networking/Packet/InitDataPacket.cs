@@ -16,10 +16,17 @@ public record struct ServerInitDataRequestPacket(bool includeConfigs) : IPacket
 [PacketDefinition(Packets.Client_InitData, allowFragmented: true)]
 public record struct ClientInitDataPacket : IPacket
 {
-    // 1 MiB limit — large mod lists can exceed the default 32 KiB BindRemaining limit
-    private const int MaxRawDataLength = 1 << 20;
+    // Max size of the compressed mod list. Large mod lists with synced configs can exceed 1 MiB.
+    public const int MaxRawDataLength = 1 << 22;
+    // rawMods additionally holds the length prefix of the compressed data
+    public const int MaxRawModsLength = MaxRawDataLength + sizeof(int);
+    // Synced configs are plain text and compress well
+    public const int MaxDecompressedLength = 1 << 26;
+    // A language folder name, at most 255 UTF-16 units on common file systems
+    public const int MaxLanguageLength = 1024;
 
     public string rwVersion;
+    public string language;
     public int[] debugOnlySyncCmds;
     public int[] hostOnlySyncCmds;
     public RoundModeEnum modCtorRoundMode;
@@ -37,13 +44,14 @@ public record struct ClientInitDataPacket : IPacket
     public void Bind(PacketBuffer buf)
     {
         buf.Bind(ref rwVersion);
+        buf.Bind(ref language, maxLength: MaxLanguageLength);
         buf.Bind(ref debugOnlySyncCmds, BinderOf.Int());
         buf.Bind(ref hostOnlySyncCmds, BinderOf.Int());
         buf.BindEnum(ref modCtorRoundMode);
         buf.BindEnum(ref staticCtorRoundMode);
         buf.Bind(ref defInfos, BinderOf.Identity<KeyedDefInfo>());
         buf.Bind(ref includeConfigs);
-        buf.BindRemaining(ref rawMods);
+        buf.BindRemaining(ref rawMods, maxLength: MaxRawModsLength);
     }
 
     // Based on ContentSource but a byte, so smaller on the network and also doesn't use Verse
@@ -101,7 +109,7 @@ public record struct ClientInitDataPacket : IPacket
         };
 
         public static Binder<List<ModData>> ListBinder =>
-            BinderOf.List(BinderOf.Identity<ModData>()).Gzipped(MaxRawDataLength);
+            BinderOf.List(BinderOf.Identity<ModData>()).Gzipped(MaxRawDataLength, MaxDecompressedLength);
     }
 
     public record struct ModFile : IPacketBufferable

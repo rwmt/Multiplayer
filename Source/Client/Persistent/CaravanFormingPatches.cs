@@ -7,6 +7,7 @@ using Multiplayer.Client.Patches;
 using UnityEngine;
 using Verse;
 using static Verse.Widgets;
+using System.Linq;
 using System.Reflection;
 
 namespace Multiplayer.Client.Persistent
@@ -176,12 +177,32 @@ namespace Multiplayer.Client.Persistent
             {
                 var comp = map.MpComp();
                 if (comp.sessionManager.GetFirstOfType<CaravanFormingSession>() == null)
-                    comp.CreateCaravanFormingSession(faction, reform, onClosed, mapAboutToBeRemoved, designatedMeetingPoint);
+                    comp.CreateCaravanFormingSession(GetFormingFaction(map, faction), reform, onClosed, mapAboutToBeRemoved, designatedMeetingPoint);
             }
             else // Handles opening from the interface: forming gizmos, reforming gizmos and caravan hitching spots
             {
                 StartFormingCaravan(faction, map, reform, designatedMeetingPoint);
             }
+        }
+
+        // Outside of commands Faction.OfPlayer is the map's owner or the spectator faction (e.g. on maps without
+        // a player owner), which would make the session unusable for everyone. Use a faction with pawns on the map.
+        private static Faction GetFormingFaction(Map map, Faction ofPlayer)
+        {
+            if (Multiplayer.ExecutingCmds || !Multiplayer.GameComp.multifaction)
+                return ofPlayer;
+
+            bool HasPawnsOnMap(Faction f) => map.mapPawns.SpawnedPawnsInFaction(f).Any(p => p.RaceProps.Humanlike);
+
+            var spectator = Multiplayer.WorldComp.spectatorFaction;
+            if (ofPlayer != spectator && HasPawnsOnMap(ofPlayer))
+                return ofPlayer;
+
+            foreach (var f in Find.FactionManager.AllFactionsListForReading)
+                if (f.IsPlayer && f != spectator && HasPawnsOnMap(f))
+                    return f;
+
+            return ofPlayer;
         }
 
         [SyncMethod]
@@ -192,7 +213,9 @@ namespace Multiplayer.Client.Persistent
 
             if (TickPatch.currentExecutingCmdIssuedBySelf)
             {
-                CaravanFormingProxy dialog = session.OpenWindow();
+                CaravanFormingProxy dialog;
+                using (LocalOnlyScope.Enter())
+                    dialog = session.OpenWindow();
                 if (!routePlannerWaypoint.HasValue)
                     return;
 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
+using Multiplayer.Common.Networking.Packet;
 
 namespace Multiplayer.Common;
 
@@ -14,18 +15,43 @@ public class WorldData
     public byte[]? sessionData; // Compressed semi persistent data
     public Dictionary<int, byte[]> mapData = new(); // Map id to compressed map data
 
-    public Dictionary<int, List<byte[]>> mapCmds = new(); // Map id to serialized cmds list
-    public Dictionary<int, List<byte[]>>? tmpMapCmds;
+    // Serialized cmds since the last join point, in the order they were sent to clients. Live clients execute
+    // commands in arrival order, so joiners must get exactly this order (not grouped by map).
+    public List<byte[]> cmds = new();
+    public List<byte[]>? tmpCmds;
     public int lastJoinPointAtTick = -1;
 
+    // The sync reference's newest opinions (oldest first). Joiners only use them to check their catch-up
+    // simulation, after that they get the live ones, so losing the oldest ones only skips a few checks.
     public List<byte[]> syncInfos = new();
+    public const int MaxSyncInfos = 10;
+    // With desync traces on, one opinion can be a few MiB on big saves and they all go into the world data packet
+    public const int MaxSyncInfosLength = ClientSyncInfoPacket.MaxLength;
 
     public StandaloneWorldSnapshotState standaloneWorldSnapshot = new();
     public Dictionary<int, StandaloneMapSnapshotState> standaloneMapSnapshots = new();
 
     private TaskCompletionSource<WorldData>? dataSource;
 
-    public bool CreatingJoinPoint => tmpMapCmds != null;
+    // The join point being created: the tick of its CreateJoinPoint command and the only player whose upload
+    // completes it
+    public int JoinPointTick { get; private set; } = -1;
+    public int JoinPointUploaderId { get; private set; } = ScheduledCommand.NoPlayer;
+    // The game timer of the last completed join point's save
+    public int CompletedJoinPointTick { get; private set; } = -1;
+    private int joinPointProgressAt; // NetTimer
+    private int? lastForcedJoinPointAt; // NetTimer
+    private int standaloneAutosaveBaseTick = -1;
+
+    // Every client reloads at a join point and the game pauses meanwhile, so forced requests (saves, desyncs) are
+    // rate limited. Abort if the uploader shows no progress, joiners would wait forever otherwise.
+    public const int ForcedJoinPointCooldown = MultiplayerServer.NetTicksPerSecond * 10;
+    public const int JoinPointTimeout = MultiplayerServer.NetTicksPerSecond * 60;
+    // Keep alives are answered several times a second unless the client's main thread is blocked
+    public const int UploaderBusyAfter = MultiplayerServer.NetTicksPerSecond * 5;
+    private const int TicksPerMinute = 60 * 60;
+
+    public bool CreatingJoinPoint => tmpCmds != null;
 
     public MultiplayerServer Server { get; }
 
@@ -36,6 +62,8 @@ public class WorldData
 
     private int CurrentJoinPointTick => Server.IsStandaloneServer ? Server.gameTimer : Server.workTicks;
 
+    /// sourcePlayer is the requester, only used for logging: the upload always comes from the sync reference
+    /// (host/arbiter, or the longest connected player on standalone), the client every other one is compared against.
     public bool TryStartJoinPointCreation(bool force = false, ServerPlayer? sourcePlayer = null)
     {
         int currentTick = CurrentJoinPointTick;
@@ -52,27 +80,80 @@ public class WorldData
             return false;
         }
 
-        var issuingPlayer = sourcePlayer;
-        if (Server.IsStandaloneServer && issuingPlayer == null)
+        if (force && Server.NetTimer - lastForcedJoinPointAt < ForcedJoinPointCooldown)
         {
-            issuingPlayer = Server.PlayingPlayers.FirstOrDefault(player => player.IsHost)
-                ?? Server.PlayingPlayers.FirstOrDefault();
-
-            if (issuingPlayer == null)
-            {
-                ServerLog.Detail("Join point skipped: no playing player available for standalone creation");
-                return false;
-            }
+            ServerLog.Detail($"Join point skipped: forced join point rate limited (requested by {sourcePlayer?.Username})");
+            return false;
         }
 
-        ServerLog.Detail($"Join point started at tick={currentTick}, force={force}, standalone={Server.IsStandaloneServer}");
+        var uploader = Server.playerManager.SyncReference;
+        if (uploader == null)
+        {
+            ServerLog.Detail("Join point skipped: no playing player available to upload it");
+            return false;
+        }
+
+        ServerLog.Detail($"Join point started at tick={Server.gameTimer}, force={force}, uploader={uploader.Username}, " +
+                         $"requested by {sourcePlayer?.Username}, standalone={Server.IsStandaloneServer}");
         Server.SendChat("Creating a join point...");
 
-        Server.commands.Send(CommandType.CreateJoinPoint, ScheduledCommand.NoFaction, ScheduledCommand.Global, Array.Empty<byte>(),
-            sourcePlayer: Server.IsStandaloneServer ? issuingPlayer : null);
-        tmpMapCmds = new Dictionary<int, List<byte[]>>();
+        JoinPointTick = Server.gameTimer;
+        JoinPointUploaderId = uploader.id;
+        joinPointProgressAt = Server.NetTimer;
+        if (force)
+            lastForcedJoinPointAt = Server.NetTimer;
+
+        // Every client reloads when executing it, only the uploader sends the save back
+        Server.commands.Send(CommandType.CreateJoinPoint, ScheduledCommand.NoFaction, ScheduledCommand.Global,
+            ByteWriter.GetBytes(uploader.id));
+        tmpCmds = new List<byte[]>();
         dataSource = new TaskCompletionSource<WorldData>();
 
+        return true;
+    }
+
+    /// A client saved the game at savedAtTick and wants the server's world to be at least as new. With in-game day
+    /// autosaves every client saves at the same tick and asks once its save is written, slow clients only after the
+    /// join point is done, so requests for a tick a join point already covers are ignored.
+    public bool TryStartJoinPointForSave(int savedAtTick, ServerPlayer? sourcePlayer = null)
+    {
+        var coveredUntil = Math.Max(CompletedJoinPointTick, JoinPointTick);
+        if (savedAtTick <= coveredUntil)
+        {
+            ServerLog.Detail($"Join point skipped: the save of {sourcePlayer?.Username} at tick={savedAtTick} is " +
+                             $"covered by the join point at tick={coveredUntil}");
+            return false;
+        }
+
+        return TryStartJoinPointCreation(true, sourcePlayer);
+    }
+
+    /// Accepts the uploaded world only if it belongs to the join point being created. World, maps and cmds are
+    /// replaced together so the stored save and its command log always match.
+    public bool TryCompleteJoinPoint(ServerPlayer player, int tick, Dictionary<int, byte[]> uploadedMaps,
+        byte[] uploadedGame, byte[] uploadedSession)
+    {
+        if (!CreatingJoinPoint)
+        {
+            ServerLog.Detail($"Rejected world upload from {player.Username}: no join point in progress");
+            return false;
+        }
+
+        if (player.id != JoinPointUploaderId || tick != JoinPointTick)
+        {
+            ServerLog.Detail($"Rejected world upload from {player.Username} at tick={tick}: expected " +
+                             $"player {JoinPointUploaderId} at tick={JoinPointTick}");
+            return false;
+        }
+
+        mapData = uploadedMaps;
+        savedGame = uploadedGame;
+        sessionData = uploadedSession;
+
+        if (Server.IsStandaloneServer)
+            RecordStandaloneSnapshot(player, tick);
+
+        EndJoinPointCreation();
         return true;
     }
 
@@ -80,9 +161,11 @@ public class WorldData
     {
         int currentTick = CurrentJoinPointTick;
         ServerLog.Detail($"Join point completed at tick={currentTick}, standalone={Server.IsStandaloneServer}");
-        mapCmds = tmpMapCmds!;
-        tmpMapCmds = null;
+        cmds = tmpCmds!;
+        tmpCmds = null;
         lastJoinPointAtTick = currentTick;
+        CompletedJoinPointTick = JoinPointTick;
+        ClearPendingJoinPoint();
 
         if (Server.IsStandaloneServer && Server.persistence != null)
         {
@@ -100,14 +183,61 @@ public class WorldData
         dataSource = null;
     }
 
-    public void AbortJoinPointCreation()
+    /// The previous world and the full command log (including the CreateJoinPoint command, which joiners replay
+    /// as a reload like live clients did) stay valid, so waiting joiners continue with those.
+    public void AbortJoinPointCreation(string reason = "")
     {
         if (!CreatingJoinPoint)
             return;
 
-        tmpMapCmds = null;
+        ServerLog.Log($"Aborted join point creation at tick={JoinPointTick}. {reason}");
+
+        tmpCmds = null;
+        ClearPendingJoinPoint();
         dataSource?.SetResult(this);
         dataSource = null;
+    }
+
+    /// Called when the expected uploader disconnects, desyncs or starts rejoining
+    public void OnPlayerUnavailable(ServerPlayer player, string reason)
+    {
+        if (CreatingJoinPoint && player.id == JoinPointUploaderId)
+            AbortJoinPointCreation($"The uploader {player.Username} {reason}.");
+    }
+
+    public void OnUploadProgress(ServerPlayer player)
+    {
+        if (CreatingJoinPoint && player.id == JoinPointUploaderId)
+            joinPointProgressAt = Server.NetTimer;
+    }
+
+    private void ClearPendingJoinPoint()
+    {
+        JoinPointTick = -1;
+        JoinPointUploaderId = ScheduledCommand.NoPlayer;
+    }
+
+    public void AddSyncInfo(byte[] rawSyncOpinion)
+    {
+        syncInfos.Add(rawSyncOpinion);
+
+        long length = syncInfos.Sum(info => (long)info.Length);
+        while (syncInfos.Count > MaxSyncInfos || syncInfos.Count > 1 && length > MaxSyncInfosLength)
+        {
+            length -= syncInfos[0].Length;
+            syncInfos.RemoveAt(0);
+        }
+    }
+
+    /// The newest opinions whose length prefixed size fits into maxLength, oldest first
+    public List<byte[]> NewestSyncInfosFitting(long maxLength)
+    {
+        int start = syncInfos.Count;
+        long length = 0;
+        while (start > 0 && length + sizeof(int) + syncInfos[start - 1].Length <= maxLength)
+            length += sizeof(int) + syncInfos[--start].Length;
+
+        return syncInfos.GetRange(start, syncInfos.Count - start);
     }
 
     public Task<WorldData> WaitJoinPoint()
@@ -115,57 +245,68 @@ public class WorldData
         return dataSource?.Task ?? Task.FromResult(this);
     }
 
-    public bool TryAcceptStandaloneWorldSnapshot(ServerPlayer player, int tick, byte[] worldSnapshot,
-        byte[] sessionSnapshot, byte[] expectedHash)
+    public void Tick()
     {
-        if (tick < standaloneWorldSnapshot.tick)
-            return false;
+        CheckJoinPointTimeout(Server.NetTimer);
+        TickStandaloneAutosave();
+    }
 
-        var actualHash = ComputeHash(worldSnapshot, sessionSnapshot);
-        if (expectedHash.Length > 0 && !actualHash.AsSpan().SequenceEqual(expectedHash))
-            return false;
+    public void CheckJoinPointTimeout(int netTimer)
+    {
+        if (!CreatingJoinPoint) return;
 
-        savedGame = worldSnapshot;
-        sessionData = sessionSnapshot;
+        // Saving and reloading for the join point blocks the uploader's main thread, for minutes with big games, so
+        // it doesn't answer keep alives meanwhile. That's progress too: a client that hangs for good is dropped by
+        // the stale keep alive timeout (PlayerManager.CheckTimeouts), which aborts the join point.
+        if (Server.GetPlayer(JoinPointUploaderId) is { } uploader && netTimer - uploader.keepAliveAt > UploaderBusyAfter)
+            joinPointProgressAt = netTimer;
+
+        if (netTimer - joinPointProgressAt > JoinPointTimeout)
+            AbortJoinPointCreation("Timed out waiting for the world upload.");
+    }
+
+    /// Standalone autosaves are join points issued by the server at a tick, so every client reloads at the same
+    /// moment and the persisted save matches its command log. Per-client timers would create a join point per client.
+    /// In-game day intervals are only known to clients (deterministically), see ConstantTicker.TickAutosave.
+    private void TickStandaloneAutosave()
+    {
+        var settings = Server.settings;
+        if (!Server.IsStandaloneServer || settings.autosaveUnit != AutosaveUnit.Minutes || settings.autosaveInterval <= 0)
+            return;
+
+        if (standaloneAutosaveBaseTick < 0)
+            standaloneAutosaveBaseTick = Server.gameTimer;
+
+        var since = Math.Max(standaloneAutosaveBaseTick, lastJoinPointAtTick);
+        if (CreatingJoinPoint || Server.gameTimer - since < settings.autosaveInterval * TicksPerMinute)
+            return;
+
+        // Wait another interval if it can't start now
+        standaloneAutosaveBaseTick = Server.gameTimer;
+        TryStartJoinPointCreation();
+    }
+
+    private void RecordStandaloneSnapshot(ServerPlayer player, int tick)
+    {
         standaloneWorldSnapshot = new StandaloneWorldSnapshotState
         {
             tick = tick,
             producerPlayerId = player.id,
             producerUsername = player.Username,
-            sha256Hash = actualHash
+            sha256Hash = ComputeHash(savedGame!, sessionData!)
         };
 
-        // Persist to disk
-        Server.persistence?.WriteWorldSnapshot(worldSnapshot, sessionSnapshot, tick);
-
-        return true;
-    }
-
-    public bool TryAcceptStandaloneMapSnapshot(ServerPlayer player, int mapId, int tick,
-        byte[] mapSnapshot, byte[] expectedHash)
-    {
-        if (mapId < 0)
-            return false;
-
-        var snapshotState = standaloneMapSnapshots.GetOrAddNew(mapId);
-        if (tick < snapshotState.tick)
-            return false;
-
-        var actualHash = ComputeHash(mapSnapshot);
-        if (expectedHash.Length > 0 && !actualHash.AsSpan().SequenceEqual(expectedHash))
-            return false;
-
-        mapData[mapId] = mapSnapshot;
-        snapshotState.tick = tick;
-        snapshotState.producerPlayerId = player.id;
-        snapshotState.producerUsername = player.Username;
-        snapshotState.sha256Hash = actualHash;
-        standaloneMapSnapshots[mapId] = snapshotState;
-
-        // Persist to disk
-        Server.persistence?.WriteMapSnapshot(mapId, mapSnapshot);
-
-        return true;
+        standaloneMapSnapshots.Clear();
+        foreach (var (mapId, data) in mapData)
+        {
+            standaloneMapSnapshots[mapId] = new StandaloneMapSnapshotState
+            {
+                tick = tick,
+                producerPlayerId = player.id,
+                producerUsername = player.Username,
+                sha256Hash = ComputeHash(data)
+            };
+        }
     }
 
     private static byte[] ComputeHash(params byte[][] payloads)

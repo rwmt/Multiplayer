@@ -61,6 +61,12 @@ public class PsychicRitualBeginProxy : Dialog_BeginPsychicRitual, ISwitchToMap
                 Close();
             }
 
+            if (PrepatcherWarning.Show)
+            {
+                PrepatcherWarning.DrawLabel(inRect.Height(20f).Width(PrepatcherWarning.LabelWidth(GameFont.Tiny) + 10f), GameFont.Tiny);
+                inRect.yMin += 20f;
+            }
+
             base.DoWindowContents(inRect);
         }
         finally

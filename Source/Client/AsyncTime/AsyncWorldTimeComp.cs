@@ -50,15 +50,20 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         get => !Find.Maps.Any()
             ? timeSpeedInt
             : Find.Maps.Select(m => m.AsyncTime())
-                .Where(a => a.ActualRateMultiplier(a.DesiredTimeSpeed) != 0f)
+                .Where(a => a != null && a.ActualRateMultiplier(a.DesiredTimeSpeed) != 0f)
                 .Max(a => a?.DesiredTimeSpeed) ?? TimeSpeed.Paused;
         set => timeSpeedInt = value;
     }
+
+    // Without async time: the speed last set for the whole game (SetTimeEverywhere), unlike DesiredTimeSpeed not
+    // derived from the maps
+    public TimeSpeed GlobalTimeSpeed => timeSpeedInt;
 
     public Queue<ScheduledCommand> Cmds => cmds;
     public Queue<ScheduledCommand> cmds = new();
 
     public int CurrentPlayerCount { get; private set; }
+    public void ResetPlayerCount() => CurrentPlayerCount = 0;
     public int VTR => CurrentPlayerCount > 0 ? VTRSync.MinimumVtr : VTRSync.MaximumVtr;
 
     public int TickableId => -1;
@@ -67,6 +72,9 @@ public class AsyncWorldTimeComp : IExposable, ITickable
     public ulong randState;
 
     public int worldTicks;
+
+    // worldTicks from before the world tick in progress: the game tick the maps are at until they tick in it
+    public int TicksBeforeTick { get; private set; }
 
     public AsyncWorldTimeComp(World world)
     {
@@ -86,6 +94,11 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         Scribe_Values.Look(ref timeSpeedInt, "timeSpeed");
         Scribe_Custom.LookULong(ref randState, "randState", 2);
 
+        // Affects the simulation through VTR, see AsyncTimeComp.ExposeData
+        var playerCount = CurrentPlayerCount;
+        Scribe_Values.Look(ref playerCount, "playerCount");
+        CurrentPlayerCount = playerCount;
+
         TimeSpeed timeSpeed = Find.TickManager.CurTimeSpeed;
         Scribe_Values.Look(ref timeSpeed, "timeSpeed");
         if (Scribe.mode == LoadSaveMode.LoadingVars)
@@ -102,14 +115,37 @@ public class AsyncWorldTimeComp : IExposable, ITickable
 
     public void Tick()
     {
+        TicksBeforeTick = worldTicks;
         tickingWorld = true;
+        int randDepth = Rand.stateStack.Count;
         PreContext();
+        int factionDepth = FactionContext.stack.Count;
 
         try
         {
-            Find.TickManager.DoSingleTick();
-            worldTicks++;
-            Multiplayer.WorldComp.TickWorldSessions();
+            try
+            {
+                Find.TickManager.DoSingleTick();
+            }
+            catch (Exception e)
+            {
+                Log.Error($"Exception in world DoSingleTick: {e}");
+                SimulationFailures.Record("world DoSingleTick", e);
+            }
+
+            // Matches how worldTicks is initialized after loading (ExposeData), so clients which joined later agree
+            // even if a tick threw before or after advancing TicksGame
+            worldTicks = Find.TickManager.TicksGame;
+
+            try
+            {
+                Multiplayer.WorldComp.TickWorldSessions();
+            }
+            catch (Exception e)
+            {
+                Log.Error($"Exception ticking world sessions: {e}");
+                SimulationFailures.Record("world sessions", e);
+            }
 
             if (ModsConfig.BiotechActive)
             {
@@ -134,6 +170,8 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         }
         finally
         {
+            AsyncTimeComp.RestoreRandStack(randDepth + 1, this);
+            FactionContext.RestoreStack(factionDepth, this);
             PostContext();
             tickingWorld = false;
 
@@ -177,8 +215,10 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         TickPatch.currentExecutingCmdIssuedBySelf = cmd.IsIssuedBySelf() && !TickPatch.Simulating;
         TickPatch.currentExecutingCmdType = cmdType;
 
+        int randDepth = Rand.stateStack.Count;
         PreContext();
         FactionExtensions.PushFaction(null, cmd.GetFaction());
+        int factionDepth = FactionContext.stack.Count;
 
         bool prevDevMode = Prefs.data.devMode;
         var prevGodMode = DebugSettings.godMode;
@@ -216,10 +256,12 @@ public class AsyncWorldTimeComp : IExposable, ITickable
 
             if (cmdType == CommandType.CreateJoinPoint)
             {
-                if (Multiplayer.session?.ConnectedToStandaloneServer == true && !TickPatch.currentExecutingCmdIssuedBySelf)
-                    return;
+                // Every client reloads (hosted and standalone): a reload isn't a no-op, and joiners start from the
+                // reloaded state. Only the uploader chosen by the server sends the save. Old logs have no payload.
+                var uploaderId = data.Left >= sizeof(int) ? data.ReadInt32() : cmd.playerId;
+                var upload = uploaderId == Multiplayer.session.playerId && !TickPatch.Simulating && !Multiplayer.IsReplay;
 
-                LongEventHandler.QueueLongEvent(CreateJoinPointAndSendIfHost, "MpCreatingJoinPoint", false, null);
+                LongEventHandler.QueueLongEvent(() => CreateJoinPoint(upload), "MpCreatingJoinPoint", false, null);
             }
 
             if (cmdType == CommandType.InitPlayerData)
@@ -228,6 +270,9 @@ public class AsyncWorldTimeComp : IExposable, ITickable
                 var canUseDevMode = data.ReadBool();
                 Multiplayer.GameComp.playerData[playerId] = new PlayerData { canUseDevMode = canUseDevMode };
             }
+
+            if (cmdType == CommandType.ResetPlayerCounts)
+                VTRSync.ResetAllPlayerCounts();
 
             if (cmdType == CommandType.PlayerCount)
             {
@@ -239,7 +284,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
                 if (previousMapId >= 0)
                     prev = Find.Maps.FirstOrDefault(x => x.uniqueID == previousMapId)?.AsyncTime()?.DecreasePlayerCount() ?? -1;
                 else if (previousMapId == VTRSync.WorldMapId)
-                    prev = Multiplayer.AsyncWorldTime.CurrentPlayerCount -= 1;
+                    prev = Multiplayer.AsyncWorldTime.CurrentPlayerCount = Math.Max(0, Multiplayer.AsyncWorldTime.CurrentPlayerCount - 1);
 
                 var curr = -1;
                 if (newMapId >= 0)
@@ -253,6 +298,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         catch (Exception e)
         {
             Log.Error($"World cmd exception ({cmdType}): {e}");
+            SimulationFailures.Record($"world command {cmdType}", e);
         }
         finally
         {
@@ -262,6 +308,8 @@ public class AsyncWorldTimeComp : IExposable, ITickable
             MpLog.Debug($"rand calls {DeferredStackTracing.randCalls - randCalls1}");
             MpLog.Debug("rand state " + Rand.StateCompressed);
 
+            AsyncTimeComp.RestoreRandStack(randDepth + 1, this);
+            FactionContext.RestoreStack(factionDepth, this);
             FactionExtensions.PopFaction();
             PostContext();
             TickPatch.currentExecutingCmdIssuedBySelf = false;
@@ -274,28 +322,15 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         }
     }
 
-    private static void CreateJoinPointAndSendIfHost()
+    private static void CreateJoinPoint(bool upload)
     {
         Multiplayer.session.dataSnapshot = SaveLoad.SaveReloadAndCreateSnapshot(
             Multiplayer.GameComp.multifaction,
             ReloadOptimizationMode.ForJoinPointSnapshot
         );
 
-        if (!TickPatch.Simulating && !Multiplayer.IsReplay)
-        {
-            if (Multiplayer.session?.ConnectedToStandaloneServer == true)
-            {
-                // Standalone: every client uploads world data + individual snapshots
-                SaveLoad.SendGameData(Multiplayer.session.dataSnapshot, true);
-                SaveLoad.SendStandaloneMapSnapshots(Multiplayer.session.dataSnapshot);
-                SaveLoad.SendStandaloneWorldSnapshot(Multiplayer.session.dataSnapshot);
-            }
-            else if (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance)
-            {
-                // Hosted: only host/arbiter uploads world data
-                SaveLoad.SendGameData(Multiplayer.session.dataSnapshot, true);
-            }
-        }
+        if (upload)
+            SaveLoad.SendGameData(Multiplayer.session.dataSnapshot, true);
     }
 
     public void SetTimeEverywhere(TimeSpeed speed)

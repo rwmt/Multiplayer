@@ -76,6 +76,9 @@ namespace Multiplayer.Common
 
         public virtual byte[] ReadRaw(int len)
         {
+            // Validate before allocating: the length usually comes from the remote side
+            if (len < 0 || len > Left)
+                throw new ReaderException($"Byte array length ({len}) out of range (0-{Left})");
             return array.SubArray(IncrementIndex(len), len);
         }
 
@@ -100,6 +103,7 @@ namespace Multiplayer.Common
                 throw new ReaderException($"Int array length ({len}<0)");
             if (len > maxLen)
                 throw new ReaderException($"Int array too long ({len}>{maxLen})");
+            CheckArrayLength(len, sizeof(int));
 
             int[] result = new int[len];
             for (int i = 0; i < len; i++)
@@ -111,6 +115,7 @@ namespace Multiplayer.Common
         public virtual uint[] ReadPrefixedUInts()
         {
             int len = ReadInt32();
+            CheckArrayLength(len, sizeof(uint));
             uint[] result = new uint[len];
             for (int i = 0; i < len; i++)
                 result[i] = ReadUInt32();
@@ -120,6 +125,7 @@ namespace Multiplayer.Common
         public virtual ulong[] ReadPrefixedULongs()
         {
             int len = ReadInt32();
+            CheckArrayLength(len, sizeof(ulong));
             ulong[] result = new ulong[len];
             for (int i = 0; i < len; i++) {
                 result[i] = ReadULong();
@@ -130,10 +136,18 @@ namespace Multiplayer.Common
         public virtual string?[] ReadPrefixedStrings()
         {
             int len = ReadInt32();
+            CheckArrayLength(len, sizeof(int)); // Every string has at least its length prefix
             string?[] result = new string[len];
             for (int i = 0; i < len; i++)
                 result[i] = ReadString();
             return result;
+        }
+
+        // Validate a remote array length before allocating the array
+        private void CheckArrayLength(int len, int minElementSize)
+        {
+            if (len < 0 || len > Left / minElementSize)
+                throw new ReaderException($"Array length ({len}) out of range for {Left} remaining bytes");
         }
 
         public virtual T ReadEnum<T>() where T : Enum

@@ -42,14 +42,6 @@ namespace Multiplayer.Client.Networking
 
         public abstract void OnError(EP2PSessionError error);
 
-        protected override void OnClose(ServerDisconnectPacket? goodbye)
-        {
-            if (goodbye.HasValue) Send(goodbye.Value);
-            // TODO this should probably include SteamNetworking.CloseP2PSessionWithUser to free up any leftover
-            //   resources in the Steam API. The API docs are not clear whether the connection is closed instantly, or
-            //   are the queued packets sent.
-        }
-
         public override string ToString() => $"SteamP2P ({remoteId}:{username})";
     }
 
@@ -57,8 +49,13 @@ namespace Multiplayer.Client.Networking
     {
         public SteamClientConn(CSteamID remoteId, string username) : base(remoteId, RandomChannelId(), 0)
         {
+            // A server hosted here before may still be about to close its session with this remote
+            SteamP2PIntegration.KeepSession(remoteId);
             ChangeState(new ClientSteamState(this, username));
         }
+
+        // The client never sends a goodbye
+        protected override void OnClose(ServerDisconnectPacket? goodbye) => SteamP2PIntegration.CloseSession(remoteId);
 
         static ushort RandomChannelId() => (ushort)new Random().Next();
 
@@ -97,6 +94,19 @@ namespace Multiplayer.Client.Networking
             OnDisconnect();
         }
 
+        protected override void OnClose(ServerDisconnectPacket? goodbye)
+        {
+            if (goodbye.HasValue)
+            {
+                Send(goodbye.Value);
+                SteamP2PIntegration.CloseSessionAfterFlush(remoteId);
+            }
+            // A disconnected connection may have been replaced by a new one from the same remote, which uses the
+            // same session (see SteamP2PNetManager.Tick)
+            else if (State != ConnectionStateEnum.Disconnected)
+                SteamP2PIntegration.CloseSession(remoteId);
+        }
+
         public override void OnKeepAliveArrived(bool idMatched)
         {
             if (!idMatched) return;
@@ -108,6 +118,8 @@ namespace Multiplayer.Client.Networking
 
         private void OnDisconnect()
         {
+            // The session failed, free it so that a reconnect asks for a new one
+            SteamP2PIntegration.CloseSession(remoteId);
             serverPlayer.Server.playerManager.SetDisconnected(this, MpDisconnectReason.ClientLeft);
         }
     }
@@ -126,21 +138,33 @@ namespace Multiplayer.Client.Networking
 
         public void Tick()
         {
+            var playerManager = server.playerManager;
+
             foreach (var packet in SteamP2PIntegration.ReadPackets(0))
             {
-                var playerManager = server.playerManager;
-                var player = playerManager.Players
-                    .FirstOrDefault(p => p.conn is SteamBaseConn conn && conn.remoteId == packet.remote);
+                var player = FindPlayer(packet.remote);
 
-                if (packet.joinPacket && player == null)
+                if (packet.joinPacket)
                 {
                     ConnectionBase conn = new SteamServerConn(packet.remote, packet.channel);
+
+                    // The join packet arrived on the session of the remote's earlier connection: a goodbye sent on
+                    // it is out by now and closing would cut off this one
+                    SteamP2PIntegration.KeepSession(packet.remote);
+
+                    // A client sends the join packet once per connection, so the remote's connection we still
+                    // have is stale (e.g. they restarted the game before it timed out). Without replacing it the
+                    // join would be dropped and the client would wait for the host forever (#843).
+                    if (player != null)
+                        playerManager.ReplaceStale(player, conn);
 
                     var preConnect = playerManager.OnPreConnect(packet.remote);
                     if (preConnect != null)
                     {
                         ServerLog.Log($"Rejected incoming connection from {packet.remote}: {preConnect}");
-                        conn.Close(preConnect.Value);
+                        // Close doesn't send a goodbye before the connection has a server state
+                        conn.Send(new ServerDisconnectPacket { reason = preConnect.Value, data = [] });
+                        SteamP2PIntegration.CloseSessionAfterFlush(packet.remote);
                         continue;
                     }
 
@@ -155,17 +179,24 @@ namespace Multiplayer.Client.Networking
 
                     conn.Send(Packets.Server_SteamAccept);
                 }
-                else if (!packet.joinPacket && player != null)
+                else if (player != null)
                 {
                     player.HandleReceive(packet.data, packet.reliable);
                 }
                 else
                 {
-                    ServerLog.Error(
-                        $"Received a join packet: {packet.joinPacket} for player: {player} (player should only be null when joinPacket is true)");
+                    // Packets still in flight when the server dropped the connection
+                    ServerLog.Verbose($"Received a data packet from {packet.remote}, who has no connection");
                 }
             }
+
+            // Closed here rather than on a timer so that it can't race a reconnect, and after reading the packets so
+            // that a reconnect's join packet already waiting on the session cancels the close first
+            SteamP2PIntegration.CloseDueSessions(remote => FindPlayer(remote) != null);
         }
+
+        private ServerPlayer FindPlayer(CSteamID remote) =>
+            server.playerManager.Players.FirstOrDefault(p => p.conn is SteamBaseConn conn && conn.remoteId == remote);
 
         public void Stop()
         {
@@ -180,6 +211,41 @@ namespace Multiplayer.Client.Networking
     public static class SteamP2PIntegration
     {
         private static Callback<P2PSessionConnectFail_t> p2pFail;
+
+        // Closing a P2P session discards the packets Steam hasn't sent yet, a goodbye gets this long to go out
+        private const int GoodbyeFlushMs = 3000;
+        private static readonly PendingSessionCloses<CSteamID> pendingCloses = new();
+
+        /// Frees the P2P session with the remote. Their next connection then needs a new session, which shows the
+        /// host's accept prompt again, instead of silently reusing the old one (#843).
+        public static void CloseSession(CSteamID remote)
+        {
+            pendingCloses.Cancel(remote);
+            ServerLog.Log($"Closing Steam P2P session with {remote}");
+            SteamNetworking.CloseP2PSessionWithUser(remote);
+        }
+
+        public static void CloseSessionAfterFlush(CSteamID remote) => pendingCloses.Schedule(remote, GoodbyeFlushMs);
+
+        /// The remote's session is in use by a new connection
+        public static void KeepSession(CSteamID remote)
+        {
+            if (pendingCloses.Cancel(remote))
+                ServerLog.Verbose($"Keeping Steam P2P session with {remote} for a new connection");
+        }
+
+        /// Runs on the thread of the server handling Steam joins, or on the main thread when no such server runs.
+        /// <param name="inUse">The remote reconnected in the meantime and their connection uses the session</param>
+        public static void CloseDueSessions(Func<CSteamID, bool> inUse = null)
+        {
+            foreach (var remote in pendingCloses.TakeDue())
+            {
+                if (inUse?.Invoke(remote) == true) continue;
+
+                ServerLog.Log($"Closing Steam P2P session with {remote} after its goodbye");
+                SteamNetworking.CloseP2PSessionWithUser(remote);
+            }
+        }
 
         public static void InitCallbacks()
         {

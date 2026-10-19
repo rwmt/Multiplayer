@@ -73,6 +73,9 @@ public enum Packets : byte
     Client_BootstrapSave,
     Server_Bootstrap,
 
+    // Playing (appended to keep the ids above stable)
+    Server_SyncReference,
+
     Count,
     Max = 63 // max packet id
 }

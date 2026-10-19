@@ -23,6 +23,7 @@ namespace Multiplayer.Common
             if (StateObj != null)
                 StateObj.alive = false;
 
+            DiscardPartialFragments();
             State = MpConnectionState.GetStateEnumOf(state);
             StateObj = state;
             StateObj?.StartState();
@@ -33,6 +34,7 @@ namespace Multiplayer.Common
             if (StateObj != null)
                 StateObj.alive = false;
 
+            DiscardPartialFragments();
             State = state;
             StateObj = MpConnectionState.CreateState(state, this);
             StateObj?.StartState();
@@ -72,6 +74,8 @@ namespace Multiplayer.Common
         public const int MaxFragmentPacketSize = 1024;
         // Max size of a packet that can be sent fragmented. It is not possible to send any packets larger than this.
         public const int MaxFragmentPacketTotalSize = 33_554_432;
+        // The longest message SendFragmented accepts: the first fragment adds 6 bytes of metadata
+        public const int MaxFragmentedMessageLength = MaxFragmentPacketTotalSize - 6;
 
         private const int FragNone = 0x0;
         private const int FragMore = 0x40;
@@ -80,7 +84,7 @@ namespace Multiplayer.Common
         private byte sendFragId;
 
         // All fragmented packets need to be sent from the same thread
-        public void SendFragmented(Packets id, byte[] message)
+        public virtual void SendFragmented(Packets id, byte[] message)
         {
             if (State == ConnectionStateEnum.Disconnected)
                 return;
@@ -96,7 +100,7 @@ namespace Multiplayer.Common
             const int maxFragmentSize = MaxFragmentPacketSize - 2;
             // the first packet has an additional 6 bytes of overhead
             var totalLength = message.Length + 6;
-            if (totalLength > MaxFragmentPacketTotalSize)
+            if (message.Length > MaxFragmentedMessageLength)
             {
                 throw new PacketSendException(
                     $"Tried to send too big packet {id}. Max size: {MaxFragmentPacketTotalSize}, requested size (incl. overhead): {totalLength}.");
@@ -140,6 +144,16 @@ namespace Multiplayer.Common
 
         public void SendFragmented(SerializedPacket packet) => SendFragmented(packet.id, packet.data);
 
+        /// For packets which usually fit a single packet but can be bigger: fragments only those which don't fit.
+        /// The packet's handler must allow fragments, and the same thread rule as for SendFragmented applies.
+        public void SendFragmentedIfNeeded(SerializedPacket packet)
+        {
+            if (packet.data.Length > MaxSinglePacketSize)
+                SendFragmented(packet);
+            else
+                Send(packet);
+        }
+
         protected abstract void SendRaw(byte[] raw, bool reliable = true);
 
         public virtual void HandleReceiveRaw(ByteReader data, bool reliable)
@@ -162,6 +176,9 @@ namespace Multiplayer.Common
 
         private const int MaxFragmentedPackets = 1;
         private readonly List<(/* fragId */ byte, FragmentedPacket)> fragments = [];
+        // Fragmented packet whose remaining fragments are dropped, or -1. Fragments of one packet are sent back to
+        // back on the reliable ordered channel, so a fragment with another id means this one is over.
+        private int discardedFragId = -1;
 
         protected virtual void HandleReceiveMsg(int msgId, int fragState, ByteReader reader, bool reliable)
         {
@@ -172,12 +189,34 @@ namespace Multiplayer.Common
             if (reader.Left > MaxSinglePacketSize)
                 throw new PacketReadException($"Packet {packetType} too big {reader.Left}>{MaxSinglePacketSize}");
 
+            if (fragState != FragNone && discardedFragId != -1)
+            {
+                if (reader.Left > 0 && reader.PeekByte() == discardedFragId)
+                {
+                    if (fragState == FragEnd) discardedFragId = -1;
+                    reader.Seek(reader.Length);
+                    return;
+                }
+
+                discardedFragId = -1;
+            }
+
             var handler = StateObj?.GetPacketHandler(packetType);
             if (handler == null)
             {
                 if (reliable && !Lenient)
                     throw new PacketReadException($"No handler for packet {packetType} in state {State}");
                 ServerLog.Error($"No handler for packet {packetType} in state {State}");
+
+                // Also drop the rest of a fragmented packet; a later state could otherwise mistake its next
+                // fragment for the start of a new packet.
+                if (fragState != FragNone && reader.Left > 0)
+                {
+                    var fragId = reader.PeekByte();
+                    fragments.RemoveAll(f => f.Item1 == fragId);
+                    if (fragState != FragEnd) discardedFragId = fragId;
+                }
+
                 reader.Seek(reader.Length);
                 return;
             }
@@ -235,6 +274,20 @@ namespace Multiplayer.Common
 
             fragments.RemoveAt(fragIndex);
             ExecuteMessageHandler(handler, packetType, new ByteReader(fragPacket.Data.GetBuffer()));
+        }
+
+        // A partially received fragmented packet was meant for the old state. Without this, it would stay in
+        // fragments forever and the next fragmented packet would fail with "High number of fragmented packets".
+        private void DiscardPartialFragments()
+        {
+            foreach (var (fragId, fragPacket) in fragments)
+            {
+                ServerLog.Verbose($"{this} dropping partially received {fragPacket.Id} " +
+                                  $"({fragPacket.ReceivedPartsCount}/{fragPacket.ExpectedPartsCount} parts) on state change");
+                discardedFragId = fragId;
+            }
+
+            fragments.Clear();
         }
 
         private void ExecuteMessageHandler(PacketHandlerInfo handler, Packets packet, ByteReader data)

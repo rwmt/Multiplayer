@@ -68,21 +68,31 @@ namespace Multiplayer.Client.Patches
             yield return AccessTools.Method(typeof(TargetInfo), nameof(TargetInfo.GetHashCode));
         }
 
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts, MethodBase original)
         {
+            int patched = 0;
+
             foreach (var inst in insts)
             {
                 if (inst.operand as MethodInfo == Combine)
+                {
                     inst.operand = AccessTools.Method(typeof(PatchTargetInfoHashCodes), nameof(CombineHashes));
+                    patched++;
+                }
 
                 yield return inst;
             }
+
+            if (patched == 0)
+                Multiplayer.LoadingError($"MP: Couldn't find Gen.HashCombine<Map> in {original.DeclaringType}:{original.Name}. Was the original method changed?");
         }
 
         static int CombineHashes(int seed, Map map) => Gen.HashCombineInt(seed, map?.uniqueID ?? -1);
     }
 
-    // todo does this cause issues?
+    // Vanilla hashes the first thing, which changes while trading. The identity hash differs between clients, which
+    // is fine as long as Tradeables are only kept in hash containers locally (TradingUI, buffered sync fields) and
+    // the simulation keeps them in lists (TradeDeal). Don't iterate a hash container of Tradeables in synced code.
     [HarmonyPatch(typeof(Tradeable), nameof(Tradeable.GetHashCode))]
     static class TradeableHashCode
     {
@@ -95,6 +105,11 @@ namespace Multiplayer.Client.Patches
     }
 
     // Have created a patch that will handle 2-8 System.HashCode.Combine functions.
+    // System.HashCode uses a random per-process seed. These patches make the all-int overloads deterministic.
+    // They're applied early (before def loading) and unconditionally so that the hash function doesn't change while
+    // hash containers are alive: switching it only while connected broke lookups in containers filled before
+    // connecting, and left containers filled during def loading in a per-process order.
+    // Combine with other type arguments and HashCode.Add/ToHashCode still use the random seed.
     // TODO: Check the following:
     // TileQueryParams.GetHashCode
     // UnmanagedGridTraverseParams.GetHashCode
@@ -126,6 +141,7 @@ namespace Multiplayer.Client.Patches
     }
 
     //  ─── PATCH 2 ints ─────────────────────────────────────────
+    [EarlyPatch]
     [HarmonyPatch]
     static class Combine2Patch
     {
@@ -133,15 +149,13 @@ namespace Multiplayer.Client.Patches
 
         static bool Prefix(int value1, int value2, ref int __result)
         {
-            if (Multiplayer.Client == null)
-                return true;
-
             __result = Gen.HashCombineInt(value1, value2);
             return false;
         }
     }
 
     //  ─── PATCH 3 ints ─────────────────────────────────────────
+    [EarlyPatch]
     [HarmonyPatch]
     static class Combine3Patch
     {
@@ -149,15 +163,13 @@ namespace Multiplayer.Client.Patches
 
         static bool Prefix(int value1, int value2, int value3, ref int __result)
         {
-            if (Multiplayer.Client == null)
-                return true;
-
             __result = DeterministicHash.HashCombineInt(value1, value2, value3);
             return false;
         }
     }
 
     //  ─── PATCH 4 ints ─────────────────────────────────────────
+    [EarlyPatch]
     [HarmonyPatch]
     static class Combine4Patch
     {
@@ -165,15 +177,13 @@ namespace Multiplayer.Client.Patches
 
         static bool Prefix(int value1, int value2, int value3, int value4, ref int __result)
         {
-            if (Multiplayer.Client == null)
-                return true;
-
             __result = Gen.HashCombineInt(value1, value2, value3, value4);
             return false;
         }
     }
 
     //  ─── PATCH 5 ints ─────────────────────────────────────────
+    [EarlyPatch]
     [HarmonyPatch]
     static class Combine5Patch
     {
@@ -181,15 +191,13 @@ namespace Multiplayer.Client.Patches
 
         static bool Prefix(int value1, int value2, int value3, int value4, int value5, ref int __result)
         {
-            if (Multiplayer.Client == null)
-                return true;
-
             __result = DeterministicHash.HashCombineInt(value1, value2, value3, value4, value5);
             return false;
         }
     }
 
     //  ─── PATCH 6 ints ─────────────────────────────────────────
+    [EarlyPatch]
     [HarmonyPatch]
     static class Combine6Patch
     {
@@ -197,9 +205,6 @@ namespace Multiplayer.Client.Patches
 
         static bool Prefix(int value1, int value2, int value3, int value4, int value5, int value6, ref int __result)
         {
-            if (Multiplayer.Client == null)
-                return true;
-
             __result = DeterministicHash.HashCombineInt(value1, value2, value3,
                                                   value4, value5, value6);
             return false;
@@ -207,6 +212,7 @@ namespace Multiplayer.Client.Patches
     }
 
     //  ─── PATCH 7 ints ─────────────────────────────────────────
+    [EarlyPatch]
     [HarmonyPatch]
     static class Combine7Patch
     {
@@ -214,9 +220,6 @@ namespace Multiplayer.Client.Patches
 
         static bool Prefix(int value1, int value2, int value3, int value4, int value5, int value6, int value7, ref int __result)
         {
-            if (Multiplayer.Client == null)
-                return true;
-
             __result = DeterministicHash.HashCombineInt(value1, value2, value3, value4,
                                                   value5, value6, value7);
             return false;
@@ -224,6 +227,7 @@ namespace Multiplayer.Client.Patches
     }
 
     //  ─── PATCH 8 ints ─────────────────────────────────────────
+    [EarlyPatch]
     [HarmonyPatch]
     static class Combine8Patch
     {
@@ -231,9 +235,6 @@ namespace Multiplayer.Client.Patches
 
         static bool Prefix(int value1, int value2, int value3, int value4, int value5, int value6, int value7, int value8, ref int __result)
         {
-            if (Multiplayer.Client == null)
-                return true;
-
             __result = DeterministicHash.HashCombineInt(value1, value2, value3, value4,
                                                   value5, value6, value7, value8);
             return false;

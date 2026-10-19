@@ -200,12 +200,13 @@ public class SaveGameWindow : Window
     {
         if (curText.Length != 0)
         {
+            var tick = TickPatch.Timer;
             LongEventHandler.QueueLongEvent(() =>
             {
                 if (!Autosaving.SaveGameToFile_Overwrite(curText, currentReplay))
                     return;
 
-                Autosaving.SendAutosavingRequest(JoinPointRequestReason.Save);
+                Autosaving.SendAutosavingRequest(JoinPointRequestReason.Save, tick);
             }, "MpSaving", false, null);
             Close();
         }

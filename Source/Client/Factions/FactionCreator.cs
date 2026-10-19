@@ -24,10 +24,59 @@ public static class FactionCreator
         pawnStore.Clear();
     }
 
-    [SyncMethod(exposeParameters = new[] { 1 })]
-    public static void SendPawn(int playerId, Pawn p)
+    // Set while SendPawn reads a starting pawn, see NoFallbackIdeoForStartingPawnPatch
+    public static bool readingStartingPawn;
+
+    [SyncMethod]
+    public static void SendPawn(int playerId, StartingPawnData data)
     {
-        pawnStore.GetOrAddNew(playerId).Add(p);
+        if (ReadStartingPawn(data.xml) is { } pawn)
+            pawnStore.GetOrAddNew(playerId).Add(pawn);
+    }
+
+    // The page's pawns believe in the temporary page faction's ideoligion, which isn't registered: on load the
+    // reference didn't resolve, the pawn got a random fallback ideoligion and CreateFaction's SetIdeo then recorded
+    // an ideo change and kept the fallback as a previous ideo (#537). Send them without one, CreateFaction sets it.
+    public static StartingPawnData WriteStartingPawn(Pawn pawn)
+    {
+        var tracker = pawn.ideo;
+        var ideo = tracker?.ideo;
+        if (tracker != null) tracker.ideo = null;
+
+        try
+        {
+            return new StartingPawnData { xml = ScribeUtil.WriteExposable(pawn) };
+        }
+        finally
+        {
+            if (tracker != null) tracker.ideo = ideo;
+        }
+    }
+
+    private static Pawn ReadStartingPawn(byte[] xml)
+    {
+        if (xml == null) return null;
+
+        // Vanilla loads pawns only while a game initializes. In Playing the needs tracker's constructor evaluates
+        // Need_Food.MaxLevel as a stat over hediffs whose pawn is set only when cross refs resolve (#536).
+        // Outside Playing some getters read the GameInitData (TicksAbs, Faction.OfPlayer, PawnsFinder), which
+        // differs between clients here (the issuer's pages, an earlier faction creation, none), so hide it.
+        var prevState = Current.programStateInt;
+        var prevInitData = Current.Game.InitData;
+        Current.programStateInt = ProgramState.MapInitializing;
+        Current.Game.InitData = null;
+        readingStartingPawn = true;
+
+        try
+        {
+            return ScribeUtil.ReadExposable<Pawn>(xml);
+        }
+        finally
+        {
+            readingStartingPawn = false;
+            Current.Game.InitData = prevInitData;
+            Current.programStateInt = prevState;
+        }
     }
 
     [SyncMethod]
@@ -46,6 +95,11 @@ public static class FactionCreator
 
         LongEventHandler.QueueLongEvent(() =>
         {
+            // Runs in the command's simulation context (SimLongEventContext), which also covers the actions map
+            // generation defers with ExecuteWhenFinished. The pop restores that context's faction data, not the
+            // local player's (the context's exit re-applies the real player faction, the issuer's new one).
+            using var _ = MpScope.PushFaction(Multiplayer.WorldComp.spectatorFaction);
+
             var scenario = creationData.scenarioDef?.scenario ?? Current.Game.Scenario;
             Map newMap = null;
 
@@ -76,6 +130,9 @@ public static class FactionCreator
 
             if (executingOnlyOnIssuer)
             {
+                // Runs on the issuer only: e.g. archived dialogs take unique ids
+                using var localOnly = LocalOnlyScope.Enter();
+
                 ClearPortraitCacheFromPawnConfigPage();
 
                 Current.Game.CurrentMap = newMap;
@@ -110,6 +167,12 @@ public static class FactionCreator
     {
         // This has to be null, otherwise, during map generation, Faction.OfPlayer returns it which breaks FactionContext
         Find.GameInitData.playerFaction = null;
+
+        // PrepForMapGen adds the custom xenotypes of the static (client-local) starting pawn generation requests
+        // to the game's customXenotypeDatabase. Only the issuer has its requests there (others may have stale
+        // ones), and the database feeds factionless pawn generation, so clear them on every client. The pawns
+        // keep their genes; their custom xenotype just isn't added to the database.
+        StartingPawnUtility.StartingAndOptionalPawnGenerationRequests.Clear();
         Find.GameInitData.PrepForMapGen();
 
         // ScenPart_PlayerFaction --> PreMapGenerate
@@ -229,7 +292,7 @@ public static class FactionCreator
         }
         else
         {
-            var newIdeo = GenerateIdeo(chooseIdeoInfo);
+            var newIdeo = GenerateIdeo(chooseIdeoInfo, def);
             faction.ideos.SetPrimary(newIdeo);
             Find.IdeoManager.Add(newIdeo);
         }
@@ -237,7 +300,10 @@ public static class FactionCreator
         foreach (Faction other in Find.FactionManager.AllFactionsListForReading)
             faction.TryMakeInitialRelationsWith(other);
 
+        // Add recaches Faction.OfPlayer to the first player faction, keep the current context
+        var ofPlayer = Find.FactionManager.ofPlayer;
         Find.FactionManager.Add(faction);
+        Find.FactionManager.ofPlayer = ofPlayer;
 
         var newWorldFactionData = FactionWorldData.New(faction.loadID);
         Multiplayer.WorldComp.factionData[faction.loadID] = newWorldFactionData;
@@ -254,16 +320,17 @@ public static class FactionCreator
         return faction;
     }
 
-    private static Ideo GenerateIdeo(IdeologyData chooseIdeoInfo)
+    // factionDef: the new faction's (from the chosen scenario), not Faction.OfPlayer's or the game scenario's
+    private static Ideo GenerateIdeo(IdeologyData chooseIdeoInfo, FactionDef factionDef)
     {
         List<MemeDef> list = chooseIdeoInfo.SelectedIdeo.memes.ToList();
 
         if (chooseIdeoInfo.SelectedStructure != null)
             list.Add(chooseIdeoInfo.SelectedStructure);
-        else if (DefDatabase<MemeDef>.AllDefsListForReading.Where(m => m.category == MemeCategory.Structure && IdeoUtility.IsMemeAllowedFor(m, Find.Scenario.playerFaction.factionDef)).TryRandomElement(out var result))
+        else if (DefDatabase<MemeDef>.AllDefsListForReading.Where(m => m.category == MemeCategory.Structure && IdeoUtility.IsMemeAllowedFor(m, factionDef)).TryRandomElement(out var result))
             list.Add(result);
 
-        Ideo ideo = IdeoGenerator.GenerateIdeo(new IdeoGenerationParms(Find.FactionManager.OfPlayer.def, forceNoExpansionIdeo: false, null, null, list, chooseIdeoInfo.SelectedIdeo.classicPlus, forceNoWeaponPreference: true));
+        Ideo ideo = IdeoGenerator.GenerateIdeo(new IdeoGenerationParms(factionDef, forceNoExpansionIdeo: false, null, null, list, chooseIdeoInfo.SelectedIdeo.classicPlus, forceNoWeaponPreference: true));
         new Page_ChooseIdeoPreset { selectedStyles = chooseIdeoInfo.SelectedStyles }.ApplySelectedStylesToIdeo(ideo);
 
         return ideo;
@@ -284,6 +351,22 @@ public static class FactionCreator
         return 0;
     }
 }
+
+// A starting pawn's XML, read inside SendPawn (not by the sync layer) so that the read runs in a load-like state.
+// Same wire format as the exposed Pawn parameter it replaces.
+public class StartingPawnData : ISynchronizable
+{
+    public byte[] xml;
+
+    public void Sync(SyncWorker sync)
+    {
+        if (sync is WritingSyncWorker writer)
+            writer.Writer.WritePrefixedBytes(xml);
+        else if (sync is ReadingSyncWorker reader)
+            xml = reader.Reader.ReadPrefixedBytes();
+    }
+}
+
 public record FactionCreationData : ISyncSimple
 {
     public string factionName;

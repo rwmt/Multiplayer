@@ -256,8 +256,7 @@ namespace Multiplayer.Client
                 if (categoryNeedsAnnouncement) {
                     Log.Message($"Multiplayer :: {category}");
                 }
-                Log.Error(str);
-                Multiplayer.loadingErrors = true;
+                Multiplayer.LoadingError(str);
             }
 
             var harmony = Multiplayer.harmony;
@@ -325,10 +324,26 @@ namespace Multiplayer.Client
             {
                 var randPatchPrefix = new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Prefix));
                 var randPatchFinalizer = new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Finalizer));
+                var randPatchPrefixMainThread = new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.PrefixMainThread));
 
                 var subSustainerStart = MpMethodUtil.GetLambda(typeof(SubSustainer), parentMethodType: MethodType.Constructor, parentArgs: new[] { typeof(Sustainer), typeof(SubSoundDef) });
                 var sampleCtor = typeof(Sample).GetConstructor(new[] { typeof(SubSoundDef) });
                 var subSoundPlay = typeof(SubSoundDef).GetMethod(nameof(SubSoundDef.TryPlay));
+                // Whether these consume RNG depends on the local sound manager state (camera, frame timing)
+                var soundMethods = new MethodBase[]
+                {
+                    typeof(SoundStarter).GetMethod(nameof(SoundStarter.PlayOneShot)),
+                    typeof(SoundStarter).GetMethod(nameof(SoundStarter.TrySpawnSustainer)),
+                    typeof(Sustainer).GetConstructor(new[] { typeof(SoundDef), typeof(SoundInfo) }),
+                    typeof(SustainerAggregatorUtility).GetMethod(nameof(SustainerAggregatorUtility.AggregateOrSpawnSustainerFor)),
+                    typeof(SoundSizeAggregator).GetConstructor(Type.EmptyTypes),
+                    typeof(MusicManagerPlay).GetMethod(nameof(MusicManagerPlay.ForceTriggerTransition)),
+                    typeof(MusicManagerPlay).GetMethod(nameof(MusicManagerPlay.ForceTriggerNextSongOrSequence)),
+                    typeof(MusicManagerPlay).GetMethod(nameof(MusicManagerPlay.ForcePlaySong)),
+                    typeof(MusicManagerPlay).GetMethod(nameof(MusicManagerPlay.ForceFadeoutAndSilenceFor)),
+                    typeof(MusicManagerPlay).GetMethod(nameof(MusicManagerPlay.StartNewSong)),
+                    typeof(MusicManagerPlay).GetMethod(nameof(MusicManagerPlay.ScheduleNewSong)),
+                };
                 var effecterTick = typeof(Effecter).GetMethod(nameof(Effecter.EffectTick));
                 var effecterTrigger = typeof(Effecter).GetMethod(nameof(Effecter.Trigger));
                 var effecterCleanup = typeof(Effecter).GetMethod(nameof(Effecter.Cleanup));
@@ -353,6 +368,9 @@ namespace Multiplayer.Client
 
                 foreach (MethodBase m in effectMethods.Concat(moteMethods).Concat(fleckMethods).Concat(ritualMethods))
                     TryPatch(m, randPatchPrefix, finalizer: randPatchFinalizer);
+
+                foreach (MethodBase m in soundMethods)
+                    TryPatch(m, randPatchPrefixMainThread, finalizer: randPatchFinalizer);
             }
 
             SetCategory("Non-deterministic patches 2");

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.IO.Compression;
+using System.Text;
 
 namespace Multiplayer.Common.Networking.Packet;
 
@@ -90,7 +91,11 @@ public static class BinderExtensions
         return obj;
     }
 
-    public static Binder<T> Gzipped<T>(this Binder<T> inner, int maxLength = PacketBuffer.DefaultMaxLength) =>
+    public const int DefaultMaxDecompressedLength = 1 << 26;
+
+    /// maxLength limits the compressed bytes, maxDecompressedLength the inflated data (decompression bombs).
+    public static Binder<T> Gzipped<T>(this Binder<T> inner, int maxLength = PacketBuffer.DefaultMaxLength,
+        int maxDecompressedLength = DefaultMaxDecompressedLength) =>
         (PacketBuffer buf, ref T obj) =>
         {
             if (buf.isWriting)
@@ -114,12 +119,26 @@ public static class BinderExtensions
                 using var outputStream = new MemoryStream();
                 using (var decompress = new DeflateStream(inputStream, CompressionMode.Decompress))
                 {
-                    decompress.CopyTo(outputStream);
+                    CopyLimited(decompress, outputStream, maxDecompressedLength);
                 }
                 var reader = new ByteReader(outputStream.ToArray());
                 inner(new PacketReader(reader), ref obj);
             }
         };
+
+    private static void CopyLimited(Stream source, Stream destination, int maxLength)
+    {
+        var buffer = new byte[81920];
+        long total = 0;
+        int read;
+        while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
+        {
+            total += read;
+            if (total > maxLength)
+                throw new ReaderException($"Decompressed data too big (>{maxLength})");
+            destination.Write(buffer, 0, read);
+        }
+    }
 }
 
 public abstract class PacketBuffer(bool isWriting)
@@ -215,6 +234,7 @@ public sealed class PacketReader(ByteReader reader) : PacketBuffer(false)
     public override void BindBytes(ref byte[] obj, int maxLength = DefaultMaxLength)
     {
         int len = reader.ReadInt32();
+        if (len > maxLength && maxLength != -1) throw new ReaderException($"Byte array too big ({len}>{maxLength})");
         obj = reader.ReadRaw(len);
     }
 
@@ -223,13 +243,17 @@ public sealed class PacketReader(ByteReader reader) : PacketBuffer(false)
         int len = reader.ReadInt32();
         if (len > maxLength && maxLength != -1) throw new ReaderException($"Array too big ({len}>{maxLength})");
 
-        obj = new T[len];
+        if (len < 0) throw new ReaderException($"Array length ({len}<0)");
+
+        // The length is remote data, don't allocate more than the packet could hold up front
+        var items = new List<T>(Math.Min(len, reader.Left));
         for (var i = 0; i < len; i++)
         {
             var item = default(T);
             bind(this, ref item);
-            obj[i] = item;
+            items.Add(item);
         }
+        obj = items.ToArray();
     }
 
     public override void BindRemaining(ref byte[] obj, int maxLength = DefaultMaxLength)
@@ -243,7 +267,10 @@ public sealed class PacketReader(ByteReader reader) : PacketBuffer(false)
         int len = reader.ReadInt32();
         if (len > maxLength) throw new ReaderException($"List too big ({len}>{maxLength})");
 
-        obj = new List<T>(len);
+        if (len < 0) throw new ReaderException($"List length ({len}<0)");
+
+        // The length is remote data, don't preallocate more than the packet could hold
+        obj = new List<T>(Math.Min(len, reader.Left));
         for (var i = 0; i < len; i++)
         {
             var item = default(T);
@@ -258,7 +285,9 @@ public sealed class PacketReader(ByteReader reader) : PacketBuffer(false)
         int len = reader.ReadInt32();
         if (len > maxLength && maxLength != -1) throw new ReaderException($"Dictionary too big ({len}>{maxLength})");
 
-        obj = new Dictionary<K, V>(len);
+        if (len < 0) throw new ReaderException($"Dictionary length ({len}<0)");
+
+        obj = new Dictionary<K, V>(Math.Min(len, reader.Left));
         for (int i = 0; i < len; i++)
         {
             var key = default(K);
@@ -302,7 +331,10 @@ public sealed class PacketWriter(ByteWriter writer) : PacketBuffer(true)
 
     public override void Bind(ref string obj, int maxLength = DefaultMaxLength)
     {
-        if (obj != null && obj.Length > maxLength) throw new WriterException($"Too long string ({obj.Length}>{maxLength})");
+        // The reader limits UTF-8 bytes, not chars: checking chars here let non-ASCII strings through which every
+        // receiver then rejected
+        if (obj != null && Encoding.UTF8.GetByteCount(obj) is var bytes && bytes > maxLength)
+            throw new WriterException($"Too long string ({bytes} bytes>{maxLength})");
         writer.WriteString(obj);
     }
 
@@ -310,6 +342,7 @@ public sealed class PacketWriter(ByteWriter writer) : PacketBuffer(true)
 
     public override void BindBytes(ref byte[] obj, int maxLength = DefaultMaxLength)
     {
+        if (obj.Length > maxLength && maxLength != -1) throw new WriterException($"Byte array too big ({obj.Length}>{maxLength})");
         writer.WriteInt32(obj.Length);
         writer.WriteRaw(obj);
     }

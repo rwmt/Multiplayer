@@ -17,6 +17,8 @@ namespace Multiplayer.Common
 
         public void Send(CommandType cmdType, int factionId, int mapId, byte[] data, ServerPlayer? sourcePlayer = null, ServerPlayer? fauxSource = null)
         {
+            server.CheckServerThread();
+
             // policy
             if (sourcePlayer != null)
             {
@@ -37,6 +39,13 @@ namespace Multiplayer.Common
                     return;
             }
 
+            // Checked before logging: a command in the log that live clients never received desyncs every joiner
+            if (data.Length > ServerCommandPacket.MaxDataLength)
+            {
+                ServerLog.Error($"Dropped {cmdType} command with too much data ({data.Length} > {ServerCommandPacket.MaxDataLength})");
+                return;
+            }
+
             var cmd = new ScheduledCommand(
                 cmdType,
                 server.gameTimer,
@@ -46,22 +55,17 @@ namespace Multiplayer.Common
                 data);
             byte[] toSave = ScheduledCommand.Serialize(cmd);
 
-            // todo cull target players if not global
-            server.worldData.mapCmds.GetOrAddNew(mapId).Add(toSave);
-            server.worldData.tmpMapCmds?.GetOrAddNew(mapId).Add(toSave);
+            // The log and the live broadcast must stay identical: joiners replay the log in this exact order
+            server.worldData.cmds.Add(toSave);
+            server.worldData.tmpCmds?.Add(toSave);
 
-            if (server.CanUseStandaloneMapStreaming(mapId))
+            var serialized = ServerCommandPacket.From(cmd).Serialize();
+            var mapStreaming = server.CanUseStandaloneMapStreaming(mapId);
+            foreach (var player in server.PlayingPlayers)
             {
-                var serialized = ServerCommandPacket.From(cmd).Serialize();
-                foreach (var player in server.PlayingPlayers)
-                {
-                    if (!player.hasReportedCurrentMap || player.currentMapId < 0 || player.currentMapId == mapId)
-                        player.conn.Send(serialized, true);
-                }
-            }
-            else
-            {
-                server.SendToPlaying(ServerCommandPacket.From(cmd));
+                if (!mapStreaming || !player.hasReportedCurrentMap || player.currentMapId < 0 ||
+                    player.currentMapId == mapId)
+                    player.conn.SendFragmentedIfNeeded(serialized);
             }
 
             SentCmds++;

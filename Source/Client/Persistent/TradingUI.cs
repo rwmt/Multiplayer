@@ -67,16 +67,15 @@ namespace Multiplayer.Client
                 selectedSession = session.SessionId;
             }
 
-            Faction factionContext = session.NegotiatorFaction;
+            // FactionContext.Push always pushes (null when it's a no-op), so always pop
+            FactionContext.Push(session.NegotiatorFaction);
             try
             {
-                factionContext = FactionContext.Push(factionContext);
                 MpTradeSession.SetTradeSession(session);
                 drawingTrade = this;
 
-                if (session.deal.ShouldRecache)
-                    session.deal.Recache();
-
+                // The deal itself is only recached in ticks and commands (MpTradeSession.RecacheDealIfNeeded),
+                // the UI just follows it
                 if (session.deal.uiShouldReset != UIShouldReset.None)
                 {
                     if (session.deal.uiShouldReset != UIShouldReset.Silent)
@@ -125,9 +124,7 @@ namespace Multiplayer.Client
             {
                 drawingTrade = null;
                 MpTradeSession.SetTradeSession(null);
-                if (factionContext != null) {
-                    FactionContext.Pop();
-                }
+                FactionContext.Pop();
             }
         }
 

@@ -80,8 +80,10 @@ namespace Multiplayer.Client
 
             if (Widgets.ButtonText(connectAsBtn, info.specialButtonTranslated))
             {
-                returnToServerBrowser = false;
                 info.specialButtonAction();
+                if (info.specialButtonKeepsWindow) return;
+
+                returnToServerBrowser = false;
                 Close();
             }
         }

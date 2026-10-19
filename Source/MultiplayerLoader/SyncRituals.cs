@@ -13,24 +13,64 @@ namespace MultiplayerLoader;
 public static class SyncRituals
 {
     private static List<ISyncMethodForPrepatcher> syncMethodsWithPrepatches = new();
+    // Indexed like syncMethodsWithPrepatches
+    private static List<Action<object>> beforeExecutingWithPrepatches = new();
 
     public static bool PrepatcherPrefix(int index, object __instance, object[] __args)
     {
         // This prefix is applied to a generic method and called by all possible instantiations
         // This check makes sure the type is correct
         if (syncMethodsWithPrepatches[index].TargetType == __instance.GetType())
-            return !syncMethodsWithPrepatches[index].DoSync(__instance, __args);
+        {
+            if (syncMethodsWithPrepatches[index].DoSync(__instance, __args))
+                return false;
+
+            // Also runs for calls nested in another synced method
+            if (MP.IsExecutingSyncCommand)
+                beforeExecutingWithPrepatches[index]?.Invoke(__instance);
+        }
         return true;
     }
 
     private static MethodInfo syncMethod = AccessTools.Method("Multiplayer.Client.Sync:Method");
+
+    /// <summary>
+    /// Whether the methods below run the sync prefix, i.e. Prepatcher ran the first pass. Prepatcher is a mod
+    /// dependency but can be missing or fail to load (e.g. on macOS). Then the role assignments of ritual dialogs
+    /// stay local. Set by the second pass from the patched code itself: a flag set by the first pass is lost because
+    /// Prepatcher restarts the game with the patched assemblies.
+    /// </summary>
+    public static bool PrepatchesApplied { get; private set; }
+
+    private static bool HasPrepatcherPrefix(MethodBase method)
+    {
+        try
+        {
+            // By name: the patched assembly refers to this method through its own assembly reference
+            return PatchProcessor.ReadMethodBody(method).Any(inst =>
+                inst.Value is MethodInfo m &&
+                m.Name == nameof(PrepatcherPrefix) &&
+                m.DeclaringType?.FullName == typeof(SyncRituals).FullName);
+        }
+        catch (Exception e)
+        {
+            Verse.Log.Warning($"Multiplayer: couldn't check whether Prepatcher patched {method}: {e}");
+            return false;
+        }
+    }
 
     // This method is called twice (two passes)
     // The first pass with module != null is called from Prepatcher and applies prepatches
     // The second pass with module == null is called from Sync initialization and registers SyncMethods
     public static void ApplyPrepatches(ModuleDefinition module)
     {
-        void Register(Type baseType, string method, Type derivedType, Action<ISyncMethodForPrepatcher> postProcess = null)
+        if (module == null)
+            PrepatchesApplied = HasPrepatcherPrefix(AccessTools.Method(
+                typeof(PawnRoleSelectionWidgetBase<RitualRole>),
+                nameof(PawnRoleSelectionWidgetBase<RitualRole>.TryAssignReplace)));
+
+        void Register(Type baseType, string method, Type derivedType, Action<ISyncMethodForPrepatcher> postProcess = null,
+            Action<object> beforeExecuting = null)
         {
             if (module != null)
             {
@@ -51,6 +91,8 @@ public static class SyncRituals
                 postProcess?.Invoke(newSyncMethod);
                 syncMethodsWithPrepatches.Add(newSyncMethod);
             }
+
+            beforeExecutingWithPrepatches.Add(beforeExecuting);
         }
 
         // ======= PawnRitualRoleSelectionWidget =======
@@ -72,9 +114,11 @@ public static class SyncRituals
             m => m.TransformArgument(1, psychicRitualRolesSerializer));
 
         Register(typeof(PawnRoleSelectionWidgetBase<>), nameof(PawnRoleSelectionWidgetBase<RitualRole>.TryAssignAnyRole),
-            typeof(PawnRitualRoleSelectionWidget));
+            typeof(PawnRitualRoleSelectionWidget),
+            beforeExecuting: target => RefreshRoleGroups((PawnRitualRoleSelectionWidget)target));
         Register(typeof(PawnRoleSelectionWidgetBase<>), nameof(PawnRoleSelectionWidgetBase<PsychicRitualRoleDef>.TryAssignAnyRole),
-            typeof(PawnPsychicRitualRoleSelectionWidget));
+            typeof(PawnPsychicRitualRoleSelectionWidget),
+            beforeExecuting: target => RefreshRoleGroups((PawnPsychicRitualRoleSelectionWidget)target));
 
         Register(typeof(PawnRoleSelectionWidgetBase<>), nameof(PawnRoleSelectionWidgetBase<RitualRole>.TryAssign),
             typeof(PawnRitualRoleSelectionWidget),
@@ -116,6 +160,17 @@ public static class SyncRituals
                 lambdaOrdinal: 2).Name,
             typeof(PawnPsychicRitualRoleSelectionWidget)
         ); // Not participating left click delegate (try assign any role or spectate)
+    }
+
+    // TryAssignAnyRole iterates this static cache, which only DrawPawnListInternal fills: empty on a client that
+    // doesn't draw the dialog, or left over from another ritual. Its callers (click handlers) don't run inside a
+    // loop over the cache and nothing it calls refills it, so refilling it here is safe.
+    private static void RefreshRoleGroups<RoleType>(PawnRoleSelectionWidgetBase<RoleType> widget)
+        where RoleType : class, ILordJobRole
+    {
+        var groups = PawnRoleSelectionWidgetBase<RoleType>.rolesGroupedTmp;
+        groups.Clear();
+        groups.AddRange(widget.assignments.RoleGroups());
     }
 
     private static (WidgetType roleSelectionWidget, string Key) RitualRoleWriter<WidgetType, RoleType>(IEnumerable<RoleType> roles, object target, object[] _)

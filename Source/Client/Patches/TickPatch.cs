@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using HarmonyLib;
 using LudeonTK;
 using Multiplayer.Client.AsyncTime;
+using Multiplayer.Client.Patches;
 using Multiplayer.Common;
 using Multiplayer.Common.Networking.Packet;
 using RimWorld.Planet;
@@ -23,6 +25,9 @@ namespace Multiplayer.Client
         public static int workTicks;
         public static bool currentExecutingCmdIssuedBySelf;
         public static CommandType? currentExecutingCmdType;
+        // Changes at the start of every command, tick of a tickable and sim long event. Interface code (and so a frame) can't run
+        // within one step, so caches keyed by it behave the same on every client, unlike ones keyed by frame.
+        public static int simStep;
         public static bool serverFrozen;
         public static int frozenAt;
 
@@ -49,9 +54,11 @@ namespace Multiplayer.Client
             {
                 yield return Multiplayer.AsyncWorldTime;
 
+                // A map being generated is in Find.Maps before MapSetup gives it its comps
                 var maps = Find.Maps;
                 for (int i = maps.Count - 1; i >= 0; i--)
-                    yield return maps[i].AsyncTime();
+                    if (maps[i].AsyncTime() is { } comp)
+                        yield return comp;
             }
         }
 
@@ -110,7 +117,7 @@ namespace Multiplayer.Client
             if (MpVersion.IsDebug)
                 SimpleProfiler.Start();
 
-            RunCmds();
+            RunCmdsBeforeTicks();
             if  (LongEventHandler.eventQueue.Count == 0)
             {
                 DoUpdate(out var worked);
@@ -165,26 +172,45 @@ namespace Multiplayer.Client
             Shader.SetGlobalFloat(ShaderPropertyIDs.GameSeconds, Find.CurrentMap.AsyncTime().mapTicks.TicksToSeconds());
         }
 
+        // Commands run either here at the start of the frame or in the DoUpdate loop. The desync trace hash includes
+        // the stack depth, so both paths have to be equally deep: Prefix -> RunCmdsBeforeTicks -> RunCmds like
+        // Prefix -> DoUpdate -> RunCmds (#994).
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void RunCmdsBeforeTicks() => RunCmds();
+
         private static bool RunCmds()
         {
             int curTimer = Timer;
 
-            foreach (ITickable tickable in AllTickables)
+            // All commands (world and map) are in the world's queue, in the order the server sent them (#733)
+            var cmds = Multiplayer.AsyncWorldTime.Cmds;
+
+            while (cmds.Count > 0 && cmds.Peek().ticks <= curTimer)
             {
-                while (tickable.Cmds.Count > 0 && tickable.Cmds.Peek().ticks == curTimer)
+                ScheduledCommand cmd = cmds.Dequeue();
+
+                if (cmd.ticks < curTimer)
                 {
-                    ScheduledCommand cmd = tickable.Cmds.Dequeue();
-
-                    // Minimal code impact fix for #733. Having all the commands be added to a single queue gets rid of
-                    // the out-of-order execution problem. With a proper fix, this can be reverted to tickable.ExecuteCmd
-                    var target = TickableById(cmd.mapId);
-                    if (target == null)
-                    {
-                        Log.Error($"!!! Tickable of {cmd.mapId} not found! {cmd}");
-                    } else target.ExecuteCmd(cmd);
-
-                    if (LongEventHandler.eventQueue.Count > 0) return true; // Yield to e.g. join-point creation
+                    // Can only happen with a broken log (e.g. a world state newer than its commands). The loaded state
+                    // already contains the command's effects and executing it late can't match other clients, so
+                    // drop it instead of blocking the queue forever.
+                    Log.Error($"Multiplayer: dropping command scheduled for a past tick (timer {curTimer}): {cmd}");
+                    continue;
                 }
+
+                var target = TickableById(cmd.mapId);
+                if (target == null)
+                {
+                    Log.Error($"!!! Tickable of {cmd.mapId} not found! {cmd}");
+                }
+                else
+                {
+                    GravEngineCache.Reset();
+                    simStep++;
+                    target.ExecuteCmd(cmd);
+                }
+
+                if (LongEventHandler.eventQueue.Count > 0) return true; // Yield to e.g. join-point creation
             }
 
             return false;
@@ -218,15 +244,24 @@ namespace Multiplayer.Client
         {
             tickTimer.Restart();
 
-            foreach (ITickable tickable in AllTickables)
+            if (Multiplayer.GameComp.asyncTime)
             {
-                if (tickable.TimePerTick(tickable.DesiredTimeSpeed) == 0) continue;
-                tickable.TimeToTickThrough += 1f;
+                foreach (ITickable tickable in AllTickables)
+                {
+                    if (tickable.TimePerTick(tickable.DesiredTimeSpeed) == 0) continue;
+                    tickable.TimeToTickThrough += 1f;
 
-                worked = true;
-                TickTickable(tickable);
+                    worked = true;
+                    TickTickable(tickable);
+                }
+            }
+            else
+            {
+                TickLockstep(ref worked);
             }
 
+            GravEngineCache.Reset();
+            simStep++;
             ConstantTicker.Tick();
 
             ticksToRun -= 1;
@@ -243,6 +278,61 @@ namespace Multiplayer.Client
             return false;
         }
 
+        // Without async time the world and the maps share one clock, but each tickable used to tick through its own
+        // accumulator, and they drifted apart (#339): a new map started with a fresh accumulator and got an extra tick,
+        // a rate change during a map tick (a pausing letter, TimeSlower, a pausing session) reached only the tickables
+        // after it, and removing a map during a map tick shifted the lazily read map list so another map ticked twice.
+        // Here every game tick ticks the world and then each map once, the rate (the world's, which runs at the fastest
+        // map's speed) is checked only between game ticks like in vanilla's tick loop, and only the world's accumulator
+        // is used. Maps generated during a game tick start at worldTicks (MapSetup): one generated by the world tick
+        // still ticks in this game tick, one generated by a map tick from the next one.
+        private static void TickLockstep(ref bool worked)
+        {
+            var world = Multiplayer.AsyncWorldTime;
+            if (world.TimePerTick(world.DesiredTimeSpeed) == 0) return;
+            world.TimeToTickThrough += 1f;
+
+            worked = true;
+            List<AsyncTimeComp> maps = null;
+
+            while (world.TimeToTickThrough >= 0)
+            {
+                float timePerTick = world.TimePerTick(world.DesiredTimeSpeed);
+                if (timePerTick == 0) break;
+
+                world.TimeToTickThrough -= timePerTick;
+                TickOnce(world);
+
+                // Same order as AllTickables
+                maps ??= new List<AsyncTimeComp>();
+                maps.Clear();
+                var gameMaps = Find.Maps;
+                for (int i = gameMaps.Count - 1; i >= 0; i--)
+                    if (gameMaps[i].AsyncTime() is { } comp)
+                        maps.Add(comp);
+
+                foreach (var comp in maps)
+                    if (!comp.map.Disposed && Find.Maps.Contains(comp.map)) // Removed during this game tick
+                        TickOnce(comp);
+            }
+        }
+
+        private static void TickOnce(ITickable tickable)
+        {
+            simStep++;
+
+            try
+            {
+                GravEngineCache.Reset();
+                tickable.Tick();
+            }
+            catch (Exception e)
+            {
+                Log.Error($"Exception during ticking {tickable}: {e}");
+                SimulationFailures.Record($"ticking {tickable}", e);
+            }
+        }
+
         private static void TickTickable(ITickable tickable)
         {
             while (tickable.TimeToTickThrough >= 0)
@@ -251,14 +341,17 @@ namespace Multiplayer.Client
                 if (timePerTick == 0) break;
 
                 tickable.TimeToTickThrough -= timePerTick;
+                simStep++;
 
                 try
                 {
+                    GravEngineCache.Reset();
                     tickable.Tick();
                 }
                 catch (Exception e)
                 {
                     Log.Error($"Exception during ticking {tickable}: {e}");
+                    SimulationFailures.Record($"ticking {tickable}", e);
                 }
             }
         }
@@ -291,7 +384,8 @@ namespace Multiplayer.Client
 
             var rate = Multiplayer.AsyncWorldTime.TickRateMultiplier(speed);
             foreach (var map in Find.Maps)
-                rate = Math.Min(rate, map.AsyncTime().TickRateMultiplier(speed));
+                if (map.AsyncTime() is { } comp)
+                    rate = Math.Min(rate, comp.TickRateMultiplier(speed));
 
             return rate;
         }

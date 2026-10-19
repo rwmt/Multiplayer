@@ -54,6 +54,7 @@ namespace Multiplayer.Client
 
         public static SyncField[] SyncBillProduction;
         public static SyncField[] SyncBillIncludeCriteria;
+        public static SyncField[] SyncBillStyle;
 
         public static SyncField[] SyncDrugPolicyEntry;
         public static ISyncField SyncDrugPolicyEntryTakeToInventory;
@@ -167,6 +168,14 @@ namespace Multiplayer.Client
                 nameof(Bill_Production.pauseWhenSatisfied),
                 nameof(Bill_Production.unpauseWhenYouHave)
             ).SetBufferChanges();
+
+            SyncBillStyle = Sync.Fields(
+                typeof(Bill),
+                null,
+                nameof(Bill.style),
+                nameof(Bill.globalStyle),
+                nameof(Bill.graphicIndexOverride)
+            );
 
             SyncBillIncludeCriteria = Sync.Fields(
                 typeof(Bill_Production),
@@ -411,6 +420,37 @@ namespace Multiplayer.Client
             }
         }
 
+        // The product style menu of the bill dialog (Ideology in classic mode). Its options' lambdas: use the global
+        // style (10), basic (11), a style (12) and a style with a graphic index (13)
+        [MpPrefix(typeof(Dialog_BillConfig), nameof(Dialog_BillConfig.DoWindowContents), lambdaOrdinal: 10)]
+        [MpPrefix(typeof(Dialog_BillConfig), nameof(Dialog_BillConfig.DoWindowContents), lambdaOrdinal: 11)]
+        [MpPrefix(typeof(Dialog_BillConfig), nameof(Dialog_BillConfig.DoWindowContents), lambdaOrdinal: 12)]
+        [MpPrefix(typeof(Dialog_BillConfig), nameof(Dialog_BillConfig.DoWindowContents), lambdaOrdinal: 13)]
+        static void BillStyleOption(object __instance)
+        {
+            if (FindBillConfig(__instance, 0) is { } dialog)
+                SyncBillStyle.Watch(dialog.bill);
+            else
+                Log.ErrorOnce($"Multiplayer: couldn't find the bill of a style option ({__instance?.GetType()}), the style won't be synced", 0x4b1157);
+        }
+
+        // The lambdas are the dialog's own methods or capture it, possibly through an outer closure
+        private static Dialog_BillConfig FindBillConfig(object obj, int depth)
+        {
+            if (obj is Dialog_BillConfig dialog)
+                return dialog;
+            if (obj == null || depth > 3)
+                return null;
+
+            foreach (var field in obj.GetType().GetFields(AccessTools.all))
+                if (typeof(Dialog_BillConfig).IsAssignableFrom(field.FieldType) ||
+                    field.FieldType.DeclaringType == typeof(Dialog_BillConfig))
+                    if (FindBillConfig(field.GetValue(obj), depth + 1) is { } found)
+                        return found;
+
+            return null;
+        }
+
         [MpTranspiler(typeof(BillRepeatModeUtility), nameof(BillRepeatModeUtility.MakeConfigFloatMenu))]
         static IEnumerable<CodeInstruction> BillConfigFloatMenuTranspiler(IEnumerable<CodeInstruction> insts, MethodBase orig)
         {
@@ -536,7 +576,7 @@ namespace Multiplayer.Client
             foreach (var entry in dropdowns)
             {
                 if (entry.option.action != null)
-                    entry.option.action = SyncFieldUtil.FieldWatchPrefix + watchAction + entry.option.action + SyncFieldUtil.FieldWatchPostfix;
+                    entry.option.action = SyncFieldUtil.WatchScope(watchAction, entry.option.action);
                 yield return entry;
             }
         }
@@ -547,7 +587,7 @@ namespace Multiplayer.Client
             {
                 if (entry.action != null)
                 {
-                    entry.action = SyncFieldUtil.FieldWatchPrefix + watchAction + entry.action + SyncFieldUtil.FieldWatchPostfix;
+                    entry.action = SyncFieldUtil.WatchScope(watchAction, entry.action);
                 }
             }
         }

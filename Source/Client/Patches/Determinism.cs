@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 using Multiplayer.Client.AsyncTime;
 using Multiplayer.Client.Util;
 using RimWorld.QuestGen;
@@ -50,16 +51,113 @@ namespace Multiplayer.Client.Patches
     {
         static bool Cancel => Multiplayer.Client != null && Multiplayer.InInterface;
 
+        // The melee gizmo of every selected drafted pawn and pawn rendering ask for a melee verb several times per frame
+        // (#308), so interface answers are cached for the current frame and tick (ticks run between UI updates of a
+        // frame)
+        private static int cacheFrame = -1;
+        private static int cacheTick = -1;
+        private static readonly Dictionary<(Pawn_MeleeVerbs, Thing), Verb> cache = new();
+        private static readonly List<Verb> usableVerbs = new();
+
         static bool Prefix()
         {
-            // Namely FloatMenuUtility.GetMeleeAttackAction
+            // The original uses Rand and changes curMeleeVerb (namely called by FloatMenuUtility.GetMeleeAttackAction)
             return !Cancel;
         }
 
         static void Postfix(Pawn_MeleeVerbs __instance, Thing target, ref Verb __result)
         {
-            if (Cancel)
-                __result = __instance.GetUpdatedAvailableVerbsList(false).FirstOrDefault(ve => ve.GetSelectionWeight(target) != 0).verb;
+            if (!Cancel) return;
+
+            if (cacheFrame != Time.frameCount || cacheTick != TickPatch.Timer)
+            {
+                cacheFrame = Time.frameCount;
+                cacheTick = TickPatch.Timer;
+                cache.Clear();
+            }
+
+            if (!cache.TryGetValue((__instance, target), out var verb))
+            {
+                verb = InterfaceMeleeVerb(__instance, target);
+                cache[(__instance, target)] = verb;
+            }
+
+            __result = verb;
+        }
+
+        // Read-only: no Rand, doesn't touch curMeleeVerb or the vanilla verb lists (except in the fallback)
+        private static Verb InterfaceMeleeVerb(Pawn_MeleeVerbs meleeVerbs, Thing target)
+        {
+            var pawn = meleeVerbs.pawn;
+            var cur = meleeVerbs.curMeleeVerb;
+
+            // Without building VerbEntries: their constructor calls VerbUtility.FinalSelectionWeight, which iterates
+            // all verbs (O(n²)). A verb has a non-zero VerbEntry selection weight when it isn't in the Worst category.
+            try
+            {
+                CollectUsableMeleeVerbs(pawn);
+
+                // Like vanilla's comparison, ignores NaN weights
+                float highestWeight = 0f;
+                foreach (var v in usableVerbs)
+                {
+                    float weight = VerbUtility.InitialVerbWeight(v, pawn);
+                    if (weight > highestWeight)
+                        highestWeight = weight;
+                }
+
+                // Prefer the verb the simulation chose last
+                if (cur != null && cur.IsStillUsableBy(pawn) && UsableOn(cur, target) &&
+                    cur.GetSelectionCategory(pawn, highestWeight) != VerbSelectionCategory.Worst)
+                    return cur;
+
+                // Otherwise the same result as the first VerbEntry with a non-zero selection weight
+                foreach (var v in usableVerbs)
+                    if (v.GetSelectionCategory(pawn, highestWeight) != VerbSelectionCategory.Worst && UsableOn(v, target))
+                        return v;
+            }
+            finally
+            {
+                usableVerbs.Clear();
+            }
+
+            // Fall back to the vanilla list in case a mod adds verbs to it
+            return meleeVerbs.GetUpdatedAvailableVerbsList(false).FirstOrDefault(ve => ve.GetSelectionWeight(target) != 0).verb;
+        }
+
+        // The target-dependent part of VerbEntry.GetSelectionWeight being non-zero
+        private static bool UsableOn(Verb v, Thing target) =>
+            v.IsUsableOn(target) && (target?.def?.IsEdifice() != true || v.verbProps.commonalityVsEdificeFactor != 0f);
+
+        // Mirrors the non-terrain branch of Pawn_MeleeVerbs.GetUpdatedAvailableVerbsList
+        private static void CollectUsableMeleeVerbs(Pawn pawn)
+        {
+            void Add(List<Verb> verbs)
+            {
+                if (verbs == null) return;
+                foreach (var v in verbs)
+                    if (v.IsMeleeAttack && v.IsStillUsableBy(pawn))
+                        usableVerbs.Add(v);
+            }
+
+            Add(pawn.verbTracker.AllVerbs);
+
+            if (pawn.equipment != null)
+                foreach (var eq in pawn.equipment.AllEquipmentListForReading)
+                    Add(eq.GetComp<CompEquippable>()?.AllVerbs);
+
+            if (pawn.apparel != null)
+                foreach (var apparel in pawn.apparel.WornApparel)
+                    Add(apparel.GetComp<CompEquippable>()?.AllVerbs);
+
+            foreach (var v in pawn.health.hediffSet.GetHediffsVerbs())
+                if (v.IsMeleeAttack && v.IsStillUsableBy(pawn))
+                    usableVerbs.Add(v);
+
+            if (ModsConfig.AnomalyActive && pawn.IsMutant)
+                foreach (var v in pawn.mutant.AllVerbs)
+                    if (v.IsMeleeAttack && v.IsStillUsableBy(pawn))
+                        usableVerbs.Add(v);
         }
     }
 
@@ -70,19 +168,45 @@ namespace Multiplayer.Client.Patches
             e => e.FirstOrDefault()
         );
 
+        static MethodBase Shuffle = AccessTools.Method(typeof(GenList), nameof(GenList.Shuffle)).MakeGenericMethod(typeof(NameTriple));
+
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> e)
         {
             List<CodeInstruction> insts = new List<CodeInstruction>(e);
 
+            // Load the list the same way it's loaded for the shuffle call
+            CodeInstruction loadList = null;
+            for (int i = 1; i < insts.Count; i++)
+            {
+                if (insts[i].Calls((MethodInfo)Shuffle) && insts[i - 1].IsLdloc())
+                {
+                    loadList = new CodeInstruction(insts[i - 1].opcode, insts[i - 1].operand);
+                    break;
+                }
+            }
+
+            if (loadList == null)
+            {
+                Multiplayer.LoadingError("MP: Couldn't find the shuffled name list in PawnBioAndNameGenerator.TryGetRandomUnusedSolidName, assuming local 1. Was the original method changed?");
+                loadList = new CodeInstruction(OpCodes.Ldloc_1);
+            }
+
+            int patched = 0;
             for (int i = insts.Count - 1; i >= 0; i--)
             {
                 if (insts[i].operand as MethodBase == FirstOrDefault)
+                {
                     insts.Insert(
                        i + 1,
-                       new CodeInstruction(OpCodes.Ldloc_1),
+                       loadList.Clone(),
                        new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(GenerateNewPawnInternalPatch), nameof(Unshuffle)).MakeGenericMethod(typeof(NameTriple)))
                    );
+                    patched++;
+                }
             }
+
+            if (patched == 0)
+                Multiplayer.LoadingError("MP: Couldn't find FirstOrDefault in PawnBioAndNameGenerator.TryGetRandomUnusedSolidName. Was the original method changed?");
 
             return insts;
         }
@@ -134,6 +258,8 @@ namespace Multiplayer.Client.Patches
 
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
         {
+            int patched = 0;
+
             foreach (var inst in insts)
             {
                 yield return inst;
@@ -142,32 +268,42 @@ namespace Multiplayer.Client.Patches
                 {
                     yield return new CodeInstruction(OpCodes.Ldc_I4_1);
                     yield return new CodeInstruction(OpCodes.Or);
+                    patched++;
                 }
             }
+
+            if (patched == 0)
+                Multiplayer.LoadingError("MP: Couldn't find CellRect.Contains in Pawn.ProcessPostTickVisuals. Was the original method changed?");
         }
     }
 
     public static class CellsShufflePatchShared
     {
-        public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts, FieldInfo cellsShuffledField)
+        // Turns "if (!cellsShuffled) shuffle" into "if (!(cellsShuffled || SkipShuffle())) shuffle"
+        public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts, FieldInfo cellsShuffledField, MethodBase original)
         {
             bool found = false;
             foreach (CodeInstruction inst in insts)
             {
                 yield return inst;
-                if (!found && inst.operand as FieldInfo == cellsShuffledField)
+                if (!found && inst.opcode == OpCodes.Ldfld && inst.operand as FieldInfo == cellsShuffledField)
                 {
-                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(CellsShufflePatchShared), nameof(ShouldShuffle)));
-                    yield return new CodeInstruction(OpCodes.Not);
+                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(CellsShufflePatchShared), nameof(SkipShuffle)));
                     yield return new CodeInstruction(OpCodes.Or);
                     found = true;
                 }
             }
+
+            if (!found)
+                Multiplayer.LoadingError($"MP: Couldn't patch the cell shuffle in {original.DeclaringType}:{original.Name}. Was the original method changed?");
         }
 
-        public static bool ShouldShuffle()
+        // The shuffle uses Rand and its "shuffled" flag isn't saved, so whether a given access shuffles could differ
+        // between clients (e.g. only one of them reloaded or first accessed the cells from the UI). Before this was
+        // made explicit, a bitwise "not" here made the shuffle never happen at all, so keep that in MP.
+        public static bool SkipShuffle()
         {
-            return Multiplayer.Client == null || Multiplayer.Ticking;
+            return Multiplayer.Client != null;
         }
     }
 
@@ -175,16 +311,16 @@ namespace Multiplayer.Client.Patches
     static class ZoneCellsShufflePatch
     {
         static readonly FieldInfo CellsShuffled = AccessTools.Field(typeof(Zone), "cellsShuffled");
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
-            => CellsShufflePatchShared.Transpiler(insts, CellsShuffled);
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts, MethodBase __originalMethod)
+            => CellsShufflePatchShared.Transpiler(insts, CellsShuffled, __originalMethod);
     }
 
     [HarmonyPatch(typeof(Plan), nameof(Plan.Cells), MethodType.Getter)]
     static class PlanCellsShufflePatch
     {
         static readonly FieldInfo CellsShuffled = AccessTools.Field(typeof(Plan), "cellsShuffled");
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
-            => CellsShufflePatchShared.Transpiler(insts, CellsShuffled);
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts, MethodBase __originalMethod)
+            => CellsShufflePatchShared.Transpiler(insts, CellsShuffled, __originalMethod);
     }
 
     [HarmonyPatch]
@@ -252,10 +388,11 @@ namespace Multiplayer.Client.Patches
     [HarmonyPatch(typeof(PriorityWork), nameof(PriorityWork.Clear))]
     static class PriorityWorkClearNoInterface
     {
-        // This can get called in the UI but has side effects
+        // This can get called in the UI (IsPrioritized timeout check from the gizmos) but has side effects.
+        // Calls during ticking (e.g. JobGiver_Work after exhausting the prioritized work) are deterministic.
         static bool Prefix(PriorityWork __instance)
         {
-            return Multiplayer.Client == null || Multiplayer.ExecutingCmds;
+            return Multiplayer.Client == null || !Multiplayer.InInterface;
         }
     }
 
@@ -484,7 +621,42 @@ namespace Multiplayer.Client.Patches
                     AccessTools.Method(typeof(StatWorkerGetValuePatch), nameof(NewCacheTicks)))
             );
 
-            return matcher.Instructions();
+            // Make the interface judge staleness (and so decide whether to overwrite a simulation entry)
+            // with the time the simulation uses for the thing
+            var tickManagerTicksGame = AccessTools.PropertyGetter(typeof(TickManager), nameof(TickManager.TicksGame));
+            var genTicksTicksGame = AccessTools.PropertyGetter(typeof(GenTicks), nameof(GenTicks.TicksGame));
+            var result = matcher.Instructions();
+            int patched = 0;
+
+            for (int i = 0; i < result.Count; i++)
+            {
+                if (!result[i].Calls(tickManagerTicksGame) && !result[i].Calls(genTicksTicksGame))
+                    continue;
+
+                result.InsertRange(i + 1, [
+                    new CodeInstruction(OpCodes.Ldarg_1),
+                    new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(StatWorkerGetValuePatch), nameof(TicksGameFor)))
+                ]);
+                i += 2;
+                patched++;
+            }
+
+            if (patched == 0)
+                Multiplayer.LoadingError("MP: Couldn't find TicksGame in StatWorker.GetValue. Was the original method changed?");
+
+            return result;
+        }
+
+        internal static int TicksGameFor(int ticksGame, Thing thing)
+        {
+            if (Multiplayer.Client == null || !Multiplayer.InInterface)
+                return ticksGame;
+
+            // In the interface the current time can be another map's or the world's (async time)
+            if (thing?.MapHeld?.AsyncTime() is { } mapTime)
+                return mapTime.mapTicks;
+
+            return Multiplayer.AsyncWorldTime?.worldTicks ?? ticksGame;
         }
 
         private static bool HasValueInCache(bool hasValueInCache, StatWorker worker, Thing t)
@@ -534,7 +706,7 @@ namespace Multiplayer.Client.Patches
 
             const int expectedPatches = 1;
             if (patchCount != expectedPatches)
-                Log.Error($"Replaced an incorrect amount of Time.deltaTime calls for GameConditionManager.MapBrightnessTracker:Tick (expected: {expectedPatches}, patched: {patchCount}). Was the original method changed?");
+                Multiplayer.LoadingError($"Replaced an incorrect amount of Time.deltaTime calls for GameConditionManager.MapBrightnessTracker:Tick (expected: {expectedPatches}, patched: {patchCount}). Was the original method changed?");
         }
     }
 
@@ -559,12 +731,17 @@ namespace Multiplayer.Client.Patches
             }
         }
 
-        static void Prefix() => Rand.PushState();
+        static void Prefix(ref bool __state)
+        {
+            Rand.PushState();
+            __state = true;
+        }
 
-        static void Postfix(UndercaveMapComponent __instance)
+        static void Postfix(UndercaveMapComponent __instance, ref bool __state)
         {
             // Pop the RNG state from the prefix
             Rand.PopState();
+            __state = false;
 
             // Make sure the pit gate is collapsing
             if (__instance.pitGate is not { IsCollapsing: true })
@@ -580,21 +757,33 @@ namespace Multiplayer.Client.Patches
             // effecters - it would not be MP safe, but since it happens last it will be fine once we pop the state.
             Rand.PushState();
 
-            // If not looking at the map, trigger the collapse without shake/effecters (since it's not needed for current player).
-            // The call to play a sound is handled by RW itself, since it targets a specific map already.
-            if (Find.CurrentMap != __instance.map)
+            try
             {
-                // Progress the RNG state, matching the RandomInRange call in other two cases
-                Rand.RangeInclusive(0, 100);
-                __instance.TriggerCollapseFX(0, 0);
+                // If not looking at the map, trigger the collapse without shake/effecters (since it's not needed for current player).
+                // The call to play a sound is handled by RW itself, since it targets a specific map already.
+                if (Find.CurrentMap != __instance.map)
+                {
+                    // Progress the RNG state, matching the RandomInRange call in other two cases
+                    Rand.RangeInclusive(0, 100);
+                    __instance.TriggerCollapseFX(0, 0);
+                }
+                // Else, follow vanilla shake/effecter rules
+                else if (__instance.pitGate.CollapseStage == 1)
+                    __instance.TriggerCollapseFX(UndercaveMapComponent.StageOneShakeAmount, UndercaveMapComponent.StageOneNumCollapseEffects.RandomInRange);
+                else
+                    __instance.TriggerCollapseFX(UndercaveMapComponent.StageTwoShakeAmount, UndercaveMapComponent.StageTwoNumCollapseEffects.RandomInRange);
             }
-            // Else, follow vanilla shake/effecter rules
-            else if (__instance.pitGate.CollapseStage == 1)
-                __instance.TriggerCollapseFX(UndercaveMapComponent.StageOneShakeAmount, UndercaveMapComponent.StageOneNumCollapseEffects.RandomInRange);
-            else
-                __instance.TriggerCollapseFX(UndercaveMapComponent.StageTwoShakeAmount, UndercaveMapComponent.StageTwoNumCollapseEffects.RandomInRange);
+            finally
+            {
+                Rand.PopState();
+            }
+        }
 
-            Rand.PopState();
+        // Pops the prefix state if MapComponentTick threw before the postfix could
+        static void Finalizer(bool __state)
+        {
+            if (__state)
+                Rand.PopState();
         }
     }
 
@@ -725,13 +914,35 @@ namespace Multiplayer.Client.Patches
         }
     }
 
-    // FastTileFinder.ComputeQueryJob uses Interlocked.Increment to race-fill a 50-slot result array
-    // across parallel Unity Job batches. Thread scheduling differs between machines, so clients get
-    // different candidate tile sets. Force single-batch execution in MP so tiles are processed in
-    // tileId order, making the first 50 valid tiles consistent across all clients.
-    [HarmonyPatch(typeof(FastTileFinder), nameof(FastTileFinder.Query))]
+    // FastTileFinder.ComputeQueryJob runs in parallel Unity Job batches: Query race-fills a 50-slot result array with
+    // Interlocked.Increment and Closest keeps a closest tile per worker thread, ties going to the lower thread index
+    // (#648). Thread scheduling differs between machines, so clients got different tiles. Force single-batch execution
+    // in MP so tiles are processed in tileId order: the first 50 valid tiles and the first of equally close ones.
+    [HarmonyPatch]
     static class FastTileFinderQueryDeterminismPatch
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(FastTileFinder), nameof(FastTileFinder.Query));
+            yield return AccessTools.Method(typeof(FastTileFinder), nameof(FastTileFinder.Closest));
+        }
+
+        // Tile caches regenerated by interface code (only on that client, at its own time). Later DirtyTile calls
+        // refresh only the changed tiles, so the cache keeps e.g. neighbours' validForSettlement from that time.
+        internal static readonly ConditionalWeakTable<FastTileFinder, object> regeneratedInInterface = new();
+
+        // Query and Closest reuse their last result for the same parameters until a tile changes, but they share the
+        // flag: a call made only by one client's interface could make the simulation reuse a result from before a
+        // tile change. Always recompute in the simulation, and regenerate a tile cache the interface regenerated.
+        static void Prefix(FastTileFinder __instance)
+        {
+            if (Multiplayer.Client == null || Multiplayer.InInterface) return;
+
+            __instance.tileChangedSinceQuery = true;
+            if (regeneratedInInterface.TryGetValue(__instance, out _))
+                __instance.cacheDirty = true;
+        }
+
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {
             var getIdealBatchCount = AccessTools.Method(typeof(UnityData), nameof(UnityData.GetIdealBatchCount));
@@ -748,6 +959,89 @@ namespace Multiplayer.Client.Patches
 
         static int GetBatchCount(int length) =>
             Multiplayer.Client != null ? length : UnityData.GetIdealBatchCount(length);
+    }
+
+    [HarmonyPatch(typeof(FastTileFinder), nameof(FastTileFinder.RegenerateCache))]
+    static class FastTileFinderRegenerateCachePatch
+    {
+        static void Prefix(FastTileFinder __instance)
+        {
+            if (Multiplayer.Client == null) return;
+
+            var table = FastTileFinderQueryDeterminismPatch.regeneratedInInterface;
+            table.Remove(__instance);
+            if (Multiplayer.InInterface)
+                table.Add(__instance, null);
+        }
+    }
+
+    // PlayerItemAccessibilityUtility caches its scan of all accessible things per (tile, RealTime.frameCount). Quest
+    // generation (trade request and beggars quests, also during every random quest selection) calls it from the
+    // simulation, and the scan uses Rand (leather amounts): whether a call rescans depended on the client's frames,
+    // and a scan made by interface code could be reused by the simulation. In the simulation, reuse a scan only
+    // within the same simulation step and only if it was made there.
+    [HarmonyPatch(typeof(PlayerItemAccessibilityUtility), nameof(PlayerItemAccessibilityUtility.CacheAccessibleThings))]
+    static class ItemAccessibilityCachePerSimStep
+    {
+        private static Game scanGame;
+        private static PlanetTile scanTile = PlanetTile.Invalid;
+        private static int scanStep = -1;
+
+        static void Prefix(PlanetTile nearTile, ref bool __state)
+        {
+            if (Multiplayer.Client == null) return;
+
+            // Also sim long events, loading etc.: every simulation step (TickPatch.simStep) starts with a new key
+            if (Multiplayer.InInterface)
+            {
+                // May rescan and replace the contents
+                scanGame = null;
+                return;
+            }
+
+            if (scanGame == Current.Game && scanTile == nearTile && scanStep == TickPatch.simStep)
+            {
+                // Make vanilla reuse the scan
+                PlayerItemAccessibilityUtility.cachedAccessibleThingsForTile = nearTile;
+                PlayerItemAccessibilityUtility.cachedAccessibleThingsForFrame = RealTime.frameCount;
+            }
+            else
+            {
+                // Make vanilla rescan, a frame count is never -1
+                PlayerItemAccessibilityUtility.cachedAccessibleThingsForFrame = -1;
+                scanGame = null;
+                __state = true;
+            }
+        }
+
+        static void Postfix(PlanetTile nearTile, bool __state)
+        {
+            if (!__state) return;
+
+            scanGame = Current.Game;
+            scanTile = nearTile;
+            scanStep = TickPatch.simStep;
+        }
+    }
+
+    // On a cache miss GetSituations fills the shared cache and runs CheckHostilityChanged (relation kind changes,
+    // letters). Called from the interface (e.g. the factions tab) that happened on one client only, and the values
+    // cached at that moment were what its simulation read until the next recalculation. Compute uncached values
+    // for the interface instead.
+    [HarmonyPatch(typeof(GoodwillSituationManager), nameof(GoodwillSituationManager.GetSituations))]
+    static class GoodwillSituationsInInterfacePatch
+    {
+        static bool Prefix(GoodwillSituationManager __instance, Faction other,
+            ref List<GoodwillSituationManager.CachedSituation> __result)
+        {
+            if (!Multiplayer.InInterface || other == null || other.IsPlayer || __instance.cachedData.ContainsKey(other))
+                return true;
+
+            var situations = new List<GoodwillSituationManager.CachedSituation>();
+            __instance.Recalculate(other, situations);
+            __result = situations;
+            return false;
+        }
     }
 
 

@@ -147,8 +147,7 @@ namespace Multiplayer.Client
                     }
                     catch (Exception e)
                     {
-                        Log.Error($"Exception registering SyncMethod {type}::{method} by attribute: {e}");
-                        Multiplayer.loadingErrors = true;
+                        Multiplayer.LoadingError($"Exception registering SyncMethod {type}::{method} by attribute: {e}");
                     }
                 }
 
@@ -161,8 +160,7 @@ namespace Multiplayer.Client
                     }
                     catch (Exception e)
                     {
-                        Log.Error($"Exception registering SyncField by attribute: {e}");
-                        Multiplayer.loadingErrors = true;
+                        Multiplayer.LoadingError($"Exception registering SyncField by attribute: {e}");
                     }
                 }
             }
@@ -397,8 +395,7 @@ namespace Multiplayer.Client
                     handler.Validate();
                 } catch (Exception e)
                 {
-                    Log.Error($"{handler} validation failed: {e}");
-                    Multiplayer.loadingErrors = true;
+                    Multiplayer.LoadingError($"{handler} validation failed: {e}");
                 }
             }
         }

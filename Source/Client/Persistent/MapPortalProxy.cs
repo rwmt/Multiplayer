@@ -8,7 +8,8 @@ public class MapPortalProxy(MapPortal portal) : Dialog_EnterPortal(portal), ISwi
     public static MapPortalProxy drawing;
     public bool itemsReady = false;
 
-    public MapPortalSession Session => portal.Map.MpComp().sessionManager.GetFirstOfType<MapPortalSession>();
+    // Several portal sessions can exist on a map, find the one for this portal
+    public MapPortalSession Session => MapPortalSession.GetSessionFor(portal);
 
     public override void DoWindowContents(Rect inRect)
     {
@@ -18,8 +19,11 @@ public class MapPortalProxy(MapPortal portal) : Dialog_EnterPortal(portal), ISwi
 
         try
         {
-            if (session == null)
+            if (session == null || !portal.Spawned)
+            {
                 Close();
+                return;
+            }
 
             base.DoWindowContents(inRect);
         }

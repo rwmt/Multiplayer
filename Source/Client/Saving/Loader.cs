@@ -24,6 +24,10 @@ public static class Loader
         LoadPatch.gameToLoad = new TempGameData(gameDoc, Multiplayer.session.dataSnapshot.SessionData);
         TickPatch.replayTimeSpeed = TimeSpeed.Paused;
 
+        // Commands arriving until PostLoad are only recorded in dataSnapshot.Cmds (packets are processed on the
+        // main thread while the game loads asynchronously)
+        Multiplayer.session.cmdQueueReady = false;
+
         if (changeScene)
         {
             LongEventHandler.QueueLongEvent(() =>
@@ -75,9 +79,10 @@ public static class Loader
         );
         Multiplayer.game.myFactionLoading = null;
 
-        Multiplayer.AsyncWorldTime.cmds = new Queue<ScheduledCommand>(
-            Multiplayer.session.dataSnapshot.MapCmds.GetValueSafe(ScheduledCommand.Global) ?? []);
-        // Map cmds are added in MapAsyncTimeComp.FinalizeInit
+        // The only place the command queue is rebuilt: all cmds since the snapshot, in order, including the ones
+        // received while loading. Runs on the main thread, like MultiplayerSession.ScheduleCommand.
+        Multiplayer.AsyncWorldTime.cmds = new Queue<ScheduledCommand>(Multiplayer.session.dataSnapshot.Cmds);
+        Multiplayer.session.cmdQueueReady = true;
     }
 
     private static XmlDocument DataSnapshotToXml(GameDataSnapshot dataSnapshot, List<int> mapsToLoad)

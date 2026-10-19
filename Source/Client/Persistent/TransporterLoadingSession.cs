@@ -111,6 +111,14 @@ namespace Multiplayer.Client
                 transporters = pods.Select(t => t.GetComp<CompTransporter>()).ToList();
         }
 
+        // Sessions sharing a transporter are treated as the same session (as two sessions loading the same
+        // transporter would conflict), disjoint groups of transporters get their own sessions
+        public static TransporterLoading GetSessionFor(Map map, List<CompTransporter> transporters) =>
+            map?.MpComp().sessionManager.GetFirstOfType<TransporterLoading>(s => s.SharesTransporterWith(transporters));
+
+        public bool SharesTransporterWith(List<CompTransporter> others) =>
+            transporters != null && others != null && transporters.Any(others.Contains);
+
         public Transferable GetTransferableByThingId(int thingId)
         {
             return transferables.Find(tr => tr.things.Any(t => t.thingIDNumber == thingId));

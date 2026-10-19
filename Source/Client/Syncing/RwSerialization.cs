@@ -106,7 +106,10 @@ public static class RwSerialization
             },
             (data, obj, _) =>
             {
-                data.WriteUShort((ushort)ApiSerialization.syncSimples.FindIndex(obj!.GetType()));
+                int typeIndex = ApiSerialization.syncSimples.FindIndex(obj!.GetType());
+                if (typeIndex == -1)
+                    throw new SerializationException($"Unknown ISyncSimple type {obj.GetType()}");
+                data.WriteUShort((ushort)typeIndex);
                 foreach (var field in AccessTools.GetDeclaredFields(obj.GetType()))
                     SyncSerialization.WriteSyncObject(data, field.GetValue(obj), field.FieldType);
             }
@@ -136,7 +139,8 @@ public static class RwSerialization
         typeof(Thing),
         typeof(ThingComp),
         typeof(WorldObject),
-        typeof(WorldObjectComp)
+        typeof(WorldObjectComp),
+        typeof(WorldPawns) // Not an IThingHolder, marks a world pawn looked up by id
     };
 
     internal static string ThingHolderString(Thing thing)

@@ -91,8 +91,8 @@ public class ServerBootstrapState(ConnectionBase connection) : MpConnectionState
             player.conn.Send(new ServerDisconnectPacket { reason = MpDisconnectReason.BootstrapCompleted, data = Array.Empty<byte>() });
 
         ResetUploadState();
+        // Run stops the server once this iteration is over, the rest of it still needs the server
         Server.running = false;
-        Server.TryStop();
     }
 
     [FragmentedPacketHandler(Packets.Client_BootstrapSave)]

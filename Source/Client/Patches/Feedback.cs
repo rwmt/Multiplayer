@@ -63,13 +63,27 @@ namespace Multiplayer.Client.Patches
             yield return AccessTools.Method(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote), new[] { typeof(Vector3), typeof(Map), typeof(ThingDef), typeof(float), typeof(bool), typeof(float) });
         }
 
-        static bool Prefix(ThingDef moteDef)
+        static bool Prefix(object[] __args, ThingDef moteDef, ref Mote __result)
         {
             // Catches ritual effect motes
             if (moteDef.mote.solidTime >= 99999)
                 return true;
 
-            return !CancelFeedbackNotTargetedAtMe.Cancel;
+            if (!CancelFeedbackNotTargetedAtMe.Cancel)
+                return true;
+
+            // Callers may use the result and FixNullMotes makes it non-null for the issuer (unless out of bounds),
+            // so return the same kind of result on the other clients. The mote is made (motes get no thing ID)
+            // but not spawned.
+            var cell = __args[0] switch
+            {
+                IntVec3 c => c,
+                Vector3 v => v.ToIntVec3(),
+                _ => IntVec3.Invalid
+            };
+
+            __result = __args[1] is Map map && cell.InBounds(map) ? ThingMaker.MakeThing(moteDef) as Mote : null;
+            return false;
         }
     }
 
@@ -263,11 +277,76 @@ namespace Multiplayer.Client.Patches
         // already standing on gotoLoc and its current job is Goto, it calls EndCurrentJob directly. That
         // call isn't synced, so the pawn stops only for the player who issued the order while it keeps
         // walking for everyone else, causing a desync. Sync it the same way as the TryTakeOrderedJob call.
-        [SyncMethod]
         static void CustomEndCurrentJob(Pawn_JobTracker self, JobCondition condition,
             bool startNewJob = true, bool canReturnToPool = true)
         {
+            // Vanilla only calls this while the current job is a Goto: remember which one
+            SyncedEndGotoJob(self, condition, startNewJob, canReturnToPool, self.curJob?.loadID ?? -1);
+        }
+
+        [SyncMethod]
+        static void SyncedEndGotoJob(Pawn_JobTracker self, JobCondition condition, bool startNewJob,
+            bool canReturnToPool, int jobId)
+        {
+            // The command executes ticks after the click: end only the goto the order was aimed at, not a job or
+            // another goto the pawn started in between. Not its position: the pawn keeps walking until then.
+            if (self.curJob == null || self.curJob.loadID != jobId || self.curJob.def != JobDefOf.Goto)
+                return;
+
             self.EndCurrentJob(condition, startNewJob, canReturnToPool);
+        }
+    }
+
+    // Extended camera shakes (CameraShaker.DoShake(mag, durationTicks)) store TicksGame when requested and
+    // CameraShaker.Update compares it with TicksGame again. Under async time these can be different clocks: a map's
+    // when requested in its tick or command, the world's in the interface. A shake requested on a map ahead of the
+    // world went on until the world caught up, possibly for good (#696). In MP both use TickPatch.Timer instead: it's
+    // the same for every map and the world, and stops while the gravship cutscenes freeze the game, like TicksGame does
+    // in a vanilla landing (paused). Camera shake is local UI, nothing in the simulation reads it.
+    [HarmonyPatch(typeof(ExtendedShakeRequest), MethodType.Constructor, typeof(float), typeof(int))]
+    static class ExtendedShakeRequestUsesTimer
+    {
+        static void Postfix(ExtendedShakeRequest __instance)
+        {
+            if (Multiplayer.Client != null)
+                __instance.startTick = TickPatch.Timer;
+        }
+    }
+
+    [HarmonyPatch(typeof(CameraShaker), nameof(CameraShaker.Update))]
+    static class CameraShakerUpdateUsesTimer
+    {
+        private static readonly MethodInfo TicksGameGetter =
+            AccessTools.PropertyGetter(typeof(TickManager), nameof(TickManager.TicksGame));
+
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            foreach (var inst in insts)
+            {
+                // Consumes the TickManager instance like the getter
+                if (inst.Calls(TicksGameGetter))
+                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(CameraShakerUpdateUsesTimer), nameof(ShakeClock))).MoveLabelsFrom(inst);
+                else
+                    yield return inst;
+            }
+        }
+
+        static int ShakeClock(TickManager tickManager) =>
+            Multiplayer.Client != null ? TickPatch.Timer : tickManager.TicksGame;
+    }
+
+    // The requests are saved with the camera. Ones from a save which used TicksGame (or with a later timer) would
+    // otherwise last until the timer reaches their start.
+    [HarmonyPatch(typeof(CameraShaker), nameof(CameraShaker.Expose))]
+    static class CameraShakerLoadClampsToTimer
+    {
+        static void Postfix(CameraShaker __instance)
+        {
+            if (Multiplayer.Client == null || Scribe.mode != LoadSaveMode.LoadingVars) return;
+
+            foreach (var request in __instance.extendedShakeRequests)
+                if (request != null && request.startTick > TickPatch.Timer)
+                    request.startTick = TickPatch.Timer;
         }
     }
 

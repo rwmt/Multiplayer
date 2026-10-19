@@ -635,17 +635,6 @@ static class TakeToBedGuestFactionPatch
 
 
 [HarmonyPatch(typeof(LetterStack), nameof(LetterStack.ReceiveLetter), typeof(Letter), typeof(string), typeof(int), typeof(bool))]
-static class LetterStackReceiveOnlyMyFaction
-{
-    // todo the letter might get culled from the archive if it isn't in the stack and Sync depends on the archive
-    static void Postfix(LetterStack __instance, Letter let)
-    {
-        if (Multiplayer.RealPlayerFaction != Faction.OfPlayer)
-            __instance.letters.Remove(let);
-    }
-}
-
-[HarmonyPatch(typeof(LetterStack), nameof(LetterStack.ReceiveLetter), typeof(Letter), typeof(string), typeof(int), typeof(bool))]
 static class LetterStackReceiveSoundOnlyMyFaction
 {
     private static MethodInfo PlayOneShotOnCamera =
@@ -666,7 +655,9 @@ static class LetterStackReceiveSoundOnlyMyFaction
 
     static void PlaySoundReplacement(SoundDef sound, Map map)
     {
-        if (Multiplayer.RealPlayerFaction == Faction.OfPlayer)
+        // Letters are kept in every client's stack and only shown to their faction's players (see MultifactionLetters)
+        var letter = RecordLetterFaction.receiving;
+        if (letter != null ? MultifactionLetters.IsVisibleLocally(letter) : Multiplayer.RealPlayerFaction == Faction.OfPlayer)
             sound.PlayOneShotOnCamera(map);
     }
 }
@@ -794,25 +785,26 @@ static class CompShuttle_ContainedColonistCount_Patch
 
 }
 
+// The pushes are forced: in a world command Faction.OfPlayer already is the gravship's faction while the maps hold
+// the spectator's data, so a regular push would be a no-op and the gravship would use the spectator's managers.
 [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.RemoveGravshipFromMap))]
 static class RemoveGravshipFromMap_Patch
 {
-    static void Prefix(Building_GravEngine engine, out bool __state)
+    static void Prefix(Building_GravEngine engine, out Map __state)
     {
-        __state = false;
+        __state = null;
         if (Multiplayer.Client == null) return;
         if (!Multiplayer.GameComp.multifaction) return;
-        if (engine == null) return;
+        if (engine?.Map == null) return;
 
-        engine.Map.PushFaction(engine.Faction);
-
-        __state = true;
+        // Remember the map, the engine is despawned by the time the finalizer runs
+        __state = engine.Map;
+        __state.PushFaction(engine.Faction, force: true);
     }
 
-    static void Finalizer(Building_GravEngine engine, bool __state)
+    static void Finalizer(Map __state)
     {
-        if (!__state) return;
-        engine.Map.PopFaction();
+        __state?.PopFaction();
     }
 }
 
@@ -825,7 +817,7 @@ static class PlaceGravship_FactionContext_Patch
         if (Multiplayer.Client == null) return;
         if (!Multiplayer.GameComp.multifaction) return;
 
-        map.PushFaction(gravship.Faction);
+        map.PushFaction(gravship.Faction, force: true);
 
         __state = true;
     }
@@ -955,5 +947,55 @@ static class TradeUtility_AllLaunchableThingsForTrade_Patch
 
             yield return ci;
         }
+    }
+}
+
+// Multifaction: trade request quests (QuestNode_GetNearbySettlement) and caravan/transporter visits could pick another
+// player's settlement, which has nothing to trade. Vanilla only excludes the settlements of Faction.OfPlayer.
+[HarmonyPatch(typeof(Settlement), nameof(Settlement.Visitable), MethodType.Getter)]
+static class Settlement_Visitable_OtherPlayers_Patch
+{
+    static void Postfix(Settlement __instance, ref bool __result)
+    {
+        if (__result && Multiplayer.Client != null && Multiplayer.GameComp.multifaction &&
+            __instance.Faction is { IsPlayer: true })
+            __result = false;
+    }
+}
+
+// The ritual reward "goodwill with the nearest faction" could pick another player's settlement and change the
+// goodwill between the two players. Skip player factions only here: CanChangeGoodwillFor itself is also used for
+// goodwill between players (e.g. friendly fire), which has to keep working.
+[HarmonyPatch(typeof(RitualAttachableOutcomeEffectWorker_NearbyFactionGoodwill),
+    nameof(RitualAttachableOutcomeEffectWorker_NearbyFactionGoodwill.Apply))]
+static class RitualNearbyFactionGoodwill_SkipPlayers_Patch
+{
+    static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+    {
+        var canChangeGoodwillFor = AccessTools.Method(typeof(Faction), nameof(Faction.CanChangeGoodwillFor));
+        var replacement = AccessTools.Method(typeof(RitualNearbyFactionGoodwill_SkipPlayers_Patch), nameof(CanChangeGoodwillFor));
+        var replaced = false;
+
+        foreach (var ci in insts)
+        {
+            if (ci.Calls(canChangeGoodwillFor))
+            {
+                ci.opcode = OpCodes.Call;
+                ci.operand = replacement;
+                replaced = true;
+            }
+
+            yield return ci;
+        }
+
+        if (!replaced)
+            Log.Error("Multiplayer: CanChangeGoodwillFor not found in RitualAttachableOutcomeEffectWorker_NearbyFactionGoodwill.Apply");
+    }
+
+    static bool CanChangeGoodwillFor(Faction faction, Faction other, int goodwillChange)
+    {
+        if (Multiplayer.Client != null && faction is { IsPlayer: true })
+            return false;
+        return faction.CanChangeGoodwillFor(other, goodwillChange);
     }
 }

@@ -58,7 +58,8 @@ public class PsychicRitualSession : SemiPersistentSession, ISessionWithCreationR
         var session = manager.GetOrAddSession(new PsychicRitualSession(map, ritual, candidatePool, assignments));
 
         if (TickPatch.currentExecutingCmdIssuedBySelf)
-            session.OpenWindow();
+            using (LocalOnlyScope.Enter())
+                session.OpenWindow();
     }
 
     [SyncMethod]
@@ -67,12 +68,36 @@ public class PsychicRitualSession : SemiPersistentSession, ISessionWithCreationR
         map.MpComp().sessionManager.RemoveSession(this);
     }
 
-    [SyncMethod]
-    public void Start()
+    // Called by the starting player's dialog
+    public void Start() => StartWithAssignments(assignments);
+
+    // See RitualSession.StartWithAssignments: without Prepatcher the role assignments may differ between clients
+    [SyncMethod(exposeParameters = new[] { 0 })]
+    private void StartWithAssignments(MpPsychicRitualAssignments startingAssignments)
     {
+        if (startingAssignments != null)
+            ApplyStartingAssignments(startingAssignments, assignments);
+
         Remove();
         ritual.MakeNewLord(assignments);
         Find.PsychicRitualManager.RegisterCooldown(ritual);
+    }
+
+    // Only what the role selection widgets change, the rest (target, forced assignments) stays from the live object.
+    // Pawns which didn't resolve were already removed by ExposeData's PostLoadInit, except from the spectators.
+    private static void ApplyStartingAssignments(PsychicRitualRoleAssignments from, PsychicRitualRoleAssignments to)
+    {
+        if (from.roleAssignments != null)
+            to.roleAssignments = from.roleAssignments;
+
+        if (from.pawnAssignments != null)
+            to.pawnAssignments = from.pawnAssignments;
+
+        if (from.spectators != null)
+        {
+            from.spectators.RemoveAll(p => p == null);
+            to.spectators = from.spectators;
+        }
     }
 
     public void OpenWindow(bool sound = true)

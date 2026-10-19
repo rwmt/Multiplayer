@@ -120,11 +120,26 @@ public class SessionManager : IHasSessionData, ISessionManager
 
     /// <summary>
     /// Ticks over <see cref="TickingSessions"/>. It iterates backwards using a <see langword="for"/> loop to make it safe for the sessions to remove themselves when ticking.
+    /// A failing session is logged and doesn't stop the other sessions (or the rest of the map/world tick).
     /// </summary>
     public void TickSessions()
     {
         for (int i = tickingSessions.Count - 1; i >= 0; i--)
-            tickingSessions[i].Tick();
+        {
+            // A session's tick may remove more than one session
+            if (i >= tickingSessions.Count)
+                continue;
+
+            var session = tickingSessions[i];
+            try
+            {
+                session.Tick();
+            }
+            catch (Exception e)
+            {
+                Log.ErrorOnce($"Exception ticking session {session}: {e}", session.GetHashCode() ^ 0x3a5f19);
+            }
+        }
     }
 
     public T GetFirstOfType<T>() where T : Session => allSessions.OfType<T>().FirstOrDefault();
@@ -137,27 +152,30 @@ public class SessionManager : IHasSessionData, ISessionManager
 
     public void WriteSessionData(ByteWriter data)
     {
+        // Saving can happen on a single client (e.g. host autosaves), so it mustn't modify the live session lists.
+        // Invalid sessions are just left out of the written data.
+        var sessionsToWrite = new List<SemiPersistentSession>(semiPersistentSessions.Count);
+
         // Clear the set to make sure it's empty
         tempCleanupLoggingTypes.Clear();
-        for (int i = semiPersistentSessions.Count - 1; i >= 0; i--)
+        foreach (var session in semiPersistentSessions)
         {
-            var session = semiPersistentSessions[i];
-            if (!session.IsSessionValid)
+            if (session.IsSessionValid)
             {
-                semiPersistentSessions.RemoveAt(i);
-                allSessions.Remove(session);
-                if (session is ITickingSession tickingSession) tickingSessions.Remove(tickingSession);
-                var sessionType = session.GetType();
-                if (!tempCleanupLoggingTypes.Add(sessionType))
-                    Log.Message($"Multiplayer session not valid after writing semi persistent data: {sessionType}");
+                sessionsToWrite.Add(session);
+                continue;
             }
+
+            var sessionType = session.GetType();
+            if (tempCleanupLoggingTypes.Add(sessionType))
+                Log.Message($"Multiplayer session not valid when writing semi persistent data: {sessionType}");
         }
         // Clear the set again to not leave behind any unneeded stuff
         tempCleanupLoggingTypes.Clear();
 
-        data.WriteInt32(semiPersistentSessions.Count);
+        data.WriteInt32(sessionsToWrite.Count);
 
-        foreach (var session in semiPersistentSessions)
+        foreach (var session in sessionsToWrite)
         {
             data.WriteUShort((ushort)ApiSerialization.sessions.FindIndex(session.GetType()));
             data.WriteInt32(session.SessionId);
@@ -240,7 +258,7 @@ public class SessionManager : IHasSessionData, ISessionManager
                 {
                     session.PostRemoveSession();
                     var sessionType = session.GetType();
-                    if (!tempCleanupLoggingTypes.Add(sessionType))
+                    if (tempCleanupLoggingTypes.Add(sessionType))
                         Log.Message($"Multiplayer session not valid after exposing data: {sessionType}");
                 }
             }

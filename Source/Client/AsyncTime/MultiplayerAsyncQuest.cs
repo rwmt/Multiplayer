@@ -95,7 +95,7 @@ namespace Multiplayer.Client.Comp
             __state?.PreContext();
         }
 
-        static void Postfix(AsyncTimeComp __state) => __state?.PostContext();
+        static void Finalizer(AsyncTimeComp __state) => __state?.PostContext();
     }
 
     [HarmonyPatch(typeof(Quest), nameof(Quest.Accept))]
@@ -112,7 +112,7 @@ namespace Multiplayer.Client.Comp
             __state?.PreContext();
         }
 
-        static void Postfix(AsyncTimeComp __state) => __state?.PostContext();
+        static void Finalizer(AsyncTimeComp __state) => __state?.PostContext();
     }
 
     [HarmonyPatch(typeof(Quest), nameof(Quest.End))]
@@ -172,7 +172,13 @@ namespace Multiplayer.Client.Comp
         /// <param name="quest">Quest to remove</param>
         /// <returns>If quest is found in cache</returns>
         public static bool TryRemoveCachedQuest(Quest quest)
-            => mapQuestsCache.SingleOrDefault(x => x.Value.Contains(quest)).Value?.Remove(quest) ?? false | worldQuestsCache.Remove(quest);
+        {
+            // Removes every entry: a quest cached twice would be ticked twice per tick
+            bool removed = worldQuestsCache.RemoveAll(q => q == quest) > 0;
+            foreach (var quests in mapQuestsCache.Values)
+                removed |= quests.RemoveAll(q => q == quest) > 0;
+            return removed;
+        }
 
         /// <summary>
         /// Attempts to get the MapAsyncTimeComp cached for that quest
@@ -207,6 +213,8 @@ namespace Multiplayer.Client.Comp
             //if it doesn't add it to the world quest list
             else
             {
+                // Accepting caches a quest again after its generation did
+                TryRemoveCachedQuest(quest);
                 worldQuestsCache.Add(quest);
                 if (MpVersion.IsDebug)
                     Log.Message($"Info: Could not find AsyncTimeMap for Quest: '{quest.name}'");

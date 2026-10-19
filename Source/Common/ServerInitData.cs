@@ -8,6 +8,7 @@ public record ServerInitData(
     byte[] RawData,
     bool IncludeConfigs,
     string RwVersion,
+    string Language,
     HashSet<int> DebugOnlySyncCmds,
     HashSet<int> HostOnlySyncCmds,
     (RoundModeEnum, RoundModeEnum) RoundModes,
@@ -15,7 +16,7 @@ public record ServerInitData(
 )
 {
     public static ServerInitData FromNet(ClientInitDataPacket packet) => new(
-        packet.rawMods, packet.includeConfigs, packet.rwVersion,
+        packet.rawMods, packet.includeConfigs, packet.rwVersion, packet.language,
         packet.debugOnlySyncCmds.ToHashSet(),
         packet.hostOnlySyncCmds.ToHashSet(),
         (packet.modCtorRoundMode, packet.staticCtorRoundMode),

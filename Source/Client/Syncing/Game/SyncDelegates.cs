@@ -24,7 +24,7 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_CaptureEntity),              "GetOptionsFor", 2).CancelIfAnyFieldNull().SetContext(mouseKeyContext);       // Capture entity
 
             // Other possible float menu options that could be added later:
-            // TODO maybe? TransporterUtility.InitiateLoading is not synced, not sure if significant
+            // Carry to shuttle: its TransporterUtility.InitiateLoading call is synced in SyncMethods
             // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_CarryToShuttle), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);           // Carry to shuttle
             // TODO: missing some flecks
             // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_DraftedAttack), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);            // Drafted attack
@@ -244,7 +244,7 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(GeneResourceDrainUtility), nameof(GeneResourceDrainUtility.GetResourceDrainGizmos), 1).SetDebugOnly(); // +10% resource
             SyncMethod.Register(typeof(CompBreakdownable), nameof(CompBreakdownable.Notify_Repaired)).SetDebugOnly(); // Dev repair breakdownable
             SyncDelegate.Lambda(typeof(CompCanBeDormant), nameof(CompCanBeDormant.CompGetGizmosExtra), 1).SetDebugOnly(); // Wake up after delay
-            SyncDelegate.Lambda(typeof(Tile), nameof(Tile.GetGizmos), 0).SetDebugOnly(); // Generate settlement
+            SyncDelegate.Lambda(typeof(Tile), nameof(Tile.GetGizmos), 0).SetContext(SyncContext.WorldSelected).SetDebugOnly(); // Generate settlement (reads Find.WorldSelector.SelectedTile)
             SyncDelegate.Lambda(typeof(Tile), nameof(Tile.GetGizmos), 4).SetDebugOnly(); // Generate map
 
             // Hediffs
@@ -280,8 +280,7 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(Pawn_TrainingTracker), nameof(Pawn_TrainingTracker.GetGizmos), 0, fields: [SyncDelegate.DelegateThis, "master"]).SetContext(SyncContext.MapSelected).CancelIfNoSelectedMapObjects(); // Force attack target
             SyncDelegate.Lambda(typeof(Pawn_TrainingTracker), nameof(Pawn_TrainingTracker.GetGizmos), 3).SetContext(SyncContext.MapSelected).CancelIfNoSelectedMapObjects(); // Cancel attacking target
 
-            // Colonist bar reordering
-            SyncDelegate.Lambda(typeof(ColonistBar.Entry), null, lambdaOrdinal: 0, parentMethodType: MethodType.Constructor, parentArgs: [typeof(Pawn), typeof(Map), typeof(int)]);
+            // Colonist bar reordering is synced through ColonistBarReorder below
 
             InitRituals();
             InitChoiceLetters();
@@ -334,11 +333,13 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(PsychicRitualRoleAssignments), nameof(PsychicRitualRoleAssignments.RemoveParticipant));
 
             SyncRituals.ApplyPrepatches(null);
+            if (!SyncRituals.PrepatchesApplied)
+                Log.Warning("Multiplayer: Prepatcher isn't active, ritual role assignments won't be shared between players");
         }
 
         private static void InitChoiceLetters()
         {
-            SyncDelegate.Lambda(typeof(ChoiceLetter_ChoosePawn), nameof(ChoiceLetter_ChoosePawn.Option_ChoosePawn), 0); // Choose pawn (currently used for quest rewards)
+            SyncDelegate.Lambda(typeof(ChoiceLetter_ChoosePawn), nameof(ChoiceLetter_ChoosePawn.Option_ChoosePawn), 0).CancelIfAnyFieldNull(); // Choose pawn (currently used for quest rewards)
 
             SyncMethod.LambdaInGetter(typeof(ChoiceLetter_AcceptJoiner), nameof(ChoiceLetter_AcceptJoiner.Choices), 0); // Accept joiner
             CloseDialogsForExpiredLetters.RegisterDefaultLetterChoice(
@@ -461,14 +462,91 @@ namespace Multiplayer.Client
             Find.LetterStack.RemoveLetter(letter);
         }
 
+        // The reorder indices and the group are relative to the local colonist bar's entries, which differ between
+        // clients (multifaction, hidden maps, entries not yet recached), so resolve them to pawns on the sender.
+        [MpPrefix(typeof(ColonistBar), nameof(ColonistBar.Reorder))]
+        static bool ColonistBarReorder(ColonistBar __instance, int from, int to, int entryGroup)
+        {
+            if (!Multiplayer.ShouldSync)
+                return true;
+
+            var group = new List<Pawn>();
+            foreach (var entry in __instance.cachedEntries)
+                if (entry.group == entryGroup && entry.pawn != null)
+                    group.Add(entry.pawn);
+
+            if (from >= 0 && from < group.Count)
+            {
+                bool toEnd = to < 0 || to >= group.Count;
+                SyncedColonistBarReorder(group[from], toEnd ? null : group[to], toEnd, group);
+            }
+
+            return false;
+        }
+
+        [SyncMethod]
+        static void SyncedColonistBarReorder(Pawn dragged, Pawn target, bool toEnd, List<Pawn> group)
+        {
+            group.RemoveAll(p => p?.playerSettings == null);
+            if (dragged?.playerSettings == null || !toEnd && target?.playerSettings == null || group.Count == 0)
+                return;
+
+            int newOrder = toEnd ? group[group.Count - 1].playerSettings.displayOrder + 1 : target.playerSettings.displayOrder;
+
+            // Same as ColonistBar.Reorder, but instead of the local bar's entries it shifts the group and all the faction's
+            // pawns (and colonist corpses, which the bar shows too). Shifting pawns which aren't in the bar keeps the
+            // relative order, so the bar's order is the same.
+            var pawns = new List<Pawn>(group);
+            var seen = new HashSet<Pawn>(group);
+
+            void TryAdd(Pawn p)
+            {
+                if (p?.playerSettings != null && p.Faction == Faction.OfPlayer && seen.Add(p))
+                    pawns.Add(p);
+            }
+
+            foreach (var p in PawnsFinder.AllMapsCaravansAndTravellingTransporters_Alive)
+                TryAdd(p);
+
+            foreach (var map in Find.Maps)
+                foreach (var thing in map.listerThings.ThingsInGroup(ThingRequestGroup.Corpse))
+                    TryAdd((thing as Corpse)?.InnerPawn);
+
+            foreach (var p in pawns)
+            {
+                var settings = p.playerSettings;
+                if (settings.displayOrder == newOrder)
+                {
+                    if (!toEnd && group.Contains(p))
+                        settings.displayOrder += p.thingIDNumber < target.thingIDNumber ? -1 : 1;
+                }
+                else if (settings.displayOrder > newOrder)
+                    settings.displayOrder++;
+                else
+                    settings.displayOrder--;
+            }
+
+            dragged.playerSettings.displayOrder = newOrder;
+            Find.ColonistBar.MarkColonistsDirty();
+            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+        }
+
         // The letter tries to generate the options when opened. Make the picks seeded, so all players will get the same ones.
         [MpPrefix(typeof(ChoiceLetter_GrowthMoment), nameof(ChoiceLetter_GrowthMoment.TrySetChoices))]
-        static void PreLetterChoices(ChoiceLetter_GrowthMoment __instance)
-            => Rand.PushState(Gen.HashCombineInt(__instance.pawn.thingIDNumber, __instance.arrivalTick));
+        static void PreLetterChoices(ChoiceLetter_GrowthMoment __instance, out bool __state)
+        {
+            __state = false;
+            Rand.PushState(Gen.HashCombineInt(__instance.pawn.thingIDNumber, __instance.arrivalTick));
+            __state = true;
+        }
 
-        [MpPostfix(typeof(ChoiceLetter_GrowthMoment), nameof(ChoiceLetter_GrowthMoment.TrySetChoices))]
-        static void PostLetterChoices()
-            => Rand.PopState();
+        // A finalizer to keep the Rand state stack balanced if TrySetChoices throws
+        [MpFinalizer(typeof(ChoiceLetter_GrowthMoment), nameof(ChoiceLetter_GrowthMoment.TrySetChoices))]
+        static void PostLetterChoices(bool __state)
+        {
+            if (__state)
+                Rand.PopState();
+        }
 
         static void InitDevTools()
         {

@@ -468,7 +468,8 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(Building_BioferriteHarvester), nameof(Building_BioferriteHarvester.GetGizmos), 1); // Toggle unload
             SyncMethod.Lambda(typeof(Building_BioferriteHarvester), nameof(Building_BioferriteHarvester.GetGizmos), 3).SetDebugOnly(); // Dev add +1
 
-            SyncMethod.Register(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.PlaceGravship));
+            // Not PlaceGravship: it runs in a long event on every client (see PatchPlaceGravshipInMapContext), where it
+            // never synced, and as a command it couldn't be read anyway (the gravship isn't a world object then)
             SyncMethod.Register(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.AbortLanding)).SetContext(SyncContext.CurrentMap);
 
             // Outfit stand
@@ -488,11 +489,16 @@ namespace Multiplayer.Client
                     core.GetMultiSelectFloatMenuOptions(Find.Selector.SelectedPawns).ExecuteEnumerable();
                 })
                 // After syncing and invoking the method, we want to restore the previous state of tmpPawnsCanReach.
-                // Just run the GetMultiSelectFloatMenuOptions method again so the list is populated.
+                // Just run the GetMultiSelectFloatMenuOptions method again so the list is populated. It's UI state for
+                // the local selection, so do it outside of the command to keep the clients' simulation identical.
                 .SetPostInvoke((x, _) =>
                 {
                     if (x is not Building_ArchonexusCore core) return;
-                    core.GetMultiSelectFloatMenuOptions(SyncUtil.prevSelected.OfType<Pawn>()).ExecuteEnumerable();
+                    OnMainThread.Enqueue(() =>
+                    {
+                        if (core.Spawned)
+                            core.GetMultiSelectFloatMenuOptions(Find.Selector.SelectedPawns).ExecuteEnumerable();
+                    });
                 });
             SyncMethod.Register(typeof(Building_ArchonexusCore), nameof(Building_ArchonexusCore.Activate)).SetDebugOnly(); // Activate archonexus core
 
@@ -508,11 +514,16 @@ namespace Multiplayer.Client
                     crate.GetMultiSelectFloatMenuOptions(Find.Selector.SelectedPawns).ExecuteEnumerable();
                 })
                 // After syncing and invoking the method, we want to restore the previous state of tmpPawnsCanReach.
-                // Just run the GetMultiSelectFloatMenuOptions method again so the list is populated.
+                // Just run the GetMultiSelectFloatMenuOptions method again so the list is populated. It's UI state for
+                // the local selection, so do it outside of the command to keep the clients' simulation identical.
                 .SetPostInvoke((x, _) =>
                 {
                     if (x is not Building_Crate crate) return;
-                    crate.GetMultiSelectFloatMenuOptions(SyncUtil.prevSelected.OfType<Pawn>()).ExecuteEnumerable();
+                    OnMainThread.Enqueue(() =>
+                    {
+                        if (crate.Spawned)
+                            crate.GetMultiSelectFloatMenuOptions(Find.Selector.SelectedPawns).ExecuteEnumerable();
+                    });
                 });
 
             // Double ExecuteWhenFinished ensures it'll load after MP Compat late patches,
@@ -545,10 +556,15 @@ namespace Multiplayer.Client
         }
 
         [MpPrefix(typeof(StorageSettingsClipboard), nameof(StorageSettingsClipboard.Copy))]
-        static void StorageSettingsClipboardCopy_Prefix() => Multiplayer.dontSync = true;
+        static void StorageSettingsClipboardCopy_Prefix(out bool __state)
+        {
+            __state = Multiplayer.dontSync;
+            Multiplayer.dontSync = true;
+        }
 
-        [MpPostfix(typeof(StorageSettingsClipboard), nameof(StorageSettingsClipboard.Copy))]
-        static void StorageSettingsClipboardCopy_Postfix() => Multiplayer.dontSync = false;
+        // A finalizer, as leaving dontSync set would turn every later sync handler local-only
+        [MpFinalizer(typeof(StorageSettingsClipboard), nameof(StorageSettingsClipboard.Copy))]
+        static void StorageSettingsClipboardCopy_Finalizer(bool __state) => Multiplayer.dontSync = __state;
 
         [MpTranspiler(typeof(CompPlantable), nameof(CompPlantable.BeginTargeting), lambdaOrdinal: 0)]
         static IEnumerable<CodeInstruction> CompPlantableTranspiler(IEnumerable<CodeInstruction> insts)
@@ -583,6 +599,34 @@ namespace Multiplayer.Client
         [SyncMethod]
         static void CompPlantable_AddCell(IntVec3 newValue, CompPlantable plantable) =>
             plantable.plantCells.Add(newValue);
+
+        // Float menu options (carry to shuttle, place carried pawn in a transporter, enter shuttle) call
+        // InitiateLoading from the interface right before the synced TryTakeOrderedJob, so the group id was
+        // set on the clicking client only. Both commands target the transporter's map and keep their order.
+        [MpPrefix(typeof(TransporterUtility), nameof(TransporterUtility.InitiateLoading))]
+        static bool InitiateLoading_Prefix(IEnumerable<CompTransporter> transporters, ref int __result)
+        {
+            if (!Multiplayer.ShouldSync)
+                return true;
+
+            SyncedInitiateLoading(transporters.ToList());
+            // Vanilla interface callers ignore the group id; -1 is the "no group" marker
+            __result = -1;
+            return false;
+        }
+
+        [SyncMethod]
+        static void SyncedInitiateLoading(List<CompTransporter> transporters)
+        {
+            transporters.RemoveAll(t => t == null);
+
+            // The interface callers only initiate loading when it isn't in progress; it may have started
+            // since the click (e.g. another player's order), don't replace the group then
+            if (transporters.Count == 0 || transporters.All(t => t.LoadingInProgressOrReadyToLaunch))
+                return;
+
+            TransporterUtility.InitiateLoading(transporters);
+        }
 
         // ===== CALLBACKS =====
 
@@ -705,14 +749,17 @@ namespace Multiplayer.Client
         [MpPostfix(typeof(Ideo), nameof(Ideo.CopyTo))]
         static void FixIdeoAfterCopy(Ideo __instance, Ideo ideo)
         {
-            if (Multiplayer.ExecutingCmds)
+            // Ticking too: mods can apply a reform from simulation code (e.g. ritual outcomes)
+            if (Multiplayer.ExecutingCmds || Multiplayer.Ticking)
             {
                 // Fix ids for precepts generated by the fluid ideo reforming UI
                 foreach (var precept in ideo.PreceptsListForReading)
                     if (precept.ID < 0)
                         precept.ID = Find.UniqueIDsManager.GetNextPreceptID();
 
-                ideo.development.ideo = ideo;
+                // CopyTo creates the development tracker only for fluid ideos
+                if (ideo.development != null)
+                    ideo.development.ideo = ideo;
                 ideo.style.ideo = ideo;
             }
         }
@@ -935,5 +982,48 @@ namespace Multiplayer.Client
             return owner.TryDrop(thing, dropLoc, map, mode, count, out resultingThing,
                null, null);
         }
+
+        // The dev mode "remove hediff" button of the health tab calls RemoveHediff in its drawer lambda, which runs
+        // every frame and so can't be synced itself (as a SyncDelegate it would send a command each frame). Sync the
+        // call instead (#358).
+        [HarmonyPatch]
+        static class HealthCardDevRemoveHediff_Patch
+        {
+            private static readonly MethodInfo RemoveHediff =
+                AccessTools.Method(typeof(Pawn_HealthTracker), nameof(Pawn_HealthTracker.RemoveHediff));
+
+            static MethodBase TargetMethod()
+            {
+                // The only lambda of DrawHediffRow calling RemoveHediff
+                var lambdaPrefix = $"<{nameof(HealthCardUtility.DrawHediffRow)}>";
+                return typeof(HealthCardUtility).GetNestedTypes(AccessTools.all)
+                    .SelectMany(t => t.GetDeclaredMethods())
+                    .Where(m => m.Name.StartsWith(lambdaPrefix))
+                    .First(m => PatchProcessor.ReadMethodBody(m).Any(i => i.Value as MethodInfo == RemoveHediff));
+            }
+
+            static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+            {
+                var replacement = AccessTools.Method(typeof(SyncMethods), nameof(DevRemoveHediff));
+
+                foreach (var ci in insts)
+                {
+                    if (ci.Calls(RemoveHediff))
+                    {
+                        ci.opcode = OpCodes.Call;
+                        ci.operand = replacement;
+                    }
+
+                    yield return ci;
+                }
+            }
+        }
+
+        // Takes the arguments of the instance call it replaces
+        static void DevRemoveHediff(Pawn_HealthTracker health, Hediff hediff) =>
+            SyncedDevRemoveHediff(health.pawn, hediff);
+
+        [SyncMethod(debugOnly = true, cancelIfAnyArgNull = true)]
+        static void SyncedDevRemoveHediff(Pawn pawn, Hediff hediff) => pawn.health.RemoveHediff(hediff);
     }
 }

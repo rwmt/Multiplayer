@@ -82,6 +82,12 @@ else
 
 server.BootstrapMode = bootstrap;
 
+// The loaded game's viewer counts belong to players of an earlier session, who are not connected anymore. Runs on the
+// server thread before any player can connect, so it's the first command everyone executes after the loaded state.
+if (!bootstrap)
+    server.Enqueue(() => server.commands.Send(CommandType.ResetPlayerCounts, ScheduledCommand.NoFaction,
+        ScheduledCommand.Global, []));
+
 if (settings.direct) {
     var badEndpoint = settings.TryParseEndpoints(out var endpoints);
     if (badEndpoint != null)

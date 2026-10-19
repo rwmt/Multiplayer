@@ -70,6 +70,13 @@ namespace Multiplayer.Client
                 .Select(t => t.Item2);
         }
 
+        // Multiplayer's own code (Multiplayer.dll, MultiplayerCommon.dll) is loaded by MultiplayerLoader from here
+        public static IEnumerable<FileInfo> GetModCustomAssemblies(ModContentPack mod)
+        {
+            return ModContentPack.GetAllFilesForModPreserveOrder(mod, "AssembliesCustom/", f => f.ToLower() == ".dll")
+                .Select(t => t.Item2);
+        }
+
         public static ModContentPack DummyContentPack(ModMetaData mod)
         {
             // The constructor calls InitLoadFolders

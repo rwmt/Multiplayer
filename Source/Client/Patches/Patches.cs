@@ -33,21 +33,30 @@ namespace Multiplayer.Client
         // and handling this case properly might prevent some crashes and help with debugging
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
         {
+            int patched = 0;
+
             foreach (var inst in insts)
             {
                 yield return inst;
 
-                if (inst.operand as FieldInfo == FrameCountField)
+                if (inst.opcode == OpCodes.Ldsfld && inst.operand as FieldInfo == FrameCountField)
                 {
                     yield return new CodeInstruction(OpCodes.Ldarg_0);
                     yield return new CodeInstruction(OpCodes.Call, FrameCountReplacementMethod);
+                    patched++;
                 }
             }
+
+            if (patched == 0)
+                Multiplayer.LoadingError("MP: Couldn't find RealTime.frameCount in Pawn_JobTracker.StartJob. Was the original method changed?");
         }
 
         static int FrameCountReplacement(int frameCount, Pawn_JobTracker tracker)
         {
-            return tracker.pawn.Map.AsyncTime()?.eventCount ?? frameCount;
+            if (Multiplayer.Client == null) return frameCount;
+
+            // The frame count differs between clients. Pawns without a map (caravans, world pawns) use the timer.
+            return tracker.pawn.MapHeld?.AsyncTime()?.eventCount ?? TickPatch.Timer;
         }
     }
 
@@ -186,6 +195,26 @@ namespace Multiplayer.Client
         public static PlanetTile? result;
 
         static void Postfix(ref PlanetTile __result)
+        {
+            if (result.HasValue)
+                __result = result.Value;
+        }
+    }
+
+    // Set only while a debug command is executed (see DebugSync.HandleCmd)
+    [HarmonyPatch(typeof(WorldRendererUtility), nameof(WorldRendererUtility.WorldSelected), MethodType.Getter)]
+    public static class WorldSelectedPatch
+    {
+        public static bool? result;
+
+        static void Prepare(MethodBase original)
+        {
+            // A one-line getter: keep the JIT from inlining it into callers, which would skip the patch
+            if (original != null)
+                MpUtil.MarkNoInlining(original);
+        }
+
+        static void Postfix(ref bool __result)
         {
             if (result.HasValue)
                 __result = result.Value;

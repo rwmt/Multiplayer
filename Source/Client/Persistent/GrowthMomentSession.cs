@@ -7,10 +7,20 @@ using Verse;
 
 namespace Multiplayer.Client.Persistent;
 
-public class GrowthMomentSession(Map _) : ExposableSession(null), ITickingSession
+public class GrowthMomentSession(Map map) : ExposableSession(null), ITickingSession
 {
-    public static GrowthMomentSession GetSessionFor(Pawn pawn) =>
-        pawn.Map.MpComp().sessionManager.GetFirstOfType<GrowthMomentSession>(sess => sess.Pawn == pawn);
+    // The child may have moved to another map, so look on every map. Sessions the child left (removed by their map's
+    // next tick) are skipped, so a new session can be created where the child is now.
+    public static GrowthMomentSession GetSessionFor(Pawn pawn)
+    {
+        if (pawn == null) return null;
+
+        foreach (var m in Find.Maps)
+            if (m.MpComp()?.sessionManager.GetFirstOfType<GrowthMomentSession>(sess => sess.Pawn == pawn && sess.IsActive) is { } session)
+                return session;
+
+        return null;
+    }
 
     // There isn't a trait selected.
     public const int NullTraitIdx = -1; // intentionally the same as the "not found" return value for IndexOf
@@ -18,31 +28,42 @@ public class GrowthMomentSession(Map _) : ExposableSession(null), ITickingSessio
     // There's a chance to have a trait choice of "No Trait". It's represented by this
     public const int NoTraitTraitIdx = -2;
 
+    // Stored explicitly: the session is ticked by and pauses this map, even if the child leaves it
+    private Map map = map;
     private ChoiceLetter_GrowthMoment letter;
-    public Pawn Pawn => letter.pawn;
+    public Pawn Pawn => letter?.pawn;
     public int traitIdx = NullTraitIdx;
     public List<int> passionIndexes = [];
     public bool uiDirty; // if true, received or sent an update
 
-    public static GrowthMomentSession Create(ChoiceLetter_GrowthMoment letter) => new(null)
+    public static GrowthMomentSession Create(ChoiceLetter_GrowthMoment letter) => new(letter.pawn.MapHeld)
     {
         letter = letter
     };
 
     // LetterWithTimeout.LastTickBeforeTimeout adjusted to use the map's time instead of Find.TickManager.TicksGame
-    public override bool IsCurrentlyPausing(Map map) => Map == map && letter.TimeoutActive &&
-                                                        letter.disappearAtTick <= map.AsyncTime().mapTicks + 1 &&
-                                                        !letter.ArchiveView;
+    private bool AtTimeout => letter.TimeoutActive && letter.disappearAtTick <= map.AsyncTime().mapTicks + 1;
 
-    public override bool IsSessionValid => !letter.ArchiveView;
+    public override bool IsCurrentlyPausing(Map map) => this.map == map && IsActive && AtTimeout;
+
+    // Also checked right after loading, when pawns aren't spawned yet, so it mustn't depend on the child's map
+    public override bool IsSessionValid => map != null && Pawn != null && !letter.ArchiveView;
+
+    // The child leaving the map (or dying) ends the session, the letter's timeout handles the rest.
+    // MapHeld: the child can be on the map without being spawned (growth vat, carried, in a shuttle).
+    private bool IsActive => IsSessionValid && !Pawn.Dead && Pawn.MapHeld == map;
 
     public override FloatMenuOption GetBlockingWindowOptions(ColonistBar.Entry entry)
     {
-        if (Map != entry.map) return null;
+        // Another faction's player with a pawn on the child's map mustn't choose the child's traits
+        if (Map != entry.map || !IsActive || !IsLocalPlayersChild) return null;
         return new FloatMenuOption("MpGrowthMomentSession".Translate(Pawn.Name.ToStringShort), OpenWindow);
     }
 
-    public override Map Map => letter.pawn.Map;
+    public override Map Map => map;
+
+    // Windows are only for the players of the child's faction
+    private bool IsLocalPlayersChild => Pawn?.Faction == Multiplayer.RealPlayerFaction;
 
     [SyncMethod]
     public void UpdateChoices(int traitIdx, List<int> passionIndexes)
@@ -54,7 +75,7 @@ public class GrowthMomentSession(Map _) : ExposableSession(null), ITickingSessio
 
     public void OpenWindow()
     {
-        if (!IsSessionValid) return;
+        if (!IsActive) return;
         letter.TrySetChoices();
         var window = new GrowthMomentWindow(letter.text, letter);
         Find.WindowStack.Add(window);
@@ -62,8 +83,18 @@ public class GrowthMomentSession(Map _) : ExposableSession(null), ITickingSessio
 
     public void Tick()
     {
-        if (!IsSessionValid) Map.MpComp().sessionManager.RemoveSession(this);
-        else if (letter.TimeoutActive && letter.disappearAtTick <= Map.AsyncTime().mapTicks + 1) OpenWindow();
+        if (!IsActive) map.MpComp().sessionManager.RemoveSession(this);
+        else if (AtTimeout && IsLocalPlayersChild)
+            // Runs in the map tick on the child's players' clients only
+            using (LocalOnlyScope.Enter())
+                OpenWindow();
+    }
+
+    // UI only: reopen the window if it was closed while the map waits for the choice
+    public void ReopenIfWaiting()
+    {
+        if (IsActive && AtTimeout && IsLocalPlayersChild)
+            OpenWindow();
     }
 
     public override void ExposeData()
@@ -80,7 +111,9 @@ public class GrowthMomentSession(Map _) : ExposableSession(null), ITickingSessio
     {
         if (letter.ArchiveView) return null;
         var pawn = letter.pawn;
-        var sessionManager = pawn.Map.MpComp().sessionManager;
+        // Only children on a map can have a session (it pauses and is ticked by that map)
+        if (pawn?.MapHeld == null || pawn.Dead) return null;
+        var sessionManager = pawn.MapHeld.MpComp().sessionManager;
         var sess = sessionManager.GetFirstOfType<GrowthMomentSession>(sess => sess.Pawn == pawn);
         if (sess == null)
         {
@@ -92,6 +125,10 @@ public class GrowthMomentSession(Map _) : ExposableSession(null), ITickingSessio
                     $"Failed trying to created a session of type {nameof(GrowthMomentSession)} - prior session did not exist and creating session failed.");
                 return null;
             }
+
+            // Generate the options now on every client. Otherwise they'd only be generated by clients
+            // opening the window, at different times and so possibly from a different pawn state.
+            letter.TrySetChoices();
         }
 
         return sess;
@@ -151,7 +188,12 @@ public class GrowthMomentWindow : Dialog_GrowthMomentChoices
         session.uiDirty = false;
     }
 
-    public override void PostClose() => Session?.Tick();
+    public override void PostClose()
+    {
+        base.PostClose();
+        // Don't tick the session from here, UI code mustn't change the simulation
+        Session?.ReopenIfWaiting();
+    }
 
     [MpPrefix(typeof(LetterStack), nameof(LetterStack.ReceiveLetter),
         [typeof(Letter), typeof(string), typeof(int), typeof(bool)])]
@@ -190,6 +232,8 @@ public class GrowthMomentWindow : Dialog_GrowthMomentChoices
     static void OpenSessionWindow(ChoiceLetter_GrowthMoment letter)
     {
         var sess = GrowthMomentSession.TryAddSession(letter);
-        if (Multiplayer.ExecutingCmds && TickPatch.currentExecutingCmdIssuedBySelf) sess?.OpenWindow();
+        if (Multiplayer.ExecutingCmds && TickPatch.currentExecutingCmdIssuedBySelf)
+            using (LocalOnlyScope.Enter())
+                sess?.OpenWindow();
     }
 }

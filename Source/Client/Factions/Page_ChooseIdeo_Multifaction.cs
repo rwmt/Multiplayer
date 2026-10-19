@@ -13,7 +13,16 @@ public class Page_ChooseIdeo_Multifaction : Page
 
     public Page_ChooseIdeoPreset pageChooseIdeo = new();
 
+    // The scenario chosen for the new faction, only applied while the page draws (see FactionSidebar.UseScenario)
+    public Scenario scenario;
+
     public override void DoWindowContents(Rect inRect)
+    {
+        using (FactionSidebar.UseScenario(scenario))
+            DoContents(inRect);
+    }
+
+    private void DoContents(Rect inRect)
     {
         DrawPageTitle(inRect);
         float totalHeight = 0f;

@@ -28,6 +28,8 @@ namespace Multiplayer.Client
         public List<StackTraceLogItem> desyncStackTraces = new();
         public List<int> desyncStackTraceHashes = new();
         public bool simulating;
+        // Local only, sent as simulating: a stack walk failed so the trace hashes can't be compared
+        public bool tracesUnreliable;
         public RoundModeEnum roundMode;
 
         public string CheckForDesync(ClientSyncOpinion other)
@@ -53,7 +55,7 @@ namespace Multiplayer.Client
             if (!commandRandomStates.SequenceEqual(other.commandRandomStates))
                 return "Random state from commands doesn't match";
 
-            if (!simulating && !other.simulating && desyncStackTraceHashes.Any() && other.desyncStackTraceHashes.Any() && !desyncStackTraceHashes.SequenceEqual(other.desyncStackTraceHashes))
+            if (!simulating && !other.simulating && !tracesUnreliable && !other.tracesUnreliable && desyncStackTraceHashes.Any() && other.desyncStackTraceHashes.Any() && !desyncStackTraceHashes.SequenceEqual(other.desyncStackTraceHashes))
                 return "Trace hashes don't match";
 
             return null;
@@ -108,7 +110,7 @@ namespace Multiplayer.Client
             mapRandomStates = mapStates.Select(state => new MapRandomState
                 { mapId = state.mapId, randomStates = state.randomStates }).ToList(),
             traceHashes = desyncStackTraceHashes,
-            simulating = simulating,
+            simulating = simulating || tracesUnreliable,
             roundMode = roundMode
         };
 
