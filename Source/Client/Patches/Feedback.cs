@@ -281,6 +281,11 @@ namespace Multiplayer.Client.Patches
         static void CustomEndCurrentJob(Pawn_JobTracker self, JobCondition condition,
             bool startNewJob = true, bool canReturnToPool = true)
         {
+            // The command executes ticks after the click: repeat vanilla's check so a job the pawn started
+            // in between isn't ended
+            if (self.curJob?.def != JobDefOf.Goto)
+                return;
+
             self.EndCurrentJob(condition, startNewJob, canReturnToPool);
         }
     }
