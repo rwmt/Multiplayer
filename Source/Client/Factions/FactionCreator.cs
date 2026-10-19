@@ -118,6 +118,12 @@ public static class FactionCreator
     {
         // This has to be null, otherwise, during map generation, Faction.OfPlayer returns it which breaks FactionContext
         Find.GameInitData.playerFaction = null;
+
+        // PrepForMapGen adds the custom xenotypes of the static (client-local) starting pawn generation requests
+        // to the game's customXenotypeDatabase. Only the issuer has its requests there (others may have stale
+        // ones), and the database feeds factionless pawn generation, so clear them on every client. The pawns
+        // keep their genes; their custom xenotype just isn't added to the database.
+        StartingPawnUtility.StartingAndOptionalPawnGenerationRequests.Clear();
         Find.GameInitData.PrepForMapGen();
 
         // ScenPart_PlayerFaction --> PreMapGenerate

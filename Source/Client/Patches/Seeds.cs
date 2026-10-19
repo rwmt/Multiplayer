@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using Multiplayer.Client.Patches;
 using Multiplayer.Client.Util;
+using RimWorld.QuestGen;
 using Verse;
 using Verse.Grammar;
 
@@ -215,6 +216,11 @@ namespace Multiplayer.Client
             yield return AccessTools.Method(typeof(GrammarResolver), nameof(GrammarResolver.Resolve));
             yield return AccessTools.Method(typeof(PawnBioAndNameGenerator), nameof(PawnBioAndNameGenerator.GeneratePawnName));
             yield return AccessTools.Method(typeof(NameGenerator), nameof(NameGenerator.GenerateName), [typeof(RulePackDef), typeof(Predicate<string>), typeof(bool), typeof(string), typeof(string), typeof(List<Rule>)]);
+            // Called directly by quest, ideo, deity and unique weapon naming; its validator retries depend on the
+            // generated text, so on the game language
+            yield return AccessTools.Method(typeof(NameGenerator), nameof(NameGenerator.GenerateName), [typeof(GrammarRequest), typeof(Predicate<string>), typeof(bool), typeof(string), typeof(string)]);
+            // Retries whole GenerateName calls while the name collides with an existing quest's name
+            yield return AccessTools.Method(typeof(QuestNode_ResolveQuestName), nameof(QuestNode_ResolveQuestName.Resolve));
         }
 
         [HarmonyPriority(MpPriority.MpFirst)]

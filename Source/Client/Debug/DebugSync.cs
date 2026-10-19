@@ -22,18 +22,19 @@ namespace Multiplayer.Client
 
         public static void HandleCmd(ByteReader data)
         {
-            currentPlayer = data.ReadInt32();
+            // Read everything before changing any state, so a malformed command can't leave the overrides set
+            int player = data.ReadInt32();
             var source = (DebugSource)data.ReadInt32();
             int cursorX = data.ReadInt32();
             int cursorZ = data.ReadInt32();
-
-            if (Multiplayer.MapContext != null)
-                MouseCellPatch.result = new IntVec3(cursorX, 0, cursorZ);
-            else
-                MouseTilePatch.result = cursorX;
-
-            currentHash = data.ReadInt32();
+            int hash = data.ReadInt32();
             var path = data.ReadStringNullable();
+            int selectedId = data.ReadInt32();
+
+            Log.Message($"Debug tool {source} ({cursorX}, {cursorZ}) {hash} {path}");
+
+            currentPlayer = player;
+            currentHash = hash;
 
             var state = Multiplayer.game.playerDebugState.GetOrAddNew(currentPlayer);
 
@@ -46,25 +47,31 @@ namespace Multiplayer.Client
             Find.Selector.selected = new List<object>();
             FieldRefs.worldSelected(Find.WorldSelector) = new List<WorldObject>();
 
-            int selectedId = data.ReadInt32();
-
-            if (Multiplayer.MapContext != null)
-            {
-                var thing = Multiplayer.ThingsById.GetValueSafe(selectedId);
-                if (thing != null)
-                    Find.Selector.selected.Add(thing);
-            }
-            else
-            {
-                var obj = Find.WorldObjects.AllWorldObjects.FirstOrDefault(w => w.ID == selectedId);
-                if (obj != null)
-                    Find.WorldSelector.selected.Add(obj);
-            }
-
-            Log.Message($"Debug tool {source} ({cursorX}, {cursorZ}) {currentHash} {path}");
-
             try
             {
+                if (Multiplayer.MapContext != null)
+                    MouseCellPatch.result = new IntVec3(cursorX, 0, cursorZ);
+                else
+                    MouseTilePatch.result = cursorX;
+
+                // Vanilla debug actions read the view (e.g. the incident actions pick their target in
+                // DebugActionsIncidents.GetTarget, which falls back to Find.CurrentMap). Replay world commands under
+                // the planet view and map commands under the command's map (it's Find.CurrentMap while executing).
+                WorldSelectedPatch.result = Multiplayer.MapContext == null;
+
+                if (Multiplayer.MapContext != null)
+                {
+                    var thing = Multiplayer.ThingsById.GetValueSafe(selectedId);
+                    if (thing != null)
+                        Find.Selector.selected.Add(thing);
+                }
+                else
+                {
+                    var obj = Find.WorldObjects.AllWorldObjects.FirstOrDefault(w => w.ID == selectedId);
+                    if (obj != null)
+                        Find.WorldSelector.selected.Add(obj);
+                }
+
                 if (source == DebugSource.Tree)
                 {
                     var node = RecreateGraphAndGetNode(path);
@@ -115,6 +122,7 @@ namespace Multiplayer.Client
 
                 MouseCellPatch.result = null;
                 MouseTilePatch.result = null;
+                WorldSelectedPatch.result = null;
                 Find.Selector.selected = prevSelected;
                 FieldRefs.worldSelected(Find.WorldSelector) = prevWorldSelected;
 
@@ -259,7 +267,8 @@ namespace Multiplayer.Client
 
             action = targetInfo =>
             {
-                DebugSync.SendCmd(DebugSource.Targeter, 0, null, null, targetInfo.Cell);
+                // A map targeter: the action uses the targeted map (Find.CurrentMap), which a map command provides
+                DebugSync.SendCmd(DebugSource.Targeter, 0, null, Find.CurrentMap, targetInfo.Cell);
             };
 
             return true;

@@ -106,6 +106,7 @@ namespace Multiplayer.Client
             tickingMap = map;
             int randDepth = Rand.stateStack.Count;
             PreContext();
+            int factionDepth = FactionContext.stack.Count;
 
             //SimpleProfiler.Start();
 
@@ -187,6 +188,7 @@ namespace Multiplayer.Client
             finally
             {
                 RestoreRandStack(randDepth + 1, this);
+                FactionContext.RestoreStack(factionDepth, this);
                 PostContext();
                 Multiplayer.game.sync.TryAddMapRandomState(map.uniqueID, randState);
                 eventCount++;
@@ -337,6 +339,7 @@ namespace Multiplayer.Client
             int randDepth = Rand.stateStack.Count;
             PreContext();
             map.PushFaction(cmd.GetFaction(), force: true);
+            int factionDepth = FactionContext.stack.Count;
 
             context.map = map;
 
@@ -406,6 +409,7 @@ namespace Multiplayer.Client
                 }
 
                 RestoreRandStack(randDepth + 1, this);
+                FactionContext.RestoreStack(factionDepth, this);
                 map.PopFaction();
                 PostContext();
 

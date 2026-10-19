@@ -2,6 +2,7 @@ using HarmonyLib;
 using RimWorld;
 using RimWorld.Planet;
 using Verse;
+using Verse.AI.Group;
 
 namespace Multiplayer.Client
 {
@@ -164,6 +165,30 @@ namespace Multiplayer.Client
         }
     }
 
+    // Lords are referenced by synced data (e.g. jobs exposed by TryTakeOrderedJob), which resolved them to null.
+    // Registered on every client the same way: at runtime here and from the save in FinalizeLoadingGame.
+    [HarmonyPatch(typeof(LordManager))]
+    [HarmonyPatch(nameof(LordManager.AddLord))]
+    public static class LordManagerAddPatch
+    {
+        static void Postfix(Lord newLord)
+        {
+            if (Multiplayer.game == null) return;
+            ScribeUtil.sharedCrossRefs.RegisterLoaded(newLord);
+        }
+    }
+
+    [HarmonyPatch(typeof(LordManager))]
+    [HarmonyPatch(nameof(LordManager.RemoveLord))]
+    public static class LordManagerRemovePatch
+    {
+        static void Postfix(Lord oldLord)
+        {
+            if (Multiplayer.game == null) return;
+            ScribeUtil.sharedCrossRefs.Unregister(oldLord);
+        }
+    }
+
     [HarmonyPatch(typeof(MapDeiniter))]
     [HarmonyPatch(nameof(MapDeiniter.Deinit))]
     public static class DeinitMapPatch
@@ -206,7 +231,13 @@ namespace Multiplayer.Client
                     ScribeUtil.sharedCrossRefs.RegisterLoaded(precept);
 
             foreach (var map in Find.Maps)
+            {
                 ScribeUtil.sharedCrossRefs.RegisterLoaded(map);
+
+                // Loaded lords don't go through LordManager.AddLord
+                foreach (var lord in map.lordManager.lords)
+                    ScribeUtil.sharedCrossRefs.RegisterLoaded(lord);
+            }
         }
     }
 

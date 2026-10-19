@@ -111,6 +111,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         tickingWorld = true;
         int randDepth = Rand.stateStack.Count;
         PreContext();
+        int factionDepth = FactionContext.stack.Count;
 
         try
         {
@@ -162,6 +163,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         finally
         {
             AsyncTimeComp.RestoreRandStack(randDepth + 1, this);
+            FactionContext.RestoreStack(factionDepth, this);
             PostContext();
             tickingWorld = false;
 
@@ -208,6 +210,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         int randDepth = Rand.stateStack.Count;
         PreContext();
         FactionExtensions.PushFaction(null, cmd.GetFaction());
+        int factionDepth = FactionContext.stack.Count;
 
         bool prevDevMode = Prefs.data.devMode;
         var prevGodMode = DebugSettings.godMode;
@@ -298,6 +301,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
             MpLog.Debug("rand state " + Rand.StateCompressed);
 
             AsyncTimeComp.RestoreRandStack(randDepth + 1, this);
+            FactionContext.RestoreStack(factionDepth, this);
             FactionExtensions.PopFaction();
             PostContext();
             TickPatch.currentExecutingCmdIssuedBySelf = false;

@@ -155,6 +155,7 @@ namespace Multiplayer.Client
                     int randDepth = Rand.stateStack.Count;
                     world.PreContext();
                     shipMap.PushFaction(ShipCountdown.shipRoot?.Faction, force: true);
+                    int factionDepth = FactionContext.stack.Count;
                     try
                     {
                         ShipCountdown.CountdownEnded();
@@ -162,6 +163,7 @@ namespace Multiplayer.Client
                     finally
                     {
                         AsyncTimeComp.RestoreRandStack(randDepth + 1, "ShipCountdown");
+                        FactionContext.RestoreStack(factionDepth, "ShipCountdown");
                         shipMap.PopFaction();
                         world.PostContext();
                     }

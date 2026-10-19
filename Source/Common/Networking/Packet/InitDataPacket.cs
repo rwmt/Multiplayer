@@ -22,8 +22,11 @@ public record struct ClientInitDataPacket : IPacket
     public const int MaxRawModsLength = MaxRawDataLength + sizeof(int);
     // Synced configs are plain text and compress well
     public const int MaxDecompressedLength = 1 << 26;
+    // A language folder name, at most 255 UTF-16 units on common file systems
+    public const int MaxLanguageLength = 1024;
 
     public string rwVersion;
+    public string language;
     public int[] debugOnlySyncCmds;
     public int[] hostOnlySyncCmds;
     public RoundModeEnum modCtorRoundMode;
@@ -41,6 +44,7 @@ public record struct ClientInitDataPacket : IPacket
     public void Bind(PacketBuffer buf)
     {
         buf.Bind(ref rwVersion);
+        buf.Bind(ref language, maxLength: MaxLanguageLength);
         buf.Bind(ref debugOnlySyncCmds, BinderOf.Int());
         buf.Bind(ref hostOnlySyncCmds, BinderOf.Int());
         buf.BindEnum(ref modCtorRoundMode);

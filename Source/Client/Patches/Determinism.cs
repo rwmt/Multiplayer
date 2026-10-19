@@ -841,5 +841,74 @@ namespace Multiplayer.Client.Patches
             Multiplayer.Client != null ? length : UnityData.GetIdealBatchCount(length);
     }
 
+    // PlayerItemAccessibilityUtility caches its scan of all accessible things per (tile, RealTime.frameCount). Quest
+    // generation (trade request and beggars quests, also during every random quest selection) calls it from the
+    // simulation, and the scan uses Rand (leather amounts): whether a call rescans depended on the client's frames,
+    // and a scan made by interface code could be reused by the simulation. In the simulation, reuse a scan only
+    // within the same simulation step and only if it was made there.
+    [HarmonyPatch(typeof(PlayerItemAccessibilityUtility), nameof(PlayerItemAccessibilityUtility.CacheAccessibleThings))]
+    static class ItemAccessibilityCachePerSimStep
+    {
+        private static Game scanGame;
+        private static PlanetTile scanTile = PlanetTile.Invalid;
+        private static int scanStep = -1;
+
+        static void Prefix(PlanetTile nearTile, ref bool __state)
+        {
+            if (Multiplayer.Client == null) return;
+
+            // Also sim long events, loading etc.: every simulation step (TickPatch.simStep) starts with a new key
+            if (Multiplayer.InInterface)
+            {
+                // May rescan and replace the contents
+                scanGame = null;
+                return;
+            }
+
+            if (scanGame == Current.Game && scanTile == nearTile && scanStep == TickPatch.simStep)
+            {
+                // Make vanilla reuse the scan
+                PlayerItemAccessibilityUtility.cachedAccessibleThingsForTile = nearTile;
+                PlayerItemAccessibilityUtility.cachedAccessibleThingsForFrame = RealTime.frameCount;
+            }
+            else
+            {
+                // Make vanilla rescan, a frame count is never -1
+                PlayerItemAccessibilityUtility.cachedAccessibleThingsForFrame = -1;
+                scanGame = null;
+                __state = true;
+            }
+        }
+
+        static void Postfix(PlanetTile nearTile, bool __state)
+        {
+            if (!__state) return;
+
+            scanGame = Current.Game;
+            scanTile = nearTile;
+            scanStep = TickPatch.simStep;
+        }
+    }
+
+    // On a cache miss GetSituations fills the shared cache and runs CheckHostilityChanged (relation kind changes,
+    // letters). Called from the interface (e.g. the factions tab) that happened on one client only, and the values
+    // cached at that moment were what its simulation read until the next recalculation. Compute uncached values
+    // for the interface instead.
+    [HarmonyPatch(typeof(GoodwillSituationManager), nameof(GoodwillSituationManager.GetSituations))]
+    static class GoodwillSituationsInInterfacePatch
+    {
+        static bool Prefix(GoodwillSituationManager __instance, Faction other,
+            ref List<GoodwillSituationManager.CachedSituation> __result)
+        {
+            if (!Multiplayer.InInterface || other == null || other.IsPlayer || __instance.cachedData.ContainsKey(other))
+                return true;
+
+            var situations = new List<GoodwillSituationManager.CachedSituation>();
+            __instance.Recalculate(other, situations);
+            __result = situations;
+            return false;
+        }
+    }
+
 
 }

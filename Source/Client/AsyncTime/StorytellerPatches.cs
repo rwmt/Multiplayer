@@ -39,7 +39,8 @@ public class StorytellerTargetsPatch
         if (Multiplayer.MapContext != null)
         {
             __result.Clear();
-            __result.Add(Multiplayer.MapContext);
+            if (FactionCanReceiveIncidentsOn(Multiplayer.MapContext, Faction.OfPlayer))
+                __result.Add(Multiplayer.MapContext);
         }
         else if (AsyncWorldTimeComp.tickingWorld)
         {
@@ -51,6 +52,36 @@ public class StorytellerTargetsPatch
 
             __result.Add(Find.World);
         }
+    }
+
+    // In multifaction every player faction's storyteller ticks on every map (FactionRepeater). Keep each one
+    // to its own maps and to unowned maps (sites etc.) where it has pawns, so faction A's incidents
+    // (e.g. Map_Misc ones while A's colonists visit) don't land on faction B's home.
+    static bool FactionCanReceiveIncidentsOn(Map map, Faction faction)
+    {
+        if (!Multiplayer.GameComp.multifaction)
+            return true;
+
+        var owner = OwnerFaction(map);
+        if (owner == faction)
+            return true;
+
+        if (owner is { IsPlayer: true })
+            return false;
+
+        // Also pawns held on the map (carried, in a shuttle or pod...). Only evaluated when the storyteller makes
+        // incidents (every 1000 ticks), the unspawned ones need a scan of the map's holders.
+        return map.mapPawns.SpawnedPawnsInFaction(faction).Count > 0 || map.mapPawns.PawnsInFaction(faction).Count > 0;
+    }
+
+    // A pocket map (e.g. an undercave) belongs to the owner of the map it was opened from
+    static Faction OwnerFaction(Map map)
+    {
+        var owningMap = map;
+        for (int i = 0; i < 8 && owningMap.IsPocketMap && owningMap.PocketMapParent?.sourceMap is { } source; i++)
+            owningMap = source;
+
+        return owningMap.ParentFaction;
     }
 }
 
@@ -74,54 +105,49 @@ public class QuestPartsListForReadingPatch
     }
 }
 
+// The world tick runs incident code for maps (incident parms, TryExecute); it runs in that map's context. Incidents can
+// nest (tickingWorld stays set): a nested call for the same map stays in its context, one for another map leaves the
+// outer map's context for the duration and re-enters it afterwards, so each map's time, Rand stream and faction apply.
+static class WorldTickMapContext
+{
+    public static void Enter(IIncidentTarget target, out (Map map, Map prev) state)
+    {
+        state = default;
+        if (!AsyncWorldTimeComp.tickingWorld || target is not Map map) return;
+
+        var prev = AsyncTimeComp.tickingMap;
+        if (prev == map) return;
+
+        prev?.AsyncTime().PostContext();
+        AsyncTimeComp.tickingMap = map;
+        map.AsyncTime().PreContext();
+        state = (map, prev);
+    }
+
+    public static void Exit((Map map, Map prev) state)
+    {
+        if (state.map == null) return;
+
+        state.map.AsyncTime().PostContext();
+        AsyncTimeComp.tickingMap = state.prev;
+        state.prev?.AsyncTime().PreContext();
+    }
+}
+
 [HarmonyPatch(typeof(StorytellerUtility), nameof(StorytellerUtility.DefaultParmsNow))]
 static class MapContextIncidentParms
 {
-    static void Prefix(IIncidentTarget target, ref Map __state)
-    {
-        // This may be running inside a context already
-        if (AsyncTimeComp.tickingMap != null)
-            return;
+    static void Prefix(IIncidentTarget target, out (Map, Map) __state) => WorldTickMapContext.Enter(target, out __state);
 
-        if (AsyncWorldTimeComp.tickingWorld && target is Map map)
-        {
-            AsyncTimeComp.tickingMap = map;
-            map.AsyncTime().PreContext();
-            __state = map;
-        }
-    }
-
-    static void Finalizer(Map __state)
-    {
-        if (__state != null)
-        {
-            __state.AsyncTime().PostContext();
-            AsyncTimeComp.tickingMap = null;
-        }
-    }
+    static void Finalizer((Map, Map) __state) => WorldTickMapContext.Exit(__state);
 }
 
 [HarmonyPatch(typeof(IncidentWorker), nameof(IncidentWorker.TryExecute))]
 static class MapContextIncidentExecute
 {
-    static void Prefix(IncidentParms parms, ref Map __state)
-    {
-        if (AsyncWorldTimeComp.tickingWorld && parms.target is Map map)
-        {
-            AsyncTimeComp.tickingMap = map;
-            map.AsyncTime().PreContext();
-            __state = map;
-        }
-    }
+    static void Prefix(IncidentParms parms, out (Map, Map) __state) => WorldTickMapContext.Enter(parms.target, out __state);
 
-    static void Finalizer(Map __state)
-    {
-        if (__state != null)
-        {
-            __state.AsyncTime().PostContext();
-            AsyncTimeComp.tickingMap = null;
-        }
-    }
+    static void Finalizer((Map, Map) __state) => WorldTickMapContext.Exit(__state);
 }
 
 [HarmonyPatch(typeof(Settlement), nameof(Settlement.IncidentTargetTags))]

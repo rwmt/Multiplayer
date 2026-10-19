@@ -50,6 +50,21 @@ namespace Multiplayer.Client
             Find.FactionManager.ofPlayer = newFaction;
         }
 
+        // Like AsyncTimeComp.RestoreRandStack: a push left unpopped by an exception would leave the wrong
+        // Faction.OfPlayer and faction data applied after the context ends and keep the stack too deep. Pops (and
+        // restores what each entry applied) down to the depth the context had after its own pushes.
+        public static void RestoreStack(int depth, object context)
+        {
+            int count = stack.Count;
+            if (count == depth) return;
+
+            // Too shallow (an extra pop) can't be repaired, only reported
+            Log.ErrorOnce($"Multiplayer: unbalanced faction push/pop in {context}: stack depth {count}, expected {depth}", 0x2B71C4 ^ depth);
+
+            while (stack.Count > depth)
+                Factions.FactionExtensions.PopFaction();
+        }
+
         public static void Clear()
         {
             stack.Clear();

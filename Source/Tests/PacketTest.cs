@@ -203,6 +203,7 @@ public class PacketTest
             playerId = 1,
             rwVersion = "1.6.4566",
             mpVersion = "0.11.0+123456",
+            language = "English",
             defStatus =
             [
                 DefCheckStatus.Ok, DefCheckStatus.Ok, DefCheckStatus.Count_Diff, DefCheckStatus.Hash_Diff,
@@ -223,6 +224,7 @@ public class PacketTest
         yield return new ClientInitDataPacket
         {
             rwVersion = "1.0.0",
+            language = "English",
             debugOnlySyncCmds = [1, 2, 3, 4],
             hostOnlySyncCmds = [1],
             modCtorRoundMode = RoundModeEnum.ToNearest,
