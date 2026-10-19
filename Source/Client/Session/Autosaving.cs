@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Multiplayer.Common;
@@ -58,6 +59,13 @@ public static class Autosaving
             currentReplay ? Multiplayer.session.dataSnapshot : null);
 
     public static bool SaveGameToFile_Overwrite(string fileNameNoExtension, GameDataSnapshot snapshot)
+        => SaveGameToFile_Overwrite(fileNameNoExtension, file =>
+            Replay.ForSaving(file).WriteData(
+                snapshot ?? SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveGameData(), false)
+            ));
+
+    // writeReplay writes the save to the given (temporary) file
+    private static bool SaveGameToFile_Overwrite(string fileNameNoExtension, Action<FileInfo> writeReplay)
     {
         Log.Message($"Multiplayer: saving to file {fileNameNoExtension}");
 
@@ -67,9 +75,7 @@ public static class Autosaving
             if (File.Exists(tmpPath))
                 File.Delete(tmpPath);
 
-            Replay.ForSaving(new FileInfo(tmpPath)).WriteData(
-                snapshot ?? SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveGameData(), false)
-            );
+            writeReplay(new FileInfo(tmpPath));
 
             var dstPath = Path.Combine(Multiplayer.ReplaysDir, $"{fileNameNoExtension}.zip");
             if (File.Exists(dstPath))
@@ -78,7 +84,8 @@ public static class Autosaving
                 File.Move(tmpPath, dstPath);
 
             Messages.Message("MpGameSaved".Translate(fileNameNoExtension), MessageTypeDefOf.SilentInput, false);
-            Multiplayer.session.lastSaveAt = Time.realtimeSinceStartup;
+            if (Multiplayer.session != null)
+                Multiplayer.session.lastSaveAt = Time.realtimeSinceStartup;
             return true;
         }
         catch (Exception e)
@@ -86,6 +93,45 @@ public static class Autosaving
             Log.Error($"Exception saving multiplayer game as {fileNameNoExtension}: {e}");
             Messages.Message("MpGameSaveFailed".Translate(), MessageTypeDefOf.SilentInput, false);
             return false;
+        }
+    }
+
+    // Called while disconnecting, before the session and the multiplayer game are gone (#333, #937). Keeps what a
+    // save needs: the last join point snapshot, which every command received since is appended to, and the replay
+    // info. Loading the save simulates the commands up to the tick this client had reached. Returns null when
+    // there's no game to save.
+    public static Action CaptureDisconnectSave()
+    {
+        var session = Multiplayer.session;
+        if (session == null || session.replay || session.dataSnapshot == null || Multiplayer.arbiterInstance ||
+            Multiplayer.Client?.State != ConnectionStateEnum.ClientPlaying ||
+            Current.ProgramState != ProgramState.Playing)
+            return null;
+
+        try
+        {
+            var snapshot = session.dataSnapshot with { Cmds = new List<ScheduledCommand>(session.dataSnapshot.Cmds) };
+            var endTick = TickPatch.Timer;
+            var info = Replay.CurrentInfo();
+
+            var baseName = $"Disconnected-{GenFile.SanitizedFileName(session.gameName ?? "")}";
+            var fileName = baseName;
+            for (int i = 2; File.Exists(Path.Combine(Multiplayer.ReplaysDir, $"{fileName}.zip")); i++)
+                fileName = $"{baseName}-{i}";
+
+            return () => LongEventHandler.QueueLongEvent(() =>
+            {
+                SaveGameToFile_Overwrite(fileName, file =>
+                {
+                    info.sections.Clear();
+                    Replay.ForSaving(file, info).WriteData(snapshot, endTick);
+                });
+            }, "MpSaving", false, null);
+        }
+        catch (Exception e)
+        {
+            Log.Error($"Multiplayer: couldn't keep the game for saving after disconnecting: {e}");
+            return null;
         }
     }
 }

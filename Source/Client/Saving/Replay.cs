@@ -25,7 +25,10 @@ namespace Multiplayer.Client
 
         public void WriteCurrentData() => WriteData(Multiplayer.session.dataSnapshot);
 
-        public void WriteData(GameDataSnapshot gameData)
+        public void WriteData(GameDataSnapshot gameData) => WriteData(gameData, TickPatch.Timer);
+
+        // endTick: the tick loading the replay simulates to
+        public void WriteData(GameDataSnapshot gameData, int endTick)
         {
             string sectionId = info.sections.Count.ToString("D3");
             using var zip = CreateZipWrite();
@@ -37,7 +40,7 @@ namespace Multiplayer.Client
             zip.AddEntry($"world/{sectionId}_cmds", ScheduledCommand.SerializeCmds(gameData.Cmds));
 
             zip.AddEntry($"world/{sectionId}_save", gameData.GameData);
-            info.sections.Add(new ReplaySection(gameData.CachedAtTime, TickPatch.Timer));
+            info.sections.Add(new ReplaySection(gameData.CachedAtTime, endTick));
 
             zip.AddEntry("info", ReplayInfo.Write(info));
         }
@@ -92,26 +95,23 @@ namespace Multiplayer.Client
         public static Replay ForLoading(FileInfo file) => new(file);
 
         public static Replay ForSaving(string fileName) => ForSaving(SavedReplayFile(fileName));
-        public static Replay ForSaving(FileInfo file)
-        {
-            var replay = new Replay(file)
-            {
-                info = new ReplayInfo
-                {
-                    name = Multiplayer.session.gameName,
-                    playerFaction = Multiplayer.session.myFactionId,
-                    spectatorFaction = Multiplayer.WorldComp.spectatorFaction.loadID,
-                    protocol = MpVersion.Protocol,
-                    rwVersion = VersionControl.CurrentVersionStringWithRev,
-                    modIds = LoadedModManager.RunningModsListForReading.Select(m => m.PackageId).ToList(),
-                    modNames = LoadedModManager.RunningModsListForReading.Select(m => m.Name).ToList(),
-                    asyncTime = Multiplayer.GameComp.asyncTime,
-                    multifaction = Multiplayer.GameComp.multifaction
-                }
-            };
+        public static Replay ForSaving(FileInfo file) => ForSaving(file, CurrentInfo());
 
-            return replay;
-        }
+        public static Replay ForSaving(FileInfo file, ReplayInfo info) => new(file) { info = info };
+
+        // Info of the current session, without sections
+        public static ReplayInfo CurrentInfo() => new()
+        {
+            name = Multiplayer.session.gameName,
+            playerFaction = Multiplayer.session.myFactionId,
+            spectatorFaction = Multiplayer.WorldComp.spectatorFaction.loadID,
+            protocol = MpVersion.Protocol,
+            rwVersion = VersionControl.CurrentVersionStringWithRev,
+            modIds = LoadedModManager.RunningModsListForReading.Select(m => m.PackageId).ToList(),
+            modNames = LoadedModManager.RunningModsListForReading.Select(m => m.Name).ToList(),
+            asyncTime = Multiplayer.GameComp.asyncTime,
+            multifaction = Multiplayer.GameComp.multifaction
+        };
 
         public static void LoadReplay(FileInfo file, bool toEnd = false, Action after = null, Action cancel = null, string simTextKey = null, bool showTimeline = true)
         {

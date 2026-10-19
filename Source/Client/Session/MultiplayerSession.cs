@@ -122,6 +122,15 @@ namespace Multiplayer.Client
         {
             MpUI.ClearWindowStack();
 
+            if (info.specialButtonTranslated == null && Autosaving.CaptureDisconnectSave() is { } save)
+            {
+                info.specialButtonTranslated = "MpSaveGameAfterDisconnect".TryTranslate(out var label)
+                    ? label
+                    : "SaveGameButton".Translate();
+                info.specialButtonAction = save;
+                info.specialButtonKeepsWindow = true;
+            }
+
             Find.WindowStack.Add(new DisconnectedWindow(info)
             {
                 returnToServerBrowser = Multiplayer.Client?.State != ConnectionStateEnum.ClientPlaying

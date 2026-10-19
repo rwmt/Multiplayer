@@ -50,16 +50,113 @@ namespace Multiplayer.Client.Patches
     {
         static bool Cancel => Multiplayer.Client != null && Multiplayer.InInterface;
 
+        // The melee gizmo of every selected drafted pawn and pawn rendering ask for a melee verb several times per frame
+        // (#308), so interface answers are cached for the current frame and tick (ticks run between UI updates of a
+        // frame)
+        private static int cacheFrame = -1;
+        private static int cacheTick = -1;
+        private static readonly Dictionary<(Pawn_MeleeVerbs, Thing), Verb> cache = new();
+        private static readonly List<Verb> usableVerbs = new();
+
         static bool Prefix()
         {
-            // Namely FloatMenuUtility.GetMeleeAttackAction
+            // The original uses Rand and changes curMeleeVerb (namely called by FloatMenuUtility.GetMeleeAttackAction)
             return !Cancel;
         }
 
         static void Postfix(Pawn_MeleeVerbs __instance, Thing target, ref Verb __result)
         {
-            if (Cancel)
-                __result = __instance.GetUpdatedAvailableVerbsList(false).FirstOrDefault(ve => ve.GetSelectionWeight(target) != 0).verb;
+            if (!Cancel) return;
+
+            if (cacheFrame != Time.frameCount || cacheTick != TickPatch.Timer)
+            {
+                cacheFrame = Time.frameCount;
+                cacheTick = TickPatch.Timer;
+                cache.Clear();
+            }
+
+            if (!cache.TryGetValue((__instance, target), out var verb))
+            {
+                verb = InterfaceMeleeVerb(__instance, target);
+                cache[(__instance, target)] = verb;
+            }
+
+            __result = verb;
+        }
+
+        // Read-only: no Rand, doesn't touch curMeleeVerb or the vanilla verb lists (except in the fallback)
+        private static Verb InterfaceMeleeVerb(Pawn_MeleeVerbs meleeVerbs, Thing target)
+        {
+            var pawn = meleeVerbs.pawn;
+            var cur = meleeVerbs.curMeleeVerb;
+
+            // Without building VerbEntries: their constructor calls VerbUtility.FinalSelectionWeight, which iterates
+            // all verbs (O(n²)). A verb has a non-zero VerbEntry selection weight when it isn't in the Worst category.
+            try
+            {
+                CollectUsableMeleeVerbs(pawn);
+
+                // Like vanilla's comparison, ignores NaN weights
+                float highestWeight = 0f;
+                foreach (var v in usableVerbs)
+                {
+                    float weight = VerbUtility.InitialVerbWeight(v, pawn);
+                    if (weight > highestWeight)
+                        highestWeight = weight;
+                }
+
+                // Prefer the verb the simulation chose last
+                if (cur != null && cur.IsStillUsableBy(pawn) && UsableOn(cur, target) &&
+                    cur.GetSelectionCategory(pawn, highestWeight) != VerbSelectionCategory.Worst)
+                    return cur;
+
+                // Otherwise the same result as the first VerbEntry with a non-zero selection weight
+                foreach (var v in usableVerbs)
+                    if (v.GetSelectionCategory(pawn, highestWeight) != VerbSelectionCategory.Worst && UsableOn(v, target))
+                        return v;
+            }
+            finally
+            {
+                usableVerbs.Clear();
+            }
+
+            // Fall back to the vanilla list in case a mod adds verbs to it
+            return meleeVerbs.GetUpdatedAvailableVerbsList(false).FirstOrDefault(ve => ve.GetSelectionWeight(target) != 0).verb;
+        }
+
+        // The target-dependent part of VerbEntry.GetSelectionWeight being non-zero
+        private static bool UsableOn(Verb v, Thing target) =>
+            v.IsUsableOn(target) && (target?.def?.IsEdifice() != true || v.verbProps.commonalityVsEdificeFactor != 0f);
+
+        // Mirrors the non-terrain branch of Pawn_MeleeVerbs.GetUpdatedAvailableVerbsList
+        private static void CollectUsableMeleeVerbs(Pawn pawn)
+        {
+            void Add(List<Verb> verbs)
+            {
+                if (verbs == null) return;
+                foreach (var v in verbs)
+                    if (v.IsMeleeAttack && v.IsStillUsableBy(pawn))
+                        usableVerbs.Add(v);
+            }
+
+            Add(pawn.verbTracker.AllVerbs);
+
+            if (pawn.equipment != null)
+                foreach (var eq in pawn.equipment.AllEquipmentListForReading)
+                    Add(eq.GetComp<CompEquippable>()?.AllVerbs);
+
+            if (pawn.apparel != null)
+                foreach (var apparel in pawn.apparel.WornApparel)
+                    Add(apparel.GetComp<CompEquippable>()?.AllVerbs);
+
+            foreach (var v in pawn.health.hediffSet.GetHediffsVerbs())
+                if (v.IsMeleeAttack && v.IsStillUsableBy(pawn))
+                    usableVerbs.Add(v);
+
+            if (ModsConfig.AnomalyActive && pawn.IsMutant)
+                foreach (var v in pawn.mutant.AllVerbs)
+                    if (v.IsMeleeAttack && v.IsStillUsableBy(pawn))
+                        usableVerbs.Add(v);
         }
     }
 
