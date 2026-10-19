@@ -102,6 +102,17 @@ public struct SessionDisconnectInfo
             descKey = "MpChangeUsernameInfo";
         }
 
+        // The server's joining or loading state threw (#797); the details are only in the server's log
+        if (reason == MpDisconnectReason.StateException)
+        {
+            disconnectInfo.titleTranslated = "MpServerStateException".TryTranslate(out var title)
+                ? title
+                : "Server error while joining";
+            disconnectInfo.descTranslated = "MpServerStateExceptionDesc".TryTranslate(out var desc)
+                ? desc
+                : "See the host's log (or the standalone server's log) for the error.";
+        }
+
         if (reason == MpDisconnectReason.ServerClosed) titleKey = "MpServerClosed";
         if (reason == MpDisconnectReason.ServerFull) titleKey = "MpServerFull";
         if (reason == MpDisconnectReason.ServerStarting) titleKey = "MpDisconnectServerStarting";
