@@ -140,9 +140,6 @@ namespace Multiplayer.Client.Networking
         {
             var playerManager = server.playerManager;
 
-            // Closed here rather than on a timer so that it can't race a reconnect handled below
-            SteamP2PIntegration.CloseDueSessions(remote => FindPlayer(remote) != null);
-
             foreach (var packet in SteamP2PIntegration.ReadPackets(0))
             {
                 var player = FindPlayer(packet.remote);
@@ -192,6 +189,10 @@ namespace Multiplayer.Client.Networking
                     ServerLog.Verbose($"Received a data packet from {packet.remote}, who has no connection");
                 }
             }
+
+            // Closed here rather than on a timer so that it can't race a reconnect, and after reading the packets so
+            // that a reconnect's join packet already waiting on the session cancels the close first
+            SteamP2PIntegration.CloseDueSessions(remote => FindPlayer(remote) != null);
         }
 
         private ServerPlayer FindPlayer(CSteamID remote) =>
