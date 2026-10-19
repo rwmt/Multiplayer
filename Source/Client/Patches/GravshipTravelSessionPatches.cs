@@ -158,14 +158,46 @@ namespace Multiplayer.Client.Patches
         }
     }
 
+    /// <summary>
+    /// PlaceGravship (spawning the ship, clearing what's under it, recounting) runs in a long event queued from a
+    /// render callback of the landing cutscene, so outside of any tick or command and with the interface's time and
+    /// RNG. Run it in the landing map's context, like a command of that map (its time, random state and faction;
+    /// PlaceGravship_FactionContext_Patch pushes the gravship's faction inside it), and afterwards update what a
+    /// command updates. In MP MapUpdate doesn't do that (see AsyncTimeComp.UpdateManagers), which left the ship's
+    /// lights off (#635).
+    /// All clients reach this point after the same command (SyncBeginLanding) and the landing map stays paused by its
+    /// GravshipTravelSession meanwhile. The camera pan before the long event takes a second, by which time the cutscene
+    /// freeze sent by the host normally has stopped every client at the same tick. That isn't guaranteed (no host on
+    /// a standalone server, a client lagging by over a second): making the placement a command would need the
+    /// cutscene's callback chain to wait for it.
+    /// </summary>
     [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.PlaceGravship))]
-    public static class PatchPlaceGravshipToUpdateSystemsAfterTheySpawn
+    public static class PatchPlaceGravshipInMapContext
     {
-        static void Postfix(Map map)
+        [HarmonyPriority(MpPriority.MpFirst)]
+        static void Prefix(Map map, out int __state)
         {
-            if (Multiplayer.Client == null) return;
+            __state = -1;
+            if (Multiplayer.Client == null || Multiplayer.Ticking || Multiplayer.ExecutingCmds) return;
+            if (map?.AsyncTime() is not { } comp) return;
 
-            map.glowGrid.GlowGridUpdate_First();
+            __state = Rand.stateStack.Count;
+            comp.PreContext();
+        }
+
+        static void Postfix(Map map, int __state)
+        {
+            if (__state >= 0)
+                map.AsyncTime().UpdateManagers();
+        }
+
+        [HarmonyPriority(MpPriority.MpLast)]
+        static void Finalizer(Map map, int __state)
+        {
+            if (__state < 0) return;
+
+            AsyncTimeComp.RestoreRandStack(__state + 1, nameof(WorldComponent_GravshipController.PlaceGravship));
+            map.AsyncTime().PostContext();
         }
     }
 

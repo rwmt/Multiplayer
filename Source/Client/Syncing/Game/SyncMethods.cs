@@ -468,7 +468,8 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(Building_BioferriteHarvester), nameof(Building_BioferriteHarvester.GetGizmos), 1); // Toggle unload
             SyncMethod.Lambda(typeof(Building_BioferriteHarvester), nameof(Building_BioferriteHarvester.GetGizmos), 3).SetDebugOnly(); // Dev add +1
 
-            SyncMethod.Register(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.PlaceGravship));
+            // Not PlaceGravship: it runs in a long event on every client (see PatchPlaceGravshipInMapContext), where it
+            // never synced, and as a command it couldn't be read anyway (the gravship isn't a world object then)
             SyncMethod.Register(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.AbortLanding)).SetContext(SyncContext.CurrentMap);
 
             // Outfit stand
