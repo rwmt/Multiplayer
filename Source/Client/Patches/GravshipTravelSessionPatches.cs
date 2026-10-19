@@ -116,11 +116,15 @@ namespace Multiplayer.Client.Patches
     [HarmonyPatch(typeof(GravshipLandingMarker), nameof(GravshipLandingMarker.BeginLanding))]
     public static class PatchBeginLandingToSyncWithClients
     {
+        // The marker this client just confirmed, see KeepLandingMarkerUntilSyncedLanding
+        internal static GravshipLandingMarker confirmedLocally;
+
         static bool Prefix(GravshipLandingMarker __instance)
         {
             if (Multiplayer.Client == null) return true;
             if (Multiplayer.ExecutingCmds) return true;
 
+            confirmedLocally = __instance;
             SyncBeginLanding(__instance);
 
             return false;
@@ -131,7 +135,12 @@ namespace Multiplayer.Client.Patches
         {
             var gravshipController = Find.GravshipController;
 
-            if (landingMarker == null || landingMarker.Tile == null)
+            // Already landing: the confirm button stays usable until this command executes, so it can be sent twice
+            // (the destroyed marker then reads as null)
+            if (landingMarker == null || landingMarker.Destroyed)
+                return;
+
+            if (landingMarker.Tile == null)
             {
                 MpLog.Error($"[MP] SyncConfirmGravshipLanding: Marker [{landingMarker != null}] Tile [{landingMarker?.Tile != null}].");
                 return;
@@ -143,6 +152,27 @@ namespace Multiplayer.Client.Patches
 
             if (!TickPatch.currentExecutingCmdIssuedBySelf)
                 SoundDefOf.Gravship_Land.PlayOneShotOnCamera();
+        }
+    }
+
+    /// <summary>
+    /// Vanilla's confirm landing button (WorldComponentOnGUI) clears the controller's landingMarker right after
+    /// BeginLanding, which MP turns into a command. Until that command executes, the confirming client would be the only
+    /// one without a landing confirmation in progress: a join point wouldn't restore its landing session, the move
+    /// designator's sync worker and AbortLanding would fail there only. Keep the field until the synced landing.
+    /// </summary>
+    [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.WorldComponentOnGUI))]
+    public static class KeepLandingMarkerUntilSyncedLanding
+    {
+        static void Prefix() => PatchBeginLandingToSyncWithClients.confirmedLocally = null;
+
+        static void Finalizer(WorldComponent_GravshipController __instance)
+        {
+            var marker = PatchBeginLandingToSyncWithClients.confirmedLocally;
+            PatchBeginLandingToSyncWithClients.confirmedLocally = null;
+
+            if (Multiplayer.Client != null && marker is { Destroyed: false } && __instance.landingMarker == null)
+                __instance.landingMarker = marker;
         }
     }
 
