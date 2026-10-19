@@ -673,7 +673,7 @@ namespace Multiplayer.Client
             {
                 (SyncWorker sync, ref Designator_MoveGravship moveGravship) => {
                     if (sync.isWriting)
-                        sync.Write(moveGravship.marker.GravshipRotation);
+                        sync.Write(moveGravship.marker?.GravshipRotation ?? Rot4.North);
                     else
                     {
                         var rot = sync.Read<Rot4>();
@@ -681,11 +681,20 @@ namespace Multiplayer.Client
                         var gravController = Find.GravshipController;
                         var marker = gravController.landingMarker;
 
-                        if (marker != null)
-                            marker.GravshipRotation = rot;
+                        // The landing was confirmed or aborted before this command, the same on every client
+                        if (marker == null)
+                        {
+                            moveGravship = null;
+                            return;
+                        }
 
-                        moveGravship = gravController.moveDesignator;
-                        moveGravship.deselectedRotation = moveGravship.marker.GravshipRotation;
+                        marker.GravshipRotation = rot;
+
+                        // Not the moveDesignator field: the landing UI creates it lazily when drawn, which it isn't on
+                        // clients viewing the world or in screenshot mode, or right after loading. The command
+                        // failed there and the landing marker (and so the landing spot) differed between clients.
+                        moveGravship = gravController.MoveDesignator();
+                        moveGravship.deselectedRotation = rot;
                     }
                 }, true, false
             },

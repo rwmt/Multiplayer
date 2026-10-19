@@ -515,6 +515,10 @@ namespace Multiplayer.Client
             var mode = SyncSerialization.ReadSync<DesignatorMode>(data);
             var designator = SyncSerialization.ReadSync<Designator>(data);
 
+            // A sync worker returns null when its designator's target is gone (e.g. Designator_MoveGravship after the
+            // landing), which is the same on every client
+            if (designator == null) return;
+
             try
             {
                 if (!SetState(designator)) return;
