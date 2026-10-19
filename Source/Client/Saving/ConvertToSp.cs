@@ -30,13 +30,11 @@ public class ConvertToSp
         var spectator = Multiplayer.WorldComp.spectatorFaction;
         if (spectator != null)
         {
-            // Destination reservations are keyed by faction and saved as references, an entry for the
-            // spectator (created e.g. in its simulation context) would be a dangling reference in the save
-            foreach (var map in Find.Maps)
-                map.pawnDestinationReservationManager.Notify_FactionRemoved(spectator);
-
-            spectator.RemoveAllRelations();
-            Find.FactionManager.allFactions.Remove(spectator);
+            // Vanilla's removal clears what refers to the faction (relations, its pawns, destination reservations,
+            // listers, letters, play log, quests, ideos, tales, map events) so the save has no dangling references.
+            // It only accepts temporary factions.
+            spectator.temporary = true;
+            Find.FactionManager.Remove(spectator);
         }
     }
 
