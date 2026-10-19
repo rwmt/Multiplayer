@@ -55,6 +55,10 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         set => timeSpeedInt = value;
     }
 
+    // Without async time: the speed last set for the whole game (SetTimeEverywhere), unlike DesiredTimeSpeed not
+    // derived from the maps
+    public TimeSpeed GlobalTimeSpeed => timeSpeedInt;
+
     public Queue<ScheduledCommand> Cmds => cmds;
     public Queue<ScheduledCommand> cmds = new();
 

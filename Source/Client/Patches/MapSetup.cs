@@ -73,8 +73,12 @@ public static class MapSetup
             startingTimeSpeed = TimeSpeed.Paused;
         }
 
+        // TickManager.CurTimeSpeed is the speed of the last context entered: a pausing letter earlier in the same world
+        // tick doesn't change it, and the new map would then unpause the game
         if (!Multiplayer.GameComp.asyncTime)
-            startingTimeSpeed = Find.TickManager.CurTimeSpeed;
+            startingTimeSpeed = !usingMapTimeFromSingleplayer && Multiplayer.AsyncWorldTime is { } world
+                ? world.GlobalTimeSpeed
+                : Find.TickManager.CurTimeSpeed;
 
         var asyncTimeCompForMap = new AsyncTimeComp(map, gameStartAbsTick)
         {
