@@ -76,11 +76,28 @@ public class PsychicRitualSession : SemiPersistentSession, ISessionWithCreationR
     private void StartWithAssignments(MpPsychicRitualAssignments startingAssignments)
     {
         if (startingAssignments != null)
-            MpUtil.ShallowCopy<PsychicRitualRoleAssignments, MpPsychicRitualAssignments>(startingAssignments, assignments);
+            ApplyStartingAssignments(startingAssignments, assignments);
 
         Remove();
         ritual.MakeNewLord(assignments);
         Find.PsychicRitualManager.RegisterCooldown(ritual);
+    }
+
+    // Only what the role selection widgets change, the rest (target, forced assignments) stays from the live object.
+    // Pawns which didn't resolve were already removed by ExposeData's PostLoadInit, except from the spectators.
+    private static void ApplyStartingAssignments(PsychicRitualRoleAssignments from, PsychicRitualRoleAssignments to)
+    {
+        if (from.roleAssignments != null)
+            to.roleAssignments = from.roleAssignments;
+
+        if (from.pawnAssignments != null)
+            to.pawnAssignments = from.pawnAssignments;
+
+        if (from.spectators != null)
+        {
+            from.spectators.RemoveAll(p => p == null);
+            to.spectators = from.spectators;
+        }
     }
 
     public void OpenWindow(bool sound = true)
