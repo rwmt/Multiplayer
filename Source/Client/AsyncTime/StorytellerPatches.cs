@@ -122,7 +122,8 @@ public class QuestPartsListForReadingPatch
 {
     static void Postfix(ref List<QuestPart> __result)
     {
-        if (StorytellerTickPatch.updating)
+        // The storyteller prefix also sets the flag in single player, where there is no map context
+        if (Multiplayer.Client != null && StorytellerTickPatch.updating)
         {
             __result = __result.Where(questPart => {
                 if (questPart is QuestPart_ThreatsGenerator questPartThreatsGenerator)
