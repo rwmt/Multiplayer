@@ -124,21 +124,36 @@ public class ServerTest
         var server = MakeServer(out var port, s =>
         {
             s.IsStandaloneServer = true;
+            // Everything a hosted server would need to start a join point on join
+            s.settings.autoJoinPoint = AutoJoinPointFlags.Join;
 
             var existingConn = new RecordingConnection("existing");
             existingConn.ChangeState(ConnectionStateEnum.ServerPlaying);
-            var existingPlayer = new ServerPlayer(100, existingConn);
+            var existingPlayer = new ServerPlayer(100, existingConn) { hasJoined = true, status = PlayerStatus.Playing };
             existingConn.serverPlayer = existingPlayer;
             s.playerManager.Players.Add(existingPlayer);
         });
 
         ConnectClient(port, typeof(TestJoiningState));
 
-        // The existing player alone makes the count 1: wait for the client to come and go
-        WaitUntil(() => server.playerManager.Players.Count == 2);
-        WaitUntil(() => server.playerManager.Players.Count == 1);
+        // The client leaving would abort a started join point, but its command stays in the log
+        bool JoinPointStarted() => OnServerThread(server, () => server.worldData.cmds
+            .Any(raw => ScheduledCommand.Deserialize(new ByteReader(raw)).type == CommandType.CreateJoinPoint));
 
-        Assert.That(server.worldData.CreatingJoinPoint, Is.False);
+        // The existing player alone makes the count 1: wait for the client to come and go (with a join point, it
+        // would wait for it instead)
+        WaitUntil(() => server.playerManager.Players.Count == 2);
+        WaitUntil(() => server.playerManager.Players.Count == 1 || JoinPointStarted());
+
+        Assert.That(JoinPointStarted(), Is.False);
+    }
+
+    private static T OnServerThread<T>(MultiplayerServer server, Func<T> func)
+    {
+        var result = new TaskCompletionSource<T>();
+        server.Enqueue(() => result.SetResult(func()));
+        Assert.That(result.Task.Wait(2000), Is.True, "The server thread didn't run the action");
+        return result.Task.Result;
     }
 
     private void ConnectClient(int port, Type joiningStateType)
