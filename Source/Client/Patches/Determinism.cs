@@ -51,8 +51,10 @@ namespace Multiplayer.Client.Patches
         static bool Cancel => Multiplayer.Client != null && Multiplayer.InInterface;
 
         // The melee gizmo of every selected drafted pawn and pawn rendering ask for a melee verb several times per frame
-        // (#308), so interface answers are cached for the current frame
+        // (#308), so interface answers are cached for the current frame and tick (ticks run between UI updates of a
+        // frame)
         private static int cacheFrame = -1;
+        private static int cacheTick = -1;
         private static readonly Dictionary<(Pawn_MeleeVerbs, Thing), Verb> cache = new();
         private static readonly List<Verb> usableVerbs = new();
 
@@ -66,9 +68,10 @@ namespace Multiplayer.Client.Patches
         {
             if (!Cancel) return;
 
-            if (cacheFrame != Time.frameCount)
+            if (cacheFrame != Time.frameCount || cacheTick != TickPatch.Timer)
             {
                 cacheFrame = Time.frameCount;
+                cacheTick = TickPatch.Timer;
                 cache.Clear();
             }
 
@@ -87,19 +90,27 @@ namespace Multiplayer.Client.Patches
             var pawn = meleeVerbs.pawn;
             var cur = meleeVerbs.curMeleeVerb;
 
-            if (cur != null && cur.IsStillUsableBy(pawn) && UsableOn(cur, target))
-                return cur;
-
-            // Same result as the first VerbEntry with a non-zero selection weight, without building VerbEntries:
-            // their constructor calls VerbUtility.FinalSelectionWeight, which iterates all verbs (O(n²))
+            // Without building VerbEntries: their constructor calls VerbUtility.FinalSelectionWeight, which iterates
+            // all verbs (O(n²)). A verb has a non-zero VerbEntry selection weight when it isn't in the Worst category.
             try
             {
                 CollectUsableMeleeVerbs(pawn);
 
+                // Like vanilla's comparison, ignores NaN weights
                 float highestWeight = 0f;
                 foreach (var v in usableVerbs)
-                    highestWeight = Math.Max(highestWeight, VerbUtility.InitialVerbWeight(v, pawn));
+                {
+                    float weight = VerbUtility.InitialVerbWeight(v, pawn);
+                    if (weight > highestWeight)
+                        highestWeight = weight;
+                }
 
+                // Prefer the verb the simulation chose last
+                if (cur != null && cur.IsStillUsableBy(pawn) && UsableOn(cur, target) &&
+                    cur.GetSelectionCategory(pawn, highestWeight) != VerbSelectionCategory.Worst)
+                    return cur;
+
+                // Otherwise the same result as the first VerbEntry with a non-zero selection weight
                 foreach (var v in usableVerbs)
                     if (v.GetSelectionCategory(pawn, highestWeight) != VerbSelectionCategory.Worst && UsableOn(v, target))
                         return v;
@@ -113,7 +124,7 @@ namespace Multiplayer.Client.Patches
             return meleeVerbs.GetUpdatedAvailableVerbsList(false).FirstOrDefault(ve => ve.GetSelectionWeight(target) != 0).verb;
         }
 
-        // Mirrors VerbEntry.GetSelectionWeight being non-zero for a verb that isn't in the Worst category
+        // The target-dependent part of VerbEntry.GetSelectionWeight being non-zero
         private static bool UsableOn(Verb v, Thing target) =>
             v.IsUsableOn(target) && (target?.def?.IsEdifice() != true || v.verbProps.commonalityVsEdificeFactor != 0f);
 
