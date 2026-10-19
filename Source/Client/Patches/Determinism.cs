@@ -816,13 +816,28 @@ namespace Multiplayer.Client.Patches
         }
     }
 
-    // FastTileFinder.ComputeQueryJob uses Interlocked.Increment to race-fill a 50-slot result array
-    // across parallel Unity Job batches. Thread scheduling differs between machines, so clients get
-    // different candidate tile sets. Force single-batch execution in MP so tiles are processed in
-    // tileId order, making the first 50 valid tiles consistent across all clients.
-    [HarmonyPatch(typeof(FastTileFinder), nameof(FastTileFinder.Query))]
+    // FastTileFinder.ComputeQueryJob runs in parallel Unity Job batches: Query race-fills a 50-slot result array with
+    // Interlocked.Increment and Closest keeps a closest tile per worker thread, ties going to the lower thread index
+    // (#648). Thread scheduling differs between machines, so clients got different tiles. Force single-batch execution
+    // in MP so tiles are processed in tileId order: the first 50 valid tiles and the first of equally close ones.
+    [HarmonyPatch]
     static class FastTileFinderQueryDeterminismPatch
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(FastTileFinder), nameof(FastTileFinder.Query));
+            yield return AccessTools.Method(typeof(FastTileFinder), nameof(FastTileFinder.Closest));
+        }
+
+        // Query and Closest reuse their last result for the same parameters until a tile changes, but they share the
+        // flag: a call made only by one client's interface could make the simulation reuse a result from before a
+        // tile change. Always recompute in the simulation.
+        static void Prefix(FastTileFinder __instance)
+        {
+            if (Multiplayer.Client != null && !Multiplayer.InInterface)
+                __instance.tileChangedSinceQuery = true;
+        }
+
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {
             var getIdealBatchCount = AccessTools.Method(typeof(UnityData), nameof(UnityData.GetIdealBatchCount));
