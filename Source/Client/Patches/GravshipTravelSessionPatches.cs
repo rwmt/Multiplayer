@@ -488,9 +488,7 @@ namespace Multiplayer.Client.Patches
             GravshipCutsceneSync.SyncedEndExecuting();
             GravshipTravelUtils.CloseSessionAt(__instance.gravship.destinationTile);
 
-            // LandingEnded calls Find.TickManager.CurTimeSpeed = TimeSpeed.Normal, but that doesn't work in MP as we
-            // have our own way of changing the map speed.
-            map.AsyncTime().DesiredTimeSpeed = TimeSpeed.Normal;
+            SetNormalSpeedAfterLanding(map);
 
             // Forced: the command's faction (whichever player's end command came first) may already be the gravship's
             if (Multiplayer.GameComp.multifaction && __instance.gravship.Faction is { } faction)
@@ -508,6 +506,17 @@ namespace Multiplayer.Client.Patches
 
             if (__state.randPushed)
                 Rand.PopState();
+        }
+
+        // LandingEnded sets Find.TickManager.CurTimeSpeed = TimeSpeed.Normal, which MP overrides with its own speeds.
+        // Without async time all tickables share one speed (like a time speed command sets it), otherwise only the
+        // landing map's is changed.
+        internal static void SetNormalSpeedAfterLanding(Map map)
+        {
+            if (Multiplayer.GameComp.asyncTime)
+                map.AsyncTime().DesiredTimeSpeed = TimeSpeed.Normal;
+            else
+                Multiplayer.AsyncWorldTime.SetTimeEverywhere(TimeSpeed.Normal);
         }
     }
     #endregion
