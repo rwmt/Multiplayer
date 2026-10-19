@@ -297,4 +297,57 @@ namespace Multiplayer.Client.Patches
         }
     }
 
+    // Extended camera shakes (CameraShaker.DoShake(mag, durationTicks)) store TicksGame when requested and
+    // CameraShaker.Update compares it with TicksGame again. Under async time these can be different clocks: a map's
+    // when requested in its tick or command, the world's in the interface. A shake requested on a map ahead of the
+    // world went on until the world caught up, possibly for good (#696). In MP both use TickPatch.Timer instead: it's
+    // the same for every map and the world, and stops while the gravship cutscenes freeze the game, like TicksGame does
+    // in a vanilla landing (paused). Camera shake is local UI, nothing in the simulation reads it.
+    [HarmonyPatch(typeof(ExtendedShakeRequest), MethodType.Constructor, typeof(float), typeof(int))]
+    static class ExtendedShakeRequestUsesTimer
+    {
+        static void Postfix(ExtendedShakeRequest __instance)
+        {
+            if (Multiplayer.Client != null)
+                __instance.startTick = TickPatch.Timer;
+        }
+    }
+
+    [HarmonyPatch(typeof(CameraShaker), nameof(CameraShaker.Update))]
+    static class CameraShakerUpdateUsesTimer
+    {
+        private static readonly MethodInfo TicksGameGetter =
+            AccessTools.PropertyGetter(typeof(TickManager), nameof(TickManager.TicksGame));
+
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            foreach (var inst in insts)
+            {
+                // Consumes the TickManager instance like the getter
+                if (inst.Calls(TicksGameGetter))
+                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(CameraShakerUpdateUsesTimer), nameof(ShakeClock))).MoveLabelsFrom(inst);
+                else
+                    yield return inst;
+            }
+        }
+
+        static int ShakeClock(TickManager tickManager) =>
+            Multiplayer.Client != null ? TickPatch.Timer : tickManager.TicksGame;
+    }
+
+    // The requests are saved with the camera. Ones from a save which used TicksGame (or with a later timer) would
+    // otherwise last until the timer reaches their start.
+    [HarmonyPatch(typeof(CameraShaker), nameof(CameraShaker.Expose))]
+    static class CameraShakerLoadClampsToTimer
+    {
+        static void Postfix(CameraShaker __instance)
+        {
+            if (Multiplayer.Client == null || Scribe.mode != LoadSaveMode.LoadingVars) return;
+
+            foreach (var request in __instance.extendedShakeRequests)
+                if (request != null && request.startTick > TickPatch.Timer)
+                    request.startTick = TickPatch.Timer;
+        }
+    }
+
 }

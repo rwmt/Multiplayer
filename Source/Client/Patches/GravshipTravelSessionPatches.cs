@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using HarmonyLib;
 using Multiplayer.API;
@@ -116,26 +117,55 @@ namespace Multiplayer.Client.Patches
     [HarmonyPatch(typeof(GravshipLandingMarker), nameof(GravshipLandingMarker.BeginLanding))]
     public static class PatchBeginLandingToSyncWithClients
     {
+        // The marker this client just confirmed, see KeepLandingMarkerUntilSyncedLanding
+        internal static GravshipLandingMarker confirmedLocally;
+
         static bool Prefix(GravshipLandingMarker __instance)
         {
             if (Multiplayer.Client == null) return true;
             if (Multiplayer.ExecutingCmds) return true;
 
-            SyncBeginLanding(__instance);
+            confirmedLocally = __instance;
+            SyncBeginLanding(__instance, __instance.GravshipRotation);
 
             return false;
         }
 
+        // The confirming player's rotation (vanilla only confirms without the move designator selected, so it's the
+        // last designated one): other players may still have the designator selected, and rotating its preview
+        // changes the marker's, and so the gravship's, rotation locally. BeginLanding lands with it.
         [SyncMethod]
-        public static void SyncBeginLanding(GravshipLandingMarker landingMarker)
+        public static void SyncBeginLanding(GravshipLandingMarker landingMarker, Rot4 rotation)
         {
             var gravshipController = Find.GravshipController;
 
-            if (landingMarker == null || landingMarker.Tile == null)
+            // Already landing: the confirm button stays usable until this command executes, so it can be sent twice
+            // (the destroyed marker then reads as null)
+            if (landingMarker == null || landingMarker.Destroyed)
+                return;
+
+            if (landingMarker.Tile == null)
             {
                 MpLog.Error($"[MP] SyncConfirmGravshipLanding: Marker [{landingMarker != null}] Tile [{landingMarker?.Tile != null}].");
                 return;
             }
+
+            // Deselect the designator everywhere: rotating its preview during the cutscene would change the rotation
+            // PlaceGravship places the ship with. Before setting the rotation, Deselected restores its own one.
+            if (Find.DesignatorManager.SelectedDesignator is Designator_MoveGravship)
+            {
+                CancelDesignatorDeselection.EnableCanceling();
+                try
+                {
+                    Find.DesignatorManager.Deselect();
+                }
+                finally
+                {
+                    CancelDesignatorDeselection.DisableCanceling();
+                }
+            }
+
+            landingMarker.GravshipRotation = rotation;
 
             gravshipController.landingMarker = landingMarker;
             landingMarker.BeginLanding(gravshipController);
@@ -146,26 +176,137 @@ namespace Multiplayer.Client.Patches
         }
     }
 
-    [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.AbortLanding))]
-    public static class PatchAbortLandingToCloseSession
+    /// <summary>
+    /// Vanilla's confirm landing button (WorldComponentOnGUI) clears the controller's landingMarker right after
+    /// BeginLanding, which MP turns into a command. Until that command executes, the confirming client would be the only
+    /// one without a landing confirmation in progress: a join point wouldn't restore its landing session, the move
+    /// designator's sync worker and AbortLanding would fail there only. Keep the field until the synced landing.
+    /// </summary>
+    [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.WorldComponentOnGUI))]
+    public static class KeepLandingMarkerUntilSyncedLanding
     {
-        static void Prefix(WorldComponent_GravshipController __instance, ref bool __state)
-        {
-            if (Multiplayer.Client == null) return;
-            if (!Multiplayer.ExecutingCmds) return;
+        static void Prefix() => PatchBeginLandingToSyncWithClients.confirmedLocally = null;
 
-            GravshipTravelUtils.CloseSessionAt(__instance.landingTile);
+        static void Finalizer(WorldComponent_GravshipController __instance)
+        {
+            var marker = PatchBeginLandingToSyncWithClients.confirmedLocally;
+            PatchBeginLandingToSyncWithClients.confirmedLocally = null;
+
+            if (Multiplayer.Client != null && marker is { Destroyed: false } && __instance.landingMarker == null)
+                __instance.landingMarker = marker;
         }
     }
 
-    [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.PlaceGravship))]
-    public static class PatchPlaceGravshipToUpdateSystemsAfterTheySpawn
+    [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.AbortLanding))]
+    public static class PatchAbortLandingToCloseSession
     {
-        static void Postfix(Map map)
+        static bool Prefix(WorldComponent_GravshipController __instance)
         {
-            if (Multiplayer.Client == null) return;
+            if (Multiplayer.Client == null) return true;
+            if (!Multiplayer.ExecutingCmds) return true;
 
-            map.glowGrid.GlowGridUpdate_First();
+            // The landing began (or the ship was already redirected to a new map) before this command, e.g. another
+            // player confirmed meanwhile or the abort dialog was left open. Closing the session would unpause the
+            // landing map mid-landing and vanilla would throw (no landing marker or landing map).
+            if (!__instance.LandingAreaConfirmationInProgress || __instance.landingMap == null)
+                return false;
+
+            GravshipTravelUtils.CloseSessionAt(__instance.landingTile);
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// PlaceGravship (spawning the ship, clearing what's under it, recounting) runs in a long event queued from a
+    /// render callback of the landing cutscene, so outside of any tick or command and with the interface's time and
+    /// RNG. Run it in the landing map's context, like a command of that map (its time, random state and faction;
+    /// PlaceGravship_FactionContext_Patch pushes the gravship's faction inside it), and afterwards update what a
+    /// command updates. In MP MapUpdate doesn't do that (see AsyncTimeComp.UpdateManagers), which left the ship's
+    /// lights off (#635).
+    /// All clients reach this point after the same command (SyncBeginLanding) and the landing map stays paused by its
+    /// GravshipTravelSession meanwhile. The camera pan before the long event takes a second, by which time the cutscene
+    /// freeze sent by the host normally has stopped every client at the same tick. That isn't guaranteed (no host on
+    /// a standalone server, a client lagging by over a second): making the placement a command would need the
+    /// cutscene's callback chain to wait for it.
+    /// </summary>
+    [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.PlaceGravship))]
+    public static class PatchPlaceGravshipInMapContext
+    {
+        [HarmonyPriority(MpPriority.MpFirst)]
+        static void Prefix(Map map, out int __state)
+        {
+            __state = -1;
+            if (Multiplayer.Client == null || Multiplayer.Ticking || Multiplayer.ExecutingCmds) return;
+            if (map?.AsyncTime() is not { } comp) return;
+
+            __state = Rand.stateStack.Count;
+            comp.PreContext();
+        }
+
+        static void Postfix(Map map, int __state)
+        {
+            if (__state >= 0)
+                map.AsyncTime().UpdateManagers();
+        }
+
+        [HarmonyPriority(MpPriority.MpLast)]
+        static void Finalizer(Map map, int __state)
+        {
+            if (__state < 0) return;
+
+            AsyncTimeComp.RestoreRandStack(__state + 1, nameof(WorldComponent_GravshipController.PlaceGravship));
+            map.AsyncTime().PostContext();
+        }
+    }
+
+    /// <summary>
+    /// The takeoff counterpart of PatchPlaceGravshipInMapContext: the long event queued from the gravship capture's
+    /// callback (OnGravshipCaptureComplete) removes the gravship from the takeoff map, creating its world object, and
+    /// rebuilds the map's vacuum data. Run it in the takeoff map's context as well
+    /// (RemoveGravshipFromMap_Patch pushes the gravship's faction inside it).
+    /// </summary>
+    [HarmonyPatch]
+    public static class PatchGravshipRemovalInMapContext
+    {
+        static MethodBase TargetMethod()
+        {
+            // The only lambda of OnGravshipCaptureComplete calling RemoveGravshipFromMap
+            var removeGravship = AccessTools.Method(typeof(WorldComponent_GravshipController),
+                nameof(WorldComponent_GravshipController.RemoveGravshipFromMap));
+            var lambdaPrefix = $"<{nameof(WorldComponent_GravshipController.OnGravshipCaptureComplete)}>";
+
+            return typeof(WorldComponent_GravshipController).GetNestedTypes(AccessTools.all)
+                .SelectMany(t => t.GetDeclaredMethods())
+                .Where(m => m.Name.StartsWith(lambdaPrefix))
+                .First(m => PatchProcessor.ReadMethodBody(m).Any(i => i.Value as MethodInfo == removeGravship));
+        }
+
+        [HarmonyPriority(MpPriority.MpFirst)]
+        static void Prefix(out (Map map, int randDepth) __state)
+        {
+            __state = (null, -1);
+            if (Multiplayer.Client == null || Multiplayer.Ticking || Multiplayer.ExecutingCmds) return;
+
+            // The takeoff map, set by InitiateTakeoff
+            var map = Find.GravshipController?.map;
+            if (map?.AsyncTime() is not { } comp) return;
+
+            __state = (map, Rand.stateStack.Count);
+            comp.PreContext();
+        }
+
+        static void Postfix((Map map, int randDepth) __state)
+        {
+            __state.map?.AsyncTime().UpdateManagers();
+        }
+
+        [HarmonyPriority(MpPriority.MpLast)]
+        static void Finalizer((Map map, int randDepth) __state)
+        {
+            if (__state.map == null) return;
+
+            AsyncTimeComp.RestoreRandStack(__state.randDepth + 1, nameof(WorldComponent_GravshipController.RemoveGravshipFromMap));
+            __state.map.AsyncTime().PostContext();
         }
     }
 
@@ -208,6 +349,7 @@ namespace Multiplayer.Client.Patches
         // Local state of this client
         private static bool endRequested;
         private static bool frozen;
+        private static MultiplayerSession frozenSession; // The connection the freeze was sent on
 
         public static bool EndRequested => endRequested && pending != Cutscene.None;
 
@@ -226,6 +368,7 @@ namespace Multiplayer.Client.Patches
             endRequested = false;
 
             frozen = true;
+            frozenSession = Multiplayer.session;
             GravshipTravelUtils.StartFreeze();
         }
 
@@ -234,7 +377,11 @@ namespace Multiplayer.Client.Patches
             if (!frozen) return;
 
             frozen = false;
-            GravshipTravelUtils.StopFreeze();
+
+            // A freeze sent on an earlier connection (disconnected or rejoined since) ended with it
+            if (frozenSession == Multiplayer.session)
+                GravshipTravelUtils.StopFreeze();
+            frozenSession = null;
         }
 
         private static bool IsPending(bool takeoff) =>
@@ -284,6 +431,59 @@ namespace Multiplayer.Client.Patches
             Unfreeze();
         }
 
+        /// <summary>
+        /// Vanilla can't finish a cutscene without its gravship, which nothing saves while it's neither on a map nor a
+        /// world object: a join point during a cutscene (e.g. right after the unfreeze, before the synced end) loses
+        /// it, and a catching-up joiner can execute the landing's end before its own PlaceGravship ran. TakeoffEnded
+        /// (after abandoning the map) and LandingEnded would throw and leave the game in the cutscene for good (no
+        /// world map, no saving, the map paused). End the cutscene without the gravship instead, which is lost.
+        /// After loading this runs the same way on every client (the gravship is gone everywhere). From the synced end
+        /// command it only runs on clients whose own rendering hasn't removed or placed the gravship yet (the arbiter
+        /// never renders, a lagging or catching-up joiner): they already differ from the others, this just replaces
+        /// the exception and the never ending cutscene there.
+        /// </summary>
+        public static void EndWithoutGravship(WorldComponent_GravshipController controller, bool takeoff)
+        {
+            Log.Warning($"MP: Gravship {(takeoff ? "takeoff" : "landing")} ended without its gravship (lost by a reload during the cutscene or not placed here yet)");
+
+            pending = Cutscene.None;
+            endRequested = false;
+            Unfreeze();
+
+            var map = controller.map;
+            if (takeoff)
+            {
+                GravshipTravelUtils.CloseSessionAt(controller.takeoffTile);
+            }
+            else
+            {
+                GravshipTravelUtils.CloseSessionAt(map?.Tile ?? controller.landingTile);
+                if (map != null)
+                    PatchGravshipLandingEnded.SetNormalSpeedAfterLanding(map);
+                controller.moveDesignator = null;
+                Current.Game.Gravship = null;
+            }
+
+            controller.map = null;
+            controller.ResetCutscene();
+        }
+
+        // Called at the same point of every load
+        public static void AfterLoading(WorldComponent_GravshipController controller)
+        {
+            if (pending == Cutscene.None)
+            {
+                // Left over from a cutscene of an earlier connection (e.g. rejoining after it ended)
+                endRequested = false;
+                Unfreeze();
+            }
+            else if (controller.gravship == null)
+            {
+                // A cutscene in progress can't continue (its gravship isn't saved) and nobody would end it
+                EndWithoutGravship(controller, pending == Cutscene.Takeoff);
+            }
+        }
+
         [SyncMethod]
         public static void SyncTakeoffEnded()
         {
@@ -323,6 +523,35 @@ namespace Multiplayer.Client.Patches
         static void Postfix() => GravshipCutsceneSync.ExposeData();
     }
 
+    /// <summary>
+    /// GravshipTravelSession isn't saved, so every reload (all clients reload at a join point) and every joiner lost
+    /// the pause of the landing map while the players choose where to land, which can take a while. Vanilla saves the
+    /// landing confirmation state (the landing marker), so recreate the session from it after loading. This runs at
+    /// the same point of every load on every client and joiner, so they all get the same session (and session id).
+    /// The takeoff side (prelaunch dialog and destination picker) isn't restored: it's UI which a reload closes, so a
+    /// restored session would keep the map paused with no way to continue or cancel. A cutscene in progress can't
+    /// be resumed after loading (its gravship isn't saved), so it's ended instead (GravshipCutsceneSync.AfterLoading).
+    /// </summary>
+    [HarmonyPatch(typeof(Game), nameof(Game.LoadGame))]
+    public static class RestoreGravshipLandingSessionOnLoad
+    {
+        static void Postfix()
+        {
+            if (Multiplayer.Client == null || !ModsConfig.OdysseyActive) return;
+
+            var controller = Find.GravshipController;
+            if (controller == null) return;
+
+            GravshipCutsceneSync.AfterLoading(controller);
+
+            if (!controller.LandingAreaConfirmationInProgress) return;
+
+            // The same tile ArriveExistingMap/ArriveNewMap open the session at
+            if (controller.landingMarker.gravship is { } gravship)
+                GravshipTravelUtils.OpenSessionAt(gravship.destinationTile);
+        }
+    }
+
     [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.WorldComponentUpdate))]
     public static class PatchGravshipCutsceneHoldLastFrame
     {
@@ -347,6 +576,12 @@ namespace Multiplayer.Client.Patches
             if (Multiplayer.InInterface)
             {
                 GravshipCutsceneSync.LocalCutsceneEnded(__instance, true);
+                return false;
+            }
+
+            if (__instance.gravship == null)
+            {
+                GravshipCutsceneSync.EndWithoutGravship(__instance, takeoff: true);
                 return false;
             }
 
@@ -387,6 +622,12 @@ namespace Multiplayer.Client.Patches
                 return false;
             }
 
+            if (__instance.gravship == null)
+            {
+                GravshipCutsceneSync.EndWithoutGravship(__instance, takeoff: false);
+                return false;
+            }
+
             var map = __instance.map;
 
             // Normally runs in a command of the landing map which already provides its RNG state (and saves it after).
@@ -401,9 +642,7 @@ namespace Multiplayer.Client.Patches
             GravshipCutsceneSync.SyncedEndExecuting();
             GravshipTravelUtils.CloseSessionAt(__instance.gravship.destinationTile);
 
-            // LandingEnded calls Find.TickManager.CurTimeSpeed = TimeSpeed.Normal, but that doesn't work in MP as we
-            // have our own way of changing the map speed.
-            map.AsyncTime().DesiredTimeSpeed = TimeSpeed.Normal;
+            SetNormalSpeedAfterLanding(map);
 
             // Forced: the command's faction (whichever player's end command came first) may already be the gravship's
             if (Multiplayer.GameComp.multifaction && __instance.gravship.Faction is { } faction)
@@ -421,6 +660,17 @@ namespace Multiplayer.Client.Patches
 
             if (__state.randPushed)
                 Rand.PopState();
+        }
+
+        // LandingEnded sets Find.TickManager.CurTimeSpeed = TimeSpeed.Normal, which MP overrides with its own speeds.
+        // Without async time all tickables share one speed (like a time speed command sets it), otherwise only the
+        // landing map's is changed.
+        internal static void SetNormalSpeedAfterLanding(Map map)
+        {
+            if (Multiplayer.GameComp.asyncTime)
+                map.AsyncTime().DesiredTimeSpeed = TimeSpeed.Normal;
+            else
+                Multiplayer.AsyncWorldTime.SetTimeEverywhere(TimeSpeed.Normal);
         }
     }
     #endregion

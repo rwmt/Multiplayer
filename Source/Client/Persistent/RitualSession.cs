@@ -28,9 +28,19 @@ public class RitualSession : SemiPersistentSession
         map.MpComp().sessionManager.RemoveSession(this);
     }
 
-    [SyncMethod]
-    public void Start()
+    // Called by the starting player's dialog
+    public void Start() => StartWithAssignments(data.assignments);
+
+    // Without Prepatcher the role selection widget's methods aren't synced, so each client may have its own role
+    // assignments by now. The starting player's assignments are sent along and applied on every client (with
+    // Prepatcher they're the same everywhere already).
+    [SyncMethod(exposeParameters = new[] { 0 })]
+    private void StartWithAssignments(MpRitualAssignments startingAssignments)
     {
+        // Into the session's object, which the open dialogs and the assignments' sync worker refer to
+        if (startingAssignments != null)
+            ApplyStartingAssignments(startingAssignments, data.assignments);
+
         // Handle the same stuff as Dialog_BeginGravshipLaunch
         if (data.isGravshipRitual)
         {
@@ -45,6 +55,28 @@ public class RitualSession : SemiPersistentSession
 
         if (data.action != null && data.action(data.assignments))
             Remove();
+    }
+
+    // Only what the role selection widgets change, the rest stays from the live object. E.g. the ritual (and so the
+    // roles) is saved by reference and precepts created during the game (a new ideoligion, a reform) aren't in the
+    // shared cross refs, so they'd read back as null. Pawns which didn't resolve (despawned) are left out.
+    private static void ApplyStartingAssignments(RitualRoleAssignments from, RitualRoleAssignments to)
+    {
+        if (from.assignedRoles != null)
+        {
+            foreach (var pawns in from.assignedRoles.Values)
+                pawns?.RemoveAll(p => p == null);
+            to.assignedRoles = from.assignedRoles;
+        }
+
+        if (from.spectators != null)
+        {
+            from.spectators.RemoveAll(p => p == null);
+            to.spectators = from.spectators;
+        }
+
+        if (from.roleChangeSelection != null)
+            to.roleChangeSelection = from.roleChangeSelection;
     }
 
     public void OpenWindow(bool sound = true)

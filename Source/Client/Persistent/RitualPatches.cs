@@ -115,6 +115,21 @@ namespace Multiplayer.Client.Persistent
         }
     }
 
+    // Ritual gizmos of different ideoligions can be grouped and clicking one also clicks the others in its group first
+    // (GizmoGridDrawer, Gizmo.InheritInteractionsFrom). In SP every one opens its dialog and the clicked one, opened
+    // last, stays. In MP each click syncs, the first command creates the session and the following ones, the clicked
+    // ritual's among them, are rejected, so the wrong ritual opened (#506). UI only, like vanilla's launch gizmos.
+    [HarmonyPatch(typeof(Command_Ritual), MethodType.Constructor,
+        typeof(Precept_Ritual), typeof(TargetInfo), typeof(RitualObligation), typeof(Dictionary<string, Pawn>))]
+    static class RitualGizmoOnlyClickedOne
+    {
+        static void Postfix(Command_Ritual __instance)
+        {
+            if (Multiplayer.Client != null)
+                __instance.alsoClickIfOtherInGroupClicked = false;
+        }
+    }
+
     // Note that cachedRoles is a static field and is only used for UI drawing
     [HarmonyPatch]
     static class DontClearDialogBeginRitualCache

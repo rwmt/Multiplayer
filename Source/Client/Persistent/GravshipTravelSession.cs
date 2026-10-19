@@ -39,7 +39,10 @@ public static class GravshipTravelUtils
 {
     public static void OpenSessionAt(PlanetTile tile)
     {
-        Map map = Find.WorldObjects.MapParentAt(tile).Map;
+        // E.g. ArriveExistingMap without a map at the tile (vanilla logs an error and returns)
+        Map map = Find.WorldObjects.MapParentAt(tile)?.Map;
+        if (map == null)
+            return;
 
         if (HasSessionAt(map.Tile))
             return;

@@ -9,6 +9,7 @@ using System.Threading;
 using HarmonyLib;
 using LiteNetLib;
 using LudeonTK;
+using Multiplayer.Client.Persistent;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using Multiplayer.Common.Util;
@@ -135,6 +136,16 @@ namespace Multiplayer.Client
                 Application.OpenURL(Multiplayer.DiscordLink);
 
             x += 10;
+
+            // Before the note, which then may not fit anymore
+            if (PrepatcherWarning.Show)
+            {
+                var warningWidth = PrepatcherWarning.LabelWidth(GameFont.Small);
+                using (MpStyle.Set(TextAnchor.MiddleLeft))
+                    PrepatcherWarning.DrawLabel(new Rect(x, 0, warningWidth, 24f));
+                x += warningWidth + 15;
+            }
+
             Widgets.Label(new Rect(x, 0, 400, 24), "Note: Multiplayer for 1.6 is a work in progress.");
 
             const string v15Notice =
