@@ -549,7 +549,7 @@ namespace Multiplayer.Client.Patches
             return result;
         }
 
-        private static int TicksGameFor(int ticksGame, Thing thing)
+        internal static int TicksGameFor(int ticksGame, Thing thing)
         {
             if (Multiplayer.Client == null || !Multiplayer.InInterface)
                 return ticksGame;

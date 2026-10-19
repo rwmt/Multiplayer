@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using HarmonyLib;
 using LudeonTK;
 using Multiplayer.Client.AsyncTime;
+using Multiplayer.Client.Patches;
 using Multiplayer.Common;
 using Multiplayer.Common.Networking.Packet;
 using RimWorld.Planet;
@@ -198,7 +199,12 @@ namespace Multiplayer.Client
                 if (target == null)
                 {
                     Log.Error($"!!! Tickable of {cmd.mapId} not found! {cmd}");
-                } else target.ExecuteCmd(cmd);
+                }
+                else
+                {
+                    GravEngineCache.Reset();
+                    target.ExecuteCmd(cmd);
+                }
 
                 if (LongEventHandler.eventQueue.Count > 0) return true; // Yield to e.g. join-point creation
             }
@@ -243,6 +249,7 @@ namespace Multiplayer.Client
                 TickTickable(tickable);
             }
 
+            GravEngineCache.Reset();
             ConstantTicker.Tick();
 
             ticksToRun -= 1;
@@ -270,6 +277,7 @@ namespace Multiplayer.Client
 
                 try
                 {
+                    GravEngineCache.Reset();
                     tickable.Tick();
                 }
                 catch (Exception e)

@@ -203,6 +203,7 @@ namespace Multiplayer.Client.Patches
             current = this;
 
             Rand.PushState(seed);
+            GravEngineCache.Reset();
 
             if (faction != null && game == Multiplayer.game)
             {

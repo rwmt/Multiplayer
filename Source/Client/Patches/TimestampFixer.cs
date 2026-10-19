@@ -14,11 +14,23 @@ public static class TimestampFixer
 {
     delegate ref int FieldGetter<in T>(T obj) where T : IExposable;
 
-    private static Dictionary<Type, List<FieldGetter<IExposable>>> timestampFields = new();
+    // Shifts a timestamp field by the given offset
+    delegate void FieldFixer(IExposable obj, int offset);
 
-    private static void Add<T>(FieldGetter<T> t) where T : IExposable
+    private static Dictionary<Type, List<FieldFixer>> timestampFields = new();
+
+    // timestampFields including the fields of base types, by the exact type
+    private static Dictionary<Type, List<FieldFixer>> resolvedFields = new();
+
+    // Values below minValid are "never" markers: kept as they are, and shifted values are clamped to stay valid
+    private static void Add<T>(FieldGetter<T> t, int minValid = int.MinValue) where T : IExposable
     {
-        timestampFields.GetOrAddNew(typeof(T)).Add(obj => ref t((T)obj));
+        timestampFields.GetOrAddNew(typeof(T)).Add((obj, offset) =>
+        {
+            ref int field = ref t((T)obj);
+            if (field >= minValid)
+                field = Math.Max(minValid, field + offset);
+        });
     }
 
     static TimestampFixer()
@@ -27,6 +39,12 @@ public static class TimestampFixer
         Add((Pawn_MindState mind) => ref mind.canLovinTick);
         Add((Pawn_GuestTracker guest) => ref guest.ticksWhenAllowedToEscapeAgain);
         Add((Pawn_GuestTracker guest) => ref guest.lastPrisonBreakTicks);
+        Add((Need_Food food) => ref food.lastNonStarvingTick);
+        Add((Ability ability) => ref ability.cooldownEndTick);
+        Add((Ability ability) => ref ability.lastCastTick, minValid: 0);
+        Add((Pawn_SkillTracker skills) => ref skills.lastXpSinceMidnightResetTimestamp, minValid: 0);
+        Add((FactionPermit permit) => ref permit.lastUsedTick, minValid: 1);
+        Add((Pawn_RoyaltyTracker royalty) => ref royalty.lastDecreeTicks);
     }
 
     public static int? currentOffset;
@@ -35,14 +53,21 @@ public static class TimestampFixer
     {
         var oldTime = oldMap?.AsyncTime().mapTicks ?? Multiplayer.AsyncWorldTime.worldTicks;
         var newTime = newMap?.AsyncTime().mapTicks ?? Multiplayer.AsyncWorldTime.worldTicks;
+        if (newTime == oldTime) return;
+
         currentOffset = newTime - oldTime;
 
         MpLog.Debug($"Fixing pawn timestamps for {p} moving from {oldMap?.ToString() ?? "World"}:{oldTime} to {newMap?.ToString() ?? "World"}:{newTime}");
 
         try
         {
-            // Auxiliary save which is used to visit the pawn's data
-            Scribe.saver.DebugOutputFor(p);
+            // Saving a destroyed pawn logs a warning, and every pawn killed on a map is passed to the world pawns. Its
+            // timestamps still have to move to the world's time: they're shifted back if it's resurrected.
+            if (p.Destroyed)
+                FixDirectly(p);
+            else
+                // Auxiliary save which is used to visit the pawn's data
+                Scribe.saver.DebugOutputFor(p);
         }
         finally
         {
@@ -50,11 +75,46 @@ public static class TimestampFixer
         }
     }
 
+    // The holders of the fields above, without the save pass's walk through the pawn's data
+    private static void FixDirectly(Pawn p)
+    {
+        ProcessExposable(p.mindState);
+        ProcessExposable(p.guest);
+        ProcessExposable(p.needs?.food);
+        ProcessExposable(p.skills);
+        ProcessExposable(p.royalty);
+
+        // Also the abilities of titles, equipment, apparel and hediffs, like the save pass. Not the ideo roles' ones,
+        // the ideo holds those
+        if (p.abilities != null)
+            foreach (var ability in p.abilities.AllAbilitiesForReading)
+                if (ability.sourcePrecept is not Precept_Role)
+                    ProcessExposable(ability);
+
+        if (p.royalty != null)
+            foreach (var permit in p.royalty.AllFactionPermits)
+                ProcessExposable(permit);
+    }
+
     public static void ProcessExposable(IExposable exposable)
     {
-        if (timestampFields.TryGetValue(exposable.GetType(), out var fieldGetters))
-            foreach (var del in fieldGetters)
-                del(exposable) += currentOffset!.Value;
+        if (exposable == null) return;
+
+        foreach (var fixer in FieldsFor(exposable.GetType()))
+            fixer(exposable, currentOffset!.Value);
+    }
+
+    private static List<FieldFixer> FieldsFor(Type type)
+    {
+        if (resolvedFields.TryGetValue(type, out var fields))
+            return fields;
+
+        fields = new List<FieldFixer>();
+        for (var t = type; t != null; t = t.BaseType)
+            if (timestampFields.TryGetValue(t, out var own))
+                fields.AddRange(own);
+
+        return resolvedFields[type] = fields;
     }
 }
 

@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Emit;
 using HarmonyLib;
 using Multiplayer.Client.Factions;
 using RimWorld;
@@ -50,26 +52,129 @@ namespace Multiplayer.Client.AsyncTime
         static bool Prefix() => Multiplayer.Client == null || !MapUpdateMarker.updating;
     }
 
+    // Season notifications run in the synced world tick and write saved state (lastSeason, letters), so they can't
+    // depend on the local player's faction. In multifaction every player faction gets its own pass under its context
+    // (which also routes its letters to its players) with its own saved lastSeason. Each pass uses the clock of the
+    // faction's home map with the minimum time zone, the map vanilla takes the season from.
     [HarmonyPatch(typeof(DateNotifier), nameof(DateNotifier.DateNotifierTick))]
     static class DateNotifierPatch
     {
-        static void Prefix(DateNotifier __instance, ref int? __state)
+        static bool running;
+
+        // The faction of the current multifaction pass
+        public static Faction factionPass;
+
+        static bool Prefix(DateNotifier __instance)
         {
-            if (Multiplayer.Client == null && Multiplayer.RealPlayerFaction != null) return;
+            if (Multiplayer.Client == null || running) return true;
 
-            Map map = __instance.FindPlayerHomeWithMinTimezone();
-            if (map == null) return;
+            if (!Multiplayer.GameComp.multifaction)
+            {
+                // Every player plays the host's faction, the world tick runs under it
+                TickWithHomeTime(__instance, requireHome: false);
+                return false;
+            }
 
-            __state = Find.TickManager.TicksGame;
-            FactionContext.Push(Multiplayer.RealPlayerFaction);
-            Find.TickManager.DebugSetTicksGame(map.AsyncTime().mapTicks);
+            var worldComp = Multiplayer.WorldComp;
+            foreach (var (factionId, _) in worldComp.factionData)
+            {
+                var faction = Find.FactionManager.GetById(factionId);
+                if (faction is not { IsPlayer: true } || faction == worldComp.spectatorFaction)
+                    continue;
+
+                var prevLastSeason = __instance.lastSeason;
+                __instance.lastSeason = worldComp.factionLastSeasons.TryGetValue(factionId, out var s) ? s : Season.Undefined;
+                ((Map)null).PushFaction(faction, force: true);
+                factionPass = faction;
+
+                try
+                {
+                    // A faction without a home yet (e.g. just created) would take the season at 0,0 and could get a
+                    // notification when it settles
+                    TickWithHomeTime(__instance, requireHome: true);
+                }
+                catch (Exception e)
+                {
+                    Log.Error($"Exception in DateNotifierTick for {faction}: {e}");
+                }
+                finally
+                {
+                    factionPass = null;
+                    FactionExtensions.PopFaction();
+                    worldComp.factionLastSeasons[factionId] = __instance.lastSeason;
+                    __instance.lastSeason = prevLastSeason;
+                }
+            }
+
+            return false;
         }
 
-        static void Finalizer(int? __state)
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
         {
-            if (!__state.HasValue) return;
-            Find.TickManager.DebugSetTicksGame(__state.Value);
-            FactionContext.Pop();
+            var message = AccessTools.Method(typeof(Messages), nameof(Messages.Message),
+                [typeof(string), typeof(MessageTypeDef), typeof(bool)]);
+            var replacement = AccessTools.Method(typeof(DateNotifierPatch), nameof(SeasonMessage));
+            var replaced = false;
+
+            foreach (var ci in insts)
+            {
+                if (ci.Calls(message))
+                {
+                    ci.opcode = OpCodes.Call;
+                    ci.operand = replacement;
+                    replaced = true;
+                }
+
+                yield return ci;
+            }
+
+            if (!replaced)
+                Log.Error("Multiplayer: Messages.Message not found in DateNotifier.DateNotifierTick");
+        }
+
+        // A multifaction pass shows its season message only to the faction's players. Not historical: such messages
+        // take no synced message id (see NextMessageIdPatch) and aren't archived, so showing it on some clients only is
+        // safe.
+        static void SeasonMessage(string text, MessageTypeDef def, bool historical)
+        {
+            if (factionPass == null)
+                Messages.Message(text, def, historical);
+            else if (factionPass == Multiplayer.RealPlayerFaction)
+                Messages.Message(text, def, historical: false);
+        }
+
+        static void TickWithHomeTime(DateNotifier notifier, bool requireHome)
+        {
+            Map map = notifier.FindPlayerHomeWithMinTimezone();
+            if (map == null && requireHome) return;
+
+            // The map's whole clock: a faction created later in multifaction has its own game start tick, which
+            // TicksAbs (the season) depends on
+            var prevTime = TimeSnapshot.GetAndSetFromMap(map);
+
+            running = true;
+            try
+            {
+                notifier.DateNotifierTick();
+            }
+            finally
+            {
+                running = false;
+                prevTime?.Set();
+            }
+        }
+    }
+
+    // A faction's season pass looks only at its own homes. Gravship landing sites are homes of every faction in vanilla
+    // (and a map with the faction's gravship counts too), the other players' maps among them are left out.
+    [HarmonyPatch(typeof(Map), nameof(Map.IsPlayerHome), MethodType.Getter)]
+    static class DateNotifierOwnHomes
+    {
+        static void Postfix(Map __instance, ref bool __result)
+        {
+            if (__result && DateNotifierPatch.factionPass is { } faction &&
+                __instance.ParentFaction is { IsPlayer: true } owner && owner != faction)
+                __result = false;
         }
     }
 

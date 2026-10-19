@@ -949,3 +949,53 @@ static class TradeUtility_AllLaunchableThingsForTrade_Patch
         }
     }
 }
+
+// Multifaction: trade request quests (QuestNode_GetNearbySettlement) and caravan/transporter visits could pick another
+// player's settlement, which has nothing to trade. Vanilla only excludes the settlements of Faction.OfPlayer.
+[HarmonyPatch(typeof(Settlement), nameof(Settlement.Visitable), MethodType.Getter)]
+static class Settlement_Visitable_OtherPlayers_Patch
+{
+    static void Postfix(Settlement __instance, ref bool __result)
+    {
+        if (__result && Multiplayer.Client != null && Multiplayer.GameComp.multifaction &&
+            __instance.Faction is { IsPlayer: true })
+            __result = false;
+    }
+}
+
+// The ritual reward "goodwill with the nearest faction" could pick another player's settlement and change the
+// goodwill between the two players. Skip player factions only here: CanChangeGoodwillFor itself is also used for
+// goodwill between players (e.g. friendly fire), which has to keep working.
+[HarmonyPatch(typeof(RitualAttachableOutcomeEffectWorker_NearbyFactionGoodwill),
+    nameof(RitualAttachableOutcomeEffectWorker_NearbyFactionGoodwill.Apply))]
+static class RitualNearbyFactionGoodwill_SkipPlayers_Patch
+{
+    static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+    {
+        var canChangeGoodwillFor = AccessTools.Method(typeof(Faction), nameof(Faction.CanChangeGoodwillFor));
+        var replacement = AccessTools.Method(typeof(RitualNearbyFactionGoodwill_SkipPlayers_Patch), nameof(CanChangeGoodwillFor));
+        var replaced = false;
+
+        foreach (var ci in insts)
+        {
+            if (ci.Calls(canChangeGoodwillFor))
+            {
+                ci.opcode = OpCodes.Call;
+                ci.operand = replacement;
+                replaced = true;
+            }
+
+            yield return ci;
+        }
+
+        if (!replaced)
+            Log.Error("Multiplayer: CanChangeGoodwillFor not found in RitualAttachableOutcomeEffectWorker_NearbyFactionGoodwill.Apply");
+    }
+
+    static bool CanChangeGoodwillFor(Faction faction, Faction other, int goodwillChange)
+    {
+        if (Multiplayer.Client != null && faction is { IsPlayer: true })
+            return false;
+        return faction.CanChangeGoodwillFor(other, goodwillChange);
+    }
+}
