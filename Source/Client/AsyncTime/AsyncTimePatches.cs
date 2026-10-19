@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Emit;
 using HarmonyLib;
 using Multiplayer.Client.Factions;
 using RimWorld;
@@ -106,6 +107,40 @@ namespace Multiplayer.Client.AsyncTime
             }
 
             return false;
+        }
+
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            var message = AccessTools.Method(typeof(Messages), nameof(Messages.Message),
+                [typeof(string), typeof(MessageTypeDef), typeof(bool)]);
+            var replacement = AccessTools.Method(typeof(DateNotifierPatch), nameof(SeasonMessage));
+            var replaced = false;
+
+            foreach (var ci in insts)
+            {
+                if (ci.Calls(message))
+                {
+                    ci.opcode = OpCodes.Call;
+                    ci.operand = replacement;
+                    replaced = true;
+                }
+
+                yield return ci;
+            }
+
+            if (!replaced)
+                Log.Error("Multiplayer: Messages.Message not found in DateNotifier.DateNotifierTick");
+        }
+
+        // A multifaction pass shows its season message only to the faction's players. Not historical: such messages
+        // take no synced message id (see NextMessageIdPatch) and aren't archived, so showing it on some clients only is
+        // safe.
+        static void SeasonMessage(string text, MessageTypeDef def, bool historical)
+        {
+            if (factionPass == null)
+                Messages.Message(text, def, historical);
+            else if (factionPass == Multiplayer.RealPlayerFaction)
+                Messages.Message(text, def, historical: false);
         }
 
         static void TickWithHomeTime(DateNotifier notifier, bool requireHome)
