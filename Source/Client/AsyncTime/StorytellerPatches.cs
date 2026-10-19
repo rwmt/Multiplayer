@@ -99,9 +99,38 @@ public class StorytellerTargetsPatch
         if (owner is { IsPlayer: true })
             return false;
 
-        // Also pawns held on the map (carried, in a shuttle or pod...). Only evaluated when the storyteller makes
-        // incidents (every 1000 ticks), the unspawned ones need a scan of the map's holders.
-        return map.mapPawns.SpawnedPawnsInFaction(faction).Count > 0 || map.mapPawns.PawnsInFaction(faction).Count > 0;
+        return HasPawnsOn(map, faction);
+    }
+
+    // Also pawns held on the map (carried, in a shuttle or pod...). Only evaluated when the storyteller makes
+    // incidents (every 1000 ticks), the unspawned ones need a scan of the map's holders.
+    static bool HasPawnsOn(Map map, Faction faction) =>
+        map.mapPawns.SpawnedPawnsInFaction(faction).Count > 0 || map.mapPawns.PawnsInFaction(faction).Count > 0;
+
+    // In multifaction the single player faction whose storyteller runs the quest incident makers (threat generators)
+    // of a map: its owner, else the lowest id player faction with pawns there, else the lowest id player faction.
+    // Every faction's storyteller walks the same quest list, so without this each one fired the same raids.
+    public static Faction QuestIncidentsFaction(Map map)
+    {
+        var worldComp = Multiplayer.WorldComp;
+        var spectator = worldComp.spectatorFaction;
+
+        if (map != null && OwnerFaction(map) is { IsPlayer: true } owner && owner != spectator)
+            return owner;
+
+        Faction first = null;
+        foreach (var (id, _) in worldComp.factionData) // Sorted by id
+        {
+            if (id == spectator?.loadID || Find.FactionManager.GetById(id) is not { } faction)
+                continue;
+
+            if (map == null || HasPawnsOn(map, faction))
+                return faction;
+
+            first ??= faction;
+        }
+
+        return first;
     }
 
     // A pocket map (e.g. an undercave) belongs to the owner of the map it was opened from
@@ -123,14 +152,20 @@ public class QuestPartsListForReadingPatch
     static void Postfix(ref List<QuestPart> __result)
     {
         // The storyteller prefix also sets the flag in single player, where there is no map context
-        if (Multiplayer.Client != null && StorytellerTickPatch.updating)
+        if (Multiplayer.Client != null && StorytellerTickPatch.updating && __result.Any(p => p is IIncidentMakerQuestPart))
         {
-            __result = __result.Where(questPart => {
-                if (questPart is QuestPart_ThreatsGenerator questPartThreatsGenerator)
-                {
-                    return questPartThreatsGenerator.mapParent?.Map == Multiplayer.MapContext;
-                }
-                return true;
+            var mapContext = Multiplayer.MapContext;
+
+            // Multifaction: each player faction's storyteller ticks (FactionRepeater) and incident counts are seeded
+            // by the world, target and salt, so all of them would fire the same quest incidents at the same moment
+            bool incidentMakersAllowed = !Multiplayer.GameComp.multifaction ||
+                Faction.OfPlayer == StorytellerTargetsPatch.QuestIncidentsFaction(mapContext);
+
+            __result = __result.Where(questPart => questPart switch
+            {
+                QuestPart_ThreatsGenerator threats => incidentMakersAllowed && threats.mapParent?.Map == mapContext,
+                IIncidentMakerQuestPart => incidentMakersAllowed,
+                _ => true
             }).ToList();
         }
     }
