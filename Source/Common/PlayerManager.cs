@@ -168,7 +168,7 @@ namespace Multiplayer.Common
         public void OnServerStop()
         {
             foreach (var player in Players)
-                player.conn.Close(MpDisconnectReason.ServerClosed);
+                player.conn.Disconnect(MpDisconnectReason.ServerClosed);
 
             Players.Clear();
         }

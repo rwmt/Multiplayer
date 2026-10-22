@@ -49,7 +49,7 @@ public class TestJoiningState : AsyncConnectionState
         p = await Packet(Packets.Server_WorldData).Fragmented();
         p.Seek(p.Length);
 
-        connection.Close(MpDisconnectReason.Generic);
+        connection.Close();
         connection.ChangeState(ConnectionStateEnum.Disconnected);
     }
 }

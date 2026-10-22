@@ -140,7 +140,7 @@ namespace Multiplayer.Client.Networking
                     if (preConnect != null)
                     {
                         ServerLog.Log($"Rejected incoming connection from {packet.remote}: {preConnect}");
-                        conn.Close(preConnect.Value);
+                        conn.Disconnect(preConnect.Value);
                         continue;
                     }
 
