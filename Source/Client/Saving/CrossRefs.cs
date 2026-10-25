@@ -216,16 +216,9 @@ namespace Multiplayer.Client
     {
         static bool Prefix(LoadedObjectDirectory __instance, ILoadReferenceable reffable)
         {
-            if (__instance is not SharedCrossRefs) return true;
-            if (reffable == null) return false;
+            if (__instance is not SharedCrossRefs sharedCrossRefs) return true;
 
-            string key = reffable.GetUniqueLoadID();
-            if (ScribeUtil.sharedCrossRefs.allObjectsByLoadID.ContainsKey(key)) return false;
-
-            if (Scribe.mode == LoadSaveMode.ResolvingCrossRefs)
-                ScribeUtil.sharedCrossRefs.tempKeys.Add(key);
-
-            ScribeUtil.sharedCrossRefs.allObjectsByLoadID.Add(key, reffable);
+            sharedCrossRefs.RegisterLoaded(reffable);
 
             return false;
         }

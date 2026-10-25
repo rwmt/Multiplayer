@@ -10,6 +10,21 @@ public class SharedCrossRefs : LoadedObjectDirectory
     // Used in CrossRefs patches
     public HashSet<string> tempKeys = new();
 
+    // Mod-owned calls must be idempotent even when the base method's Harmony
+    // prefix isn't reached. Loading and spawning can register the same object.
+    public new void RegisterLoaded(ILoadReferenceable reffable)
+    {
+        if (reffable == null) return;
+
+        var key = reffable.GetUniqueLoadID();
+        if (allObjectsByLoadID.ContainsKey(key)) return;
+
+        if (Scribe.mode == LoadSaveMode.ResolvingCrossRefs)
+            tempKeys.Add(key);
+
+        allObjectsByLoadID.Add(key, reffable);
+    }
+
     public void Unregister(ILoadReferenceable reffable)
     {
         allObjectsByLoadID.Remove(reffable.GetUniqueLoadID());
