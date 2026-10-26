@@ -135,7 +135,9 @@ namespace Multiplayer.Client
             dict["ISyncSimple"] = GetDefInfo(ApiSerialization.syncSimples, TypeHash);
             dict["ISession"] = GetDefInfo(ApiSerialization.sessions, TypeHash);
 
-            dict["PawnBio"] = GetDefInfo(SolidBioDatabase.allBios, b => GetPawnBioHash(b.name));
+            // RimWorld 1.7 enables WaylithClr.MonoStringHashCode, keeping NameTriple's
+            // string-based hashes compatible with Mono and stable across processes.
+            dict["PawnBio"] = GetDefInfo(SolidBioDatabase.allBios, b => b.name.GetHashCode());
 
             foreach (var defType in GenTypes.AllLeafSubclasses(typeof(Def)))
             {
@@ -147,15 +149,6 @@ namespace Multiplayer.Client
             }
 
             localDefInfos = dict;
-        }
-
-        private static int GetPawnBioHash(NameTriple name)
-        {
-            // NameTriple.GetHashCode uses process-randomized string hashes on CoreCLR.
-            var hash = Gen.HashCombineInt(0, GenText.StableStringHash(name.First));
-            hash = Gen.HashCombineInt(hash, GenText.StableStringHash(name.Last));
-            // An unset Nick is chosen from First/Last using those same unstable hashes.
-            return Gen.HashCombineInt(hash, GenText.StableStringHash(name.NickSet ? name.Nick : null));
         }
 
         internal static DefInfo GetDefInfo<T>(IEnumerable<T> types, Func<T, int> hash)
