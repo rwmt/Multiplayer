@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Multiplayer.Client.AsyncTime;
 using Multiplayer.Client.Comp;
 using Multiplayer.Client.Networking;
+using Multiplayer.Client.Patches;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld;
@@ -26,6 +27,7 @@ namespace Multiplayer.Client
         {
             Log.Message("Starting the server");
 
+            VTRSync.Reset();
             CreateSession(settings);
 
             if (!fromReplay)
@@ -38,9 +40,15 @@ namespace Multiplayer.Client
             PrepareGame();
             SetGameState(settings);
 
+            // A new server has no viewers yet, including when hosting a replay.
+            Multiplayer.AsyncWorldTime.ResetPlayerCount();
+            foreach (var asyncTime in Multiplayer.game.asyncTimeComps)
+                asyncTime.ResetPlayerCount();
+
             Multiplayer.session.dataSnapshot = await CreateGameData();
 
             MakeHostOnServer(serverConn);
+            VTRSync.Start();
 
             // todo handle sending cmds for hosting from loaded replay?
             SaveLoad.SendGameData(Multiplayer.session.dataSnapshot, false);

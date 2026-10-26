@@ -95,7 +95,8 @@ namespace Multiplayer.Client
 
         public Queue<ScheduledCommand> cmds = new();
 
-        public int CurrentPlayerCount { get; private set; }
+        private int currentPlayerCount;
+        public int CurrentPlayerCount => currentPlayerCount;
         public int VTR => CurrentPlayerCount > 0 ? VTRSync.MinimumVtr : VTRSync.MaximumVtr;
 
         public AsyncTimeComp(Map map, int gameStartAbsTick = 0)
@@ -205,6 +206,7 @@ namespace Multiplayer.Client
 
         public void ExposeData()
         {
+            Scribe_Values.Look(ref currentPlayerCount, "currentPlayerCount");
             Scribe_Values.Look(ref mapTicks, "mapTicks");
             Scribe_Values.Look(ref timeSpeedInt, "timeSpeed");
 
@@ -213,10 +215,12 @@ namespace Multiplayer.Client
             Scribe_Custom.LookULong(ref randState, "randState", 1);
         }
 
-        public int IncreasePlayerCount() => CurrentPlayerCount += 1;
+        public void ResetPlayerCount() => currentPlayerCount = 0;
+
+        public int IncreasePlayerCount() => currentPlayerCount += 1;
         // This should never go below 0, this is just defensive programming. Hopefully not needed anymore, but
         // nevertheless still left.
-        public int DecreasePlayerCount() => CurrentPlayerCount = Math.Max(0, CurrentPlayerCount - 1);
+        public int DecreasePlayerCount() => currentPlayerCount = Math.Max(0, currentPlayerCount - 1);
 
         public void FinalizeInit()
         {
