@@ -6,6 +6,7 @@ using Mono.Cecil;
 using Mono.Cecil.Cil;
 using MonoMod.Utils;
 using Multiplayer.Common;
+using Multiplayer.Client;
 using Prepatcher;
 using RimWorld;
 
@@ -29,9 +30,8 @@ public static class Prepatches
     [FreePatch]
     static void ApplySyncPrepatches(ModuleDefinition module)
     {
-#if !RIMWORLD_1_7
-        SyncRituals.ApplyPrepatches(module);
-#endif
+        if (Native.IsMonoRuntime)
+            SyncRituals.ApplyPrepatches(module);
     }
 
     internal static void AddPrepatcherPrefix(ModuleDefinition module, int id, MethodInfo target, MethodInfo prefix)

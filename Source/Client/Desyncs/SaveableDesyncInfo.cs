@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -128,9 +129,7 @@ public class SaveableDesyncInfo(
             .AppendLine($"Processor Speed (MHz)|||{SystemInfo.processorFrequency}")
             .AppendLine($"Thread Count|||{SystemInfo.processorCount}")
             .AppendLine("\n###GPU Info###")
-#if !RIMWORLD_1_7
-            .AppendLine($"GPU Family|||{SystemInfo.graphicsDeviceVendor}")
-#endif
+            .AppendLine($"GPU Family|||{(Native.IsMonoRuntime ? MonoGraphicsDeviceVendor() : "Unavailable")}")
             .AppendLine($"GPU Type|||{SystemInfo.graphicsDeviceType}")
             .AppendLine($"GPU Name|||{SystemInfo.graphicsDeviceName}")
             .AppendLine($"GPU VRAM|||{SystemInfo.graphicsMemorySize}")
@@ -142,6 +141,9 @@ public class SaveableDesyncInfo(
 
         return desyncInfo.ToString();
     }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static string MonoGraphicsDeviceVendor() => SystemInfo.graphicsDeviceVendor;
 
     private static string FindFileNameForNextDesyncFile()
     {

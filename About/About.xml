@@ -4,6 +4,7 @@
   <name>Multiplayer</name>
   <supportedVersions>
     <li>1.6</li>
+    <li>1.7</li>
   </supportedVersions>
   <author>RimWorld Multiplayer Team</author>
   <url>https://github.com/rwmt/Multiplayer</url>
@@ -22,6 +23,23 @@ Discord - https://discord.gg/S4bxXpv
       <steamWorkshopUrl>steam://url/CommunityFilePage/2934420800</steamWorkshopUrl>
     </li>
   </modDependencies>
+  <modDependenciesByVersion>
+    <v1.6>
+      <!-- Prepatcher supplies Harmony 2.4.2 on RimWorld 1.6. -->
+      <li>
+        <packageId>zetrith.prepatcher</packageId>
+        <displayName>Prepatcher</displayName>
+        <steamWorkshopUrl>steam://url/CommunityFilePage/2934420800</steamWorkshopUrl>
+      </li>
+    </v1.6>
+    <v1.7>
+      <li>
+        <packageId>brrainz.harmony</packageId>
+        <displayName>Harmony 3</displayName>
+        <steamWorkshopUrl>steam://url/CommunityFilePage/2009463077</steamWorkshopUrl>
+      </li>
+    </v1.7>
+  </modDependenciesByVersion>
   <loadAfter>
     <li>Ludeon.RimWorld</li>
     <li>Ludeon.RimWorld.Royalty</li>

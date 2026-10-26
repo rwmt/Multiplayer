@@ -59,7 +59,8 @@ namespace Multiplayer.Client
                 }
             );
 
-            Native.HarmonyOriginalGetter = MpUtil.GetOriginalFromHarmonyReplacement;
+            if (Native.IsMonoRuntime)
+                Native.HarmonyOriginalGetter = MpUtil.GetOriginalFromHarmonyReplacement;
 
             // UnityEngine.Debug.Log instead of Verse.Log.Message because the server runs on its own thread
             ServerLog.info = str => Debug.Log($"MpServerLog: {str}");

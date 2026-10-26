@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using HarmonyLib;
 using RimWorld;
 using UnityEngine;
@@ -9,6 +11,10 @@ namespace Multiplayer.Client.Util
 {
     public static class MpUI
     {
+        // RimWorld 1.6 exposes this as a field; Waylith exposes it as a property.
+        private static readonly FieldInfo editorScrollOffsetField = AccessTools.Field(typeof(TextEditor), "scrollOffset");
+        private static readonly PropertyInfo editorScrollOffsetProperty = AccessTools.Property(typeof(TextEditor), "scrollOffset");
+
         public static Vector2 Resolution => new Vector2(UI.screenWidth, UI.screenHeight);
 
         public static string FixedEllipsis()
@@ -242,7 +248,9 @@ namespace Multiplayer.Client.Util
             Vector2 scrollOffset = default;
             bool keyDown = Event.current.type == EventType.KeyDown;
             if (te != null)
-                scrollOffset = te.scrollOffset;
+                scrollOffset = (Vector2)(editorScrollOffsetField != null
+                    ? editorScrollOffsetField.GetValue(te)
+                    : editorScrollOffsetProperty.GetValue(te));
 
             GUI.SetNextControlName(controlName);
 
@@ -261,13 +269,21 @@ namespace Multiplayer.Client.Util
 
             if (te != null && keyDown)
             {
-                te.scrollOffset = scrollOffset;
+                if (editorScrollOffsetField != null)
+                    editorScrollOffsetField.SetValue(te, scrollOffset);
+                else
+                    editorScrollOffsetProperty.SetValue(te, scrollOffset);
                 te.text = new string(PassChar, password.Length);
-#if !RIMWORLD_1_7
-                AccessTools.Field(typeof(TextEditor), "m_RevealCursor").SetValue(te, true);
-                te.UpdateScrollOffsetIfNeeded(new Event());
-#endif
+                if (Native.IsMonoRuntime)
+                    UpdateMonoPasswordCursor(te);
             }
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void UpdateMonoPasswordCursor(TextEditor editor)
+        {
+            AccessTools.Field(typeof(TextEditor), "m_RevealCursor").SetValue(editor, true);
+            editor.UpdateScrollOffsetIfNeeded(new Event());
         }
     }
 

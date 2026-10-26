@@ -1,8 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework Condition="'$(RimWorld17)' != 'true'">net48</TargetFramework>
-    <TargetFramework Condition="'$(RimWorld17)' == 'true'">net10.0</TargetFramework>
+    <TargetFramework>net48</TargetFramework>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>12</LangVersion>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
@@ -17,12 +16,13 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Zetrith.Prepatcher" Version="1.2.0" />
-    <PackageReference Include="Lib.Harmony" Version="2.4.2" ExcludeAssets="runtime" />
+    <PackageReference Include="Lib.Harmony" Version="$(MultiplayerHarmonyVersion)" ExcludeAssets="runtime" />
     <ProjectReference Include="..\Common\Common.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Publicize Include="Assembly-CSharp;0Harmony" />
+    <DoNotPublicize Include="0Harmony:System.Runtime.CompilerServices.DefaultInterpolatedStringHandler" />
   </ItemGroup>
 
   <!-- Ignore any system frameworks and get the system assemblies from Krafs.Rimworld.Ref -->

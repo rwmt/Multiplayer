@@ -3,6 +3,7 @@ using RimWorld;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 using Verse;
 
@@ -19,11 +20,15 @@ namespace Multiplayer.Client
         {
             if (done) return;
             GUI.skin.font = Text.fontStyles[1].font;
-#if !RIMWORLD_1_7
-            Text.fontStyles[1].font.fontNames = new[] { "arial", "arialbd", "ariali", "arialbi" };
-#endif
+            if (Native.IsMonoRuntime)
+                SetMonoFontNames();
             done = true;
         }
+
+        // Keep missing Unity APIs out of methods JIT-compiled on Waylith.
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void SetMonoFontNames() =>
+            Text.fontStyles[1].font.fontNames = new[] { "arial", "arialbd", "ariali", "arialbi" };
     }
 
     // Fix window focus handling

@@ -1,8 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework Condition="'$(RimWorld17)' != 'true'">net48</TargetFramework>
-    <TargetFramework Condition="'$(RimWorld17)' == 'true'">net10.0</TargetFramework>
+    <TargetFramework>net48</TargetFramework>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Nullable>enable</Nullable>
     <LangVersion>12</LangVersion>
@@ -15,7 +14,7 @@
   <ItemGroup>
     <PackageReference Include="Krafs.Rimworld.Ref" Version="1.6.4850" />
     <PackageReference Include="LiteNetLib" Version="1.3.1" />
-    <PackageReference Include="Lib.Harmony" Version="2.4.2" ExcludeAssets="runtime" />
+    <PackageReference Include="Lib.Harmony" Version="$(MultiplayerHarmonyVersion)" ExcludeAssets="runtime" />
     <PackageReference Include="MSBuildGitHash" Version="2.0.2" />
     <PackageReference Include="System.IO.Compression" Version="4.3.0" />
     <PackageReference Include="RimWorld.MultiplayerAPI" Version="0.6.0" />

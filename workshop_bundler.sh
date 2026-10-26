@@ -17,6 +17,10 @@ cp -r ../About ../Textures .
 
 cat <<EOF > LoadFolders.xml
 <loadFolders>
+  <v1.7>
+    <li>/</li>
+    <li>1.6</li>
+  </v1.7>
   <v1.6>
     <li>/</li>
     <li>1.6</li>
@@ -39,7 +43,7 @@ fi
 sed -i "/<supportedVersions>/ a \ \ \ \ <li>1.5</li>" About/About.xml
 sed -i "s/<modVersion>.*<\/modVersion>.*\$/<modVersion>${FULL_VERSION}<\/modVersion>/" About/About.xml
 
-# The current version
+# Shared 1.6/1.7 build; keep the folder name for existing installations.
 mkdir -p 1.6
 cp -r ../Assemblies ../AssembliesCustom ../Defs ../Languages 1.6/
 rm -f 1.6/Languages/.git 1.6/Languages/LICENSE 1.6/Languages/README.md

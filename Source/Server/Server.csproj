@@ -2,8 +2,7 @@
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
-        <TargetFramework Condition="'$(RimWorld17)' != 'true'">net8.0</TargetFramework>
-        <TargetFramework Condition="'$(RimWorld17)' == 'true'">net10.0</TargetFramework>
+        <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <LangVersion>12</LangVersion>
@@ -18,7 +17,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\Common\Common.csproj" />
-      <PackageReference Include="Lib.Harmony" Version="2.4.2" />
+      <PackageReference Include="Lib.Harmony" Version="$(MultiplayerHarmonyVersion)" />
     </ItemGroup>
 
 </Project>

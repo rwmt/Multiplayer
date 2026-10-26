@@ -1,8 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework Condition="'$(RimWorld17)' != 'true'">net8.0</TargetFramework>
-        <TargetFramework Condition="'$(RimWorld17)' == 'true'">net10.0</TargetFramework>
+        <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <LangVersion>12</LangVersion>
@@ -19,7 +18,7 @@
         <PackageReference Include="NUnit.Analyzers" Version="4.10.0" />
         <PackageReference Include="coverlet.collector" Version="3.1.2" />
 
-        <PackageReference Include="Lib.Harmony" Version="2.4.2" />
+        <PackageReference Include="Lib.Harmony" Version="$(MultiplayerHarmonyVersion)" />
 
         <PackageReference Include="Verify.NUnit" Version="21.3.0" />
     </ItemGroup>
