@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using HarmonyLib;
 using RimWorld;
 using UnityEngine;
@@ -9,7 +8,7 @@ using Verse.Sound;
 
 namespace Multiplayer.Client.Util
 {
-    public static class MpUI
+    public static partial class MpUI
     {
         // RimWorld 1.6 exposes this as a field; Waylith exposes it as a property.
         private static readonly FieldInfo editorScrollOffsetField = AccessTools.Field(typeof(TextEditor), "scrollOffset");
@@ -274,17 +273,11 @@ namespace Multiplayer.Client.Util
                 else
                     editorScrollOffsetProperty.SetValue(te, scrollOffset);
                 te.text = new string(PassChar, password.Length);
-                if (Native.IsMonoRuntime)
-                    UpdateMonoPasswordCursor(te);
+                UpdateMonoPasswordCursor(te);
             }
         }
 
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private static void UpdateMonoPasswordCursor(TextEditor editor)
-        {
-            AccessTools.Field(typeof(TextEditor), "m_RevealCursor").SetValue(editor, true);
-            editor.UpdateScrollOffsetIfNeeded(new Event());
-        }
+        static partial void UpdateMonoPasswordCursor(TextEditor editor);
     }
 
     public enum ElementOrder

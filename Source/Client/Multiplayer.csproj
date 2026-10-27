@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net48</TargetFramework>
+    <TargetFramework>$(RimWorldTargetFramework)</TargetFramework>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>12</LangVersion>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
@@ -24,7 +25,7 @@
   <ItemGroup>
     <PackageReference Include="Krafs.Publicizer" Version="2.3.0" />
     <PackageReference Include="Lib.Harmony" Version="$(MultiplayerHarmonyVersion)" ExcludeAssets="runtime" />
-    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.6.4850" />
+    <PackageReference Include="Krafs.Rimworld.Ref" Version="$(RimWorldRefVersion)" />
     <PackageReference Include="RestSharp" Version="106.15.0" />
     <PackageReference Include="RimWorld.MultiplayerAPI" Version="0.6.0" />
   </ItemGroup>
@@ -58,27 +59,13 @@
   </Target>
 
   <PropertyGroup>
-    <ModOutputPath Condition="'$(ModOutputPath)' == ''">$(MSBuildThisFileDirectory)..\..\$(RimWorldVersion)\</ModOutputPath>
+    <OutputPath>bin\$(RimWorldVersion)\$(Configuration)\</OutputPath>
   </PropertyGroup>
 
   <PropertyGroup Label="Normalise stack trace file locations">
     <PathMap>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)'))=$(AssemblyName)/</PathMap>
   </PropertyGroup>
 
-  <Target Name="CopyToRimworld" AfterTargets="Build">
-    <Copy SourceFiles="$(TargetPath)" DestinationFiles="$(ModOutputPath)\AssembliesCustom\Multiplayer.dll" />
-    <Copy SourceFiles="$(TargetDir)Multiplayer.pdb" DestinationFiles="$(ModOutputPath)\AssembliesCustom\Multiplayer.pdb" />
-    <Copy SourceFiles="$(TargetDir)MultiplayerCommon.dll" DestinationFiles="$(ModOutputPath)\AssembliesCustom\MultiplayerCommon.dll" />
-    <Copy SourceFiles="$(TargetDir)MultiplayerCommon.pdb" DestinationFiles="$(ModOutputPath)\AssembliesCustom\MultiplayerCommon.pdb" />
-
-    <ItemGroup>
-      <!-- Copy only the dependencies resolved for this game version. -->
-      <CopyToRimworld_ItemsToCopy Include="@(ReferenceCopyLocalPaths)"
-                                 Condition="'%(Extension)' == '.dll' and '%(Filename)' != 'MultiplayerCommon'" />
-    </ItemGroup>
-
-    <Copy SourceFiles="@(CopyToRimworld_ItemsToCopy)" DestinationFolder="$(ModOutputPath)\Assemblies\" />
-  </Target>
 
   <Import Project="PersonalDefinitions.targets" Condition="exists('PersonalDefinitions.targets')" />
 

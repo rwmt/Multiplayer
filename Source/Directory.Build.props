@@ -1,0 +1,27 @@
+<Project>
+  <PropertyGroup>
+    <RimWorldVersion Condition="'$(RimWorldVersion)' == ''">1.6</RimWorldVersion>
+    <RimWorldTargetFramework Condition="'$(RimWorldVersion)' == '1.6'">net48</RimWorldTargetFramework>
+    <RimWorldTargetFramework Condition="'$(RimWorldVersion)' == '1.7'">net10.0</RimWorldTargetFramework>
+    <RimWorldTestTargetFramework Condition="'$(RimWorldVersion)' == '1.6'">net8.0</RimWorldTestTargetFramework>
+    <RimWorldTestTargetFramework Condition="'$(RimWorldVersion)' == '1.7'">net10.0</RimWorldTestTargetFramework>
+    <RimWorldCommonTargetFrameworks Condition="'$(RimWorldVersion)' == '1.6'">net48;net8.0</RimWorldCommonTargetFrameworks>
+    <RimWorldCommonTargetFrameworks Condition="'$(RimWorldVersion)' == '1.7'">net10.0</RimWorldCommonTargetFrameworks>
+    <!-- Keep project evaluation valid long enough for the selector diagnostic below. -->
+    <RimWorldTargetFramework Condition="'$(RimWorldTargetFramework)' == ''">net48</RimWorldTargetFramework>
+    <RimWorldTestTargetFramework Condition="'$(RimWorldTestTargetFramework)' == ''">net8.0</RimWorldTestTargetFramework>
+    <RimWorldCommonTargetFrameworks Condition="'$(RimWorldCommonTargetFrameworks)' == ''">net48;net8.0</RimWorldCommonTargetFrameworks>
+    <RimWorldRefVersion Condition="'$(RimWorldRefVersion)' == ''">1.6.4850</RimWorldRefVersion>
+    <MultiplayerHarmonyVersion Condition="'$(MultiplayerHarmonyVersion)' == ''">2.4.2</MultiplayerHarmonyVersion>
+    <RimWorldRefVersion Condition="'$(RimWorldVersion)' == '1.6'">1.6.4850</RimWorldRefVersion>
+    <RimWorldRefVersion Condition="'$(RimWorldVersion)' == '1.7'">1.7.4985-unstable</RimWorldRefVersion>
+    <MultiplayerHarmonyVersion Condition="'$(RimWorldVersion)' == '1.6'">2.4.2</MultiplayerHarmonyVersion>
+    <MultiplayerHarmonyVersion Condition="'$(RimWorldVersion)' == '1.7'">3.0.0-rc.3</MultiplayerHarmonyVersion>
+    <BaseIntermediateOutputPath>obj/$(RimWorldVersion)/</BaseIntermediateOutputPath>
+    <BaseOutputPath>bin/$(RimWorldVersion)/</BaseOutputPath>
+    <DefaultItemExcludesInProjectFolder>$(DefaultItemExcludesInProjectFolder);**/bin/**;**/obj/**</DefaultItemExcludesInProjectFolder>
+  </PropertyGroup>
+  <Target Name="ValidateRimWorldVersion" BeforeTargets="PrepareForBuild" Condition="'$(RimWorldVersion)' != '1.6' and '$(RimWorldVersion)' != '1.7'">
+    <Error Text="Unsupported RimWorldVersion '$(RimWorldVersion)'. Use 1.6 or 1.7." />
+  </Target>
+</Project>

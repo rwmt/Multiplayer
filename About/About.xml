@@ -16,28 +16,13 @@ Multiplayer mod for RimWorld.
 FAQ - https://hackmd.io/@rimworldmultiplayer/docs/
 Discord - https://discord.gg/S4bxXpv
   </description>
-  <modDependencies>
-    <li>
-      <packageId>zetrith.prepatcher</packageId>
-      <displayName>Prepatcher</displayName>
-      <steamWorkshopUrl>steam://url/CommunityFilePage/2934420800</steamWorkshopUrl>
-    </li>
-  </modDependencies>
   <modDependenciesByVersion>
     <v1.6>
-      <!-- Prepatcher supplies Harmony 2.4.2 on RimWorld 1.6. -->
-      <li>
-        <packageId>zetrith.prepatcher</packageId>
-        <displayName>Prepatcher</displayName>
-        <steamWorkshopUrl>steam://url/CommunityFilePage/2934420800</steamWorkshopUrl>
-      </li>
+      <li><packageId>zetrith.prepatcher</packageId><displayName>Prepatcher</displayName><steamWorkshopUrl>steam://url/CommunityFilePage/2934420800</steamWorkshopUrl></li>
+      <li><packageId>brrainz.harmony</packageId><displayName>Harmony 2 (via Prepatcher)</displayName><steamWorkshopUrl>steam://url/CommunityFilePage/2009463077</steamWorkshopUrl></li>
     </v1.6>
     <v1.7>
-      <li>
-        <packageId>brrainz.harmony</packageId>
-        <displayName>Harmony 3</displayName>
-        <steamWorkshopUrl>steam://url/CommunityFilePage/2009463077</steamWorkshopUrl>
-      </li>
+      <li><packageId>brrainz.harmony</packageId><displayName>Harmony 3</displayName><steamWorkshopUrl>steam://url/CommunityFilePage/2009463077</steamWorkshopUrl></li>
     </v1.7>
   </modDependenciesByVersion>
   <loadAfter>

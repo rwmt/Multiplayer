@@ -3,7 +3,6 @@ using RimWorld;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Runtime.CompilerServices;
 using UnityEngine;
 using Verse;
 
@@ -12,7 +11,7 @@ namespace Multiplayer.Client
     // Fixes a lag spike when opening debug tools
     [HarmonyPatch(typeof(UIRoot))]
     [HarmonyPatch(nameof(UIRoot.UIRootOnGUI))]
-    static class UIRootPatch
+    static partial class UIRootPatch
     {
         static bool done;
 
@@ -20,15 +19,11 @@ namespace Multiplayer.Client
         {
             if (done) return;
             GUI.skin.font = Text.fontStyles[1].font;
-            if (Native.IsMonoRuntime)
-                SetMonoFontNames();
+            SetMonoFontNames();
             done = true;
         }
 
-        // Keep missing Unity APIs out of methods JIT-compiled on Waylith.
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private static void SetMonoFontNames() =>
-            Text.fontStyles[1].font.fontNames = new[] { "arial", "arialbd", "ariali", "arialbi" };
+        static partial void SetMonoFontNames();
     }
 
     // Fix window focus handling

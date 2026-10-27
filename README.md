@@ -22,29 +22,39 @@ Please do all pull requests to the [dev](https://github.com/rwmt/Multiplayer/tre
 
 ## Building for RimWorld 1.6 and 1.7
 
-Use the .NET 10 SDK. Both mod variants target .NET Framework 4.8 with C# 12
-and compile against the RimWorld 1.6 reference assemblies. The 1.7 runtime
-redirects legacy Unity assembly references; runtime checks handle game API differences.
-
-Select the game version with `RimWorldVersion` (defaults to `1.6`). This selects
-Harmony 2.4.2 for 1.6, matching Prepatcher's bundled Harmony, or Harmony 3.0.0-rc.3
-for 1.7. The source and target framework are shared, but the resulting DLLs are
-version-specific because they reference different Harmony assemblies.
+Use the .NET 10 SDK and select the matching game references with `RimWorldVersion`.
+The selector defaults to `1.6`; only `1.6` and `1.7` are accepted. It separates
+restore assets and outputs under version-specific `bin/` and `obj/` directories.
 
 ```sh
 dotnet build Source/Multiplayer.sln -c Release -p:RimWorldVersion=1.6
-dotnet test Source/Tests/Tests.csproj -c Release --no-build -p:RimWorldVersion=1.6
 dotnet build Source/Multiplayer.sln -c Release -p:RimWorldVersion=1.7
-dotnet test Source/Tests/Tests.csproj -c Release --no-build -p:RimWorldVersion=1.7
+DOTNET_ROLL_FORWARD=Major dotnet test Source/Tests/Tests.csproj -c Release --no-build -p:RimWorldVersion=1.6
+DOTNET_ROLL_FORWARD=Major dotnet test Source/Tests/Tests.csproj -c Release --no-build -p:RimWorldVersion=1.7
 ```
 
-Restore intermediates and build outputs are isolated by game version. Mod DLLs
-are copied to `1.6/Assemblies/` and `1.6/AssembliesCustom/`, or their `1.7/`
-equivalents. `LoadFolders.xml` selects the matching variant. Install Prepatcher
-on 1.6; install Harmony 3 on 1.7, which does not require Prepatcher. The package
-contains no bundled Harmony DLL. When updating an older checkout or installation,
-remove obsolete root `Assemblies/` and `AssembliesCustom/` folders before running
-the game, so only the versioned DLLs are loaded.
+RimWorld 1.6 builds target .NET Framework 4.8 and use Harmony 2.4.2 with
+Prepatcher. RimWorld 1.7 builds target .NET 10, use Harmony 3.0.0-rc.3, and patch
+ritual handlers at runtime without Prepatcher. Install the matching Harmony and
+Prepatcher mods. `LoadFolders.xml` selects the corresponding `1.6/` or `1.7/` DLLs;
+shared assets remain at the mod root. When migrating from a flat install, remove old
+root `Assemblies/` and `AssembliesCustom/` folders after backing up any local changes.
+
+Version-specific C# implementations live under `Source/1.6/Client/`,
+`Source/1.6/MultiplayerLoader/`, `Source/1.7/Client/`, and
+`Source/1.7/MultiplayerLoader/`. MSBuild selects exactly one tree for each build;
+put shared code in the existing project folders and version-only code in the matching
+tree.
+
+The workshop bundler builds both variants and retains the historical 1.5 package.
+
+The [version-specific ritual checks](Source/RuntimeTests/README.md) cover the 1.6
+registrar and direct `PrepatcherPrefix` dispatch under Mono/Harmony 2, including
+normal and psychic handlers and serializer registration. The probe stubs `DoSync`
+and calls the prefix directly; it does not exercise Prepatcher's Cecil injection or a
+full game session. The 1.7 check reads .NET 10, RimWorld, and Harmony assembly metadata
+without running the game assemblies. Live 1.7 CoreCLR and host/join testing remain
+unavailable.
 
 ## Donations
 

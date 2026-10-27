@@ -333,7 +333,7 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(PsychicRitualRoleAssignments), nameof(PsychicRitualRoleAssignments.TryAssignSpectate));
             SyncMethod.Register(typeof(PsychicRitualRoleAssignments), nameof(PsychicRitualRoleAssignments.RemoveParticipant));
 
-            SyncRituals.ApplyPrepatches(null);
+            SyncRituals.Init();
         }
 
         private static void InitChoiceLetters()

@@ -1,6 +1,6 @@
 ﻿### This 'alpha' release is an automatically generated snapshot of the current state of development. It is continuously updated with work-in-progress changes that may be broken, incomplete, or incompatible.
 
-#### Supported RimWorld versions: latest 1.6
+#### Supported RimWorld versions: 1.6 and 1.7
 
 #### Installation
 1. Download the `Multiplayer-beta.zip` file below.
@@ -20,9 +20,9 @@ Download `Server-beta.zip` if you want to host a dedicated standalone server for
 
 **Setup**
 1. Download and extract `Server-beta.zip`.
-2. Open the folder for your platform:
-   - `Server/Windows`
-   - `Server/Linux`
+2. Open the folder for your platform and game version:
+   - RimWorld 1.6: `Server/Windows` or `Server/Linux` (targets .NET 8)
+   - RimWorld 1.7: `Server/1.7/Windows` or `Server/1.7/Linux` (targets .NET 10)
 3. Start the server using:
    - Windows: `Server.exe`
    - Linux: `./Server.sh`

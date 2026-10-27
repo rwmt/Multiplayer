@@ -9,18 +9,22 @@ using Verse;
 namespace MultiplayerLoader
 {
     // This class has to be named Multiplayer for backwards compatibility of the settings file location
-    public class Multiplayer : Mod
+    public partial class Multiplayer : Mod
     {
         public static Multiplayer instance;
         public static Action<Rect> settingsWindowDrawer;
 
         public Multiplayer(ModContentPack content) : base(content)
         {
+            CheckHarmonyVersion();
+
             instance = this;
             LoadAssembliesCustom();
 
             FindTypeInAppDomain("Multiplayer.Client.Multiplayer")!.GetMethod("InitMultiplayer")!.Invoke(null, [content]);
         }
+
+        partial void CheckHarmonyVersion();
 
         public static Type? FindTypeInAppDomain(string typeFullName) =>
             AppDomain.CurrentDomain.GetAssemblies()

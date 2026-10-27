@@ -4,6 +4,7 @@ name: Validate Pull Request
 
 env:
   SLN_PATH: Source/
+  DOTNET_ROLL_FORWARD: Major
 
 on:
   pull_request
@@ -12,6 +13,9 @@ jobs:
   builds:
     name: Builds
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rimworld: ['1.6', '1.7']
     steps:
     
     - uses: actions/checkout@v4
@@ -21,18 +25,23 @@ jobs:
       with:
         dotnet-version: 10.x
       env:
-        DOTNET_ROLL_FORWARD: Major
         DOTNET_NOLOGO: true
         DOTNET_CLI_TELEMETRY_OPTOUT: true
         
     - name: Restore dependencies
-      run: dotnet restore ${{ env.SLN_PATH }}
+      run: dotnet restore Source/Client/Multiplayer.csproj -p:RimWorldVersion=${{ matrix.rimworld }}
 
     - name: Build debug
-      run: dotnet build ${{ env.SLN_PATH }} --no-restore   
+      run: |
+        dotnet build Source/Client/Multiplayer.csproj -c Debug --no-restore -p:RimWorldVersion=${{ matrix.rimworld }}
+        dotnet build Source/Server/Server.csproj -c Debug -p:RimWorldVersion=${{ matrix.rimworld }}
+        dotnet build Source/Tests/Tests.csproj -c Debug -p:RimWorldVersion=${{ matrix.rimworld }}
              
     - name: Build release
-      run: dotnet build ${{ env.SLN_PATH }} --configuration Release --no-restore
+      run: |
+        dotnet build Source/Client/Multiplayer.csproj -c Release --no-restore -p:RimWorldVersion=${{ matrix.rimworld }}
+        dotnet build Source/Server/Server.csproj -c Release -p:RimWorldVersion=${{ matrix.rimworld }}
+        dotnet build Source/Tests/Tests.csproj -c Release -p:RimWorldVersion=${{ matrix.rimworld }}
 
     - name: Run tests
-      run: dotnet test ${{ env.SLN_PATH }} --no-restore
+      run: dotnet test Source/Tests/Tests.csproj -c Release --no-build --no-restore -p:RimWorldVersion=${{ matrix.rimworld }}

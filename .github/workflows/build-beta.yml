@@ -1,8 +1,5 @@
 name: Build beta
 
-env:
-  SLN_PATH: Source/
-
 on:
   workflow_dispatch:
   push:
@@ -28,34 +25,43 @@ jobs:
       with:
         dotnet-version: 10.x
       
-    - name: Install Mod Dependencies
-      run: dotnet restore ${{ env.SLN_PATH }}
+    - name: Restore and build RimWorld 1.6
+      run: |
+        dotnet restore Source/Multiplayer.sln -p:RimWorldVersion=1.6
+        dotnet build Source/Multiplayer.sln --configuration Release --no-restore -p:RimWorldVersion=1.6
 
-    - name: Build Mod
-      run: dotnet build ${{ env.SLN_PATH }} --configuration Release --no-restore
+    - name: Restore and build RimWorld 1.7
+      run: |
+        dotnet restore Source/Multiplayer.sln -p:RimWorldVersion=1.7
+        dotnet build Source/Multiplayer.sln --configuration Release --no-restore -p:RimWorldVersion=1.7
 
-    - name: Publish Server (Windows)
-      run: dotnet publish ${{ env.SLN_PATH }}Server/Server.csproj --configuration Release --runtime win-x64 --self-contained false -p:UseAppHost=true -o output/Server/Windows
+    - name: Publish Server 1.6 and 1.7 (Windows)
+      run: |
+        dotnet publish Source/Server/Server.csproj --configuration Release --runtime win-x64 --self-contained false -p:UseAppHost=true -p:RimWorldVersion=1.6 -o output/Server/Windows
+        dotnet publish Source/Server/Server.csproj --configuration Release --runtime win-x64 --self-contained false -p:UseAppHost=true -p:RimWorldVersion=1.7 -o output/Server/1.7/Windows
 
-    - name: Publish Server (Linux)
-      run: dotnet publish ${{ env.SLN_PATH }}Server/Server.csproj --configuration Release --runtime linux-x64 --self-contained false -p:UseAppHost=true -o output/Server/Linux
+    - name: Publish Server 1.6 and 1.7 (Linux)
+      run: |
+        dotnet publish Source/Server/Server.csproj --configuration Release --runtime linux-x64 --self-contained false -p:UseAppHost=true -p:RimWorldVersion=1.6 -o output/Server/Linux
+        dotnet publish Source/Server/Server.csproj --configuration Release --runtime linux-x64 --self-contained false -p:UseAppHost=true -p:RimWorldVersion=1.7 -o output/Server/1.7/Linux
 
     - name: Add Server Launchers
       run: |
-        cat > output/Server/Linux/Server.sh <<'EOF'
+        for directory in output/Server/Linux output/Server/1.7/Linux; do
+          cat > "$directory/Server.sh" <<'EOF'
         #!/usr/bin/env bash
         set -euo pipefail
         SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
         exec dotnet "$SCRIPT_DIR/Server.dll" "$@"
         EOF
+          chmod +x "$directory/Server.sh"
+        done
 
-        chmod +x output/Server/Linux/Server.sh
+    - name: Stage versioned Multiplayer mod
+      run: bash .github/scripts/stage-multiplayer-beta.sh output/Multiplayer
 
     - name: Package files
       run: |
-        sed -i "s/<name>\(.*\)<\/name>\$/<name>\1 [Continuous]<\/name>/" About/About.xml
-        mkdir -p output/Multiplayer
-        mv About/ Assemblies/ AssembliesCustom/ Defs/ Languages/ Textures/ output/Multiplayer
         cd output/
         zip -r ../Multiplayer-beta.zip Multiplayer/
         zip -r ../Server-beta.zip Server/
