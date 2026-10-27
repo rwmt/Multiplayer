@@ -99,7 +99,7 @@ dotnet build Source/Client/Multiplayer.csproj -c Release -p:RimWorldVersion=1.6
 dotnet build Source/Client/Multiplayer.csproj -c Release -p:RimWorldVersion=1.7
 ```
 
-The workshop bundler builds both variants and retains the historical 1.5 package.
+The **Build workshop** workflow builds and packages both supported game versions directly.
 
 ### Local runtime probes
 

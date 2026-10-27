@@ -24,16 +24,43 @@ jobs:
         cache: true
         cache-dependency-path: '**/*.csproj'
       
-    - name: Run workshop bundler
-      run: ./workshop_bundler.sh
+    - name: Build versioned mod
+      run: |
+        for version in 1.6 1.7; do
+          dotnet build Source/Client/Multiplayer.csproj --configuration Release -p:RimWorldVersion="$version"
+        done
 
-    - run: mkdir -p output
+    - name: Package mod files
+      run: |
+        destination=output/Multiplayer
+        mkdir -p "$destination"
+        cp -R About Defs Languages Textures LoadFolders.xml "$destination/"
+        rm -rf "$destination/Languages/.git"
 
-    - name: Move files
-      run: mv Multiplayer/ output/
+        for version in 1.6 1.7; do
+          test -f "$version/Assemblies/MultiplayerLoader.dll"
+          test -f "$version/AssembliesCustom/Multiplayer.dll"
+          test -f "$version/AssembliesCustom/MultiplayerCommon.dll"
+          cp -R "$version" "$destination/"
+        done
+
+        python3 - "$destination/About/About.xml" "$(git rev-parse --short HEAD)" <<'PYTHON'
+        from pathlib import Path
+        import re
+        import sys
+        import xml.etree.ElementTree as ET
+
+        source = Path('Source/Common/Version.cs').read_text(encoding='utf-8')
+        version = re.search(r'\bSimpleVersion\s*=\s*"([^"]+)"', source)
+        if version is None:
+            raise SystemExit('Cannot find SimpleVersion in Source/Common/Version.cs')
+        metadata = ET.parse(sys.argv[1])
+        metadata.getroot().find('modVersion').text = f'{version[1]} ({sys.argv[2]})'
+        metadata.write(sys.argv[1], encoding='utf-8', xml_declaration=True)
+        PYTHON
 
     - id: get_version
-      run: echo "VERSION=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+      run: echo "VERSION=${GITHUB_REF_NAME//\//-}" >> "$GITHUB_OUTPUT"
 
     - name: Upload mod artifacts
       uses: actions/upload-artifact@v4
