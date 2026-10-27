@@ -2,46 +2,166 @@
 
 name: Validate Pull Request
 
-env:
-  SLN_PATH: Source/
-  DOTNET_ROLL_FORWARD: Major
+on: pull_request
 
-on:
-  pull_request
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_ROLL_FORWARD: Major
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
 
 jobs:
   builds:
     name: Builds
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
+      fail-fast: false
       matrix:
         rimworld: ['1.6', '1.7']
     steps:
-    
-    - uses: actions/checkout@v4
-
-    - name: Set up .NET
-      uses: actions/setup-dotnet@v4
+    - name: Checkout repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
-        dotnet-version: 10.x
+        persist-credentials: false
+
+    # Both game variants need SDK 10 for the source generator. No SDK matrix is needed.
+    - name: Set up .NET
+      id: dotnet
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      with:
+        dotnet-version: 10.0.x
+        cache: true
+        cache-dependency-path: |
+          Source/**/*.csproj
+          Source/Directory.Build.props
+          Source/Directory.Build.targets
+
+    # Hosted runners can contain newer SDKs; use the exact SDK selected above.
+    - name: Pin resolved SDK
       env:
-        DOTNET_NOLOGO: true
-        DOTNET_CLI_TELEMETRY_OPTOUT: true
-        
+        SDK_VERSION: ${{ steps.dotnet.outputs.dotnet-version }}
+      run: |
+        printf '{"sdk":{"version":"%s","rollForward":"latestPatch"}}\n' "$SDK_VERSION" > global.json
+        dotnet --version
+
     - name: Restore dependencies
-      run: dotnet restore Source/Client/Multiplayer.csproj -p:RimWorldVersion=${{ matrix.rimworld }}
+      run: dotnet restore Source/Multiplayer.sln -p:RimWorldVersion=${{ matrix.rimworld }}
 
     - name: Build debug
-      run: |
-        dotnet build Source/Client/Multiplayer.csproj -c Debug --no-restore -p:RimWorldVersion=${{ matrix.rimworld }}
-        dotnet build Source/Server/Server.csproj -c Debug -p:RimWorldVersion=${{ matrix.rimworld }}
-        dotnet build Source/Tests/Tests.csproj -c Debug -p:RimWorldVersion=${{ matrix.rimworld }}
-             
+      run: dotnet build Source/Multiplayer.sln -c Debug --no-restore -p:RimWorldVersion=${{ matrix.rimworld }}
+
     - name: Build release
-      run: |
-        dotnet build Source/Client/Multiplayer.csproj -c Release --no-restore -p:RimWorldVersion=${{ matrix.rimworld }}
-        dotnet build Source/Server/Server.csproj -c Release -p:RimWorldVersion=${{ matrix.rimworld }}
-        dotnet build Source/Tests/Tests.csproj -c Release -p:RimWorldVersion=${{ matrix.rimworld }}
+      run: dotnet build Source/Multiplayer.sln -c Release --no-restore -p:RimWorldVersion=${{ matrix.rimworld }}
 
     - name: Run tests
-      run: dotnet test Source/Tests/Tests.csproj -c Release --no-build --no-restore -p:RimWorldVersion=${{ matrix.rimworld }}
+      run: >-
+        dotnet test Source/Tests/Tests.csproj -c Release --no-build --no-restore
+        -p:RimWorldVersion=${{ matrix.rimworld }}
+        --logger "trx;LogFileName=TestResults.trx"
+        --results-directory artifacts/test-results
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: test-results-rimworld-${{ matrix.rimworld }}
+        path: artifacts/test-results/
+        retention-days: 7
+        if-no-files-found: warn
+        overwrite: true
+
+  # Independent of test results so a buildable PR can still supply a reproduction package.
+  package-artifacts:
+    name: Package mod and server artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+        submodules: recursive
+
+    - name: Compute short commit SHA
+      id: vars
+      run: echo "short_sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+    - name: Set up .NET
+      id: dotnet
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      with:
+        dotnet-version: 10.0.x
+        cache: true
+        cache-dependency-path: |
+          Source/**/*.csproj
+          Source/Directory.Build.props
+          Source/Directory.Build.targets
+
+    - name: Pin resolved SDK
+      env:
+        SDK_VERSION: ${{ steps.dotnet.outputs.dotnet-version }}
+      run: |
+        printf '{"sdk":{"version":"%s","rollForward":"latestPatch"}}\n' "$SDK_VERSION" > global.json
+        dotnet --version
+
+    - name: Build mod variants (Release)
+      run: |
+        for version in 1.6 1.7; do
+          dotnet restore Source/Client/Multiplayer.csproj -p:RimWorldVersion="$version"
+          dotnet build Source/Client/Multiplayer.csproj -c Release --no-restore -p:RimWorldVersion="$version"
+        done
+
+    # Keep the existing 1.6 server paths; put the .NET 10 / 1.7 servers in their own folder.
+    - name: Publish servers (Windows)
+      run: |
+        dotnet publish Source/Server/Server.csproj -c Release --runtime win-x64 --self-contained false -p:UseAppHost=true -p:RimWorldVersion=1.6 -o artifacts/server/Server/Windows
+        dotnet publish Source/Server/Server.csproj -c Release --runtime win-x64 --self-contained false -p:UseAppHost=true -p:RimWorldVersion=1.7 -o artifacts/server/Server/1.7/Windows
+
+    - name: Publish servers (Linux)
+      run: |
+        dotnet publish Source/Server/Server.csproj -c Release --runtime linux-x64 --self-contained false -p:UseAppHost=true -p:RimWorldVersion=1.6 -o artifacts/server/Server/Linux
+        dotnet publish Source/Server/Server.csproj -c Release --runtime linux-x64 --self-contained false -p:UseAppHost=true -p:RimWorldVersion=1.7 -o artifacts/server/Server/1.7/Linux
+
+    - name: Add server launchers
+      run: |
+        for directory in artifacts/server/Server/Linux artifacts/server/Server/1.7/Linux; do
+          cat > "$directory/Server.sh" <<'EOF'
+        #!/usr/bin/env bash
+        set -euo pipefail
+        SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+        exec dotnet "$SCRIPT_DIR/Server.dll" "$@"
+        EOF
+          chmod +x "$directory/Server.sh"
+        done
+
+    - name: Stage versioned mod
+      env:
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+      run: |
+        bash .github/scripts/stage-multiplayer-beta.sh artifacts/mod/Multiplayer "Multiplayer [PR #$PR_NUMBER]"
+
+    # Upload the parent directories so downloaded ZIPs have Multiplayer/ or Server/ at root.
+    - name: Upload mod artifact
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: Multiplayer-mod-pr${{ github.event.pull_request.number }}-${{ steps.vars.outputs.short_sha }}
+        path: artifacts/mod/
+        retention-days: 7
+        if-no-files-found: error
+        overwrite: true
+
+    - name: Upload server artifact
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: Multiplayer-server-pr${{ github.event.pull_request.number }}-${{ steps.vars.outputs.short_sha }}
+        path: artifacts/server/
+        retention-days: 7
+        if-no-files-found: error
+        overwrite: true

@@ -3,6 +3,7 @@ set -euo pipefail
 
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 destination="${1:-output/Multiplayer}"
+display_name="${2:-Multiplayer [Continuous]}"
 if [[ "$destination" != /* ]]; then
   destination="$repo_root/$destination"
 fi
@@ -12,8 +13,15 @@ rm -rf "$destination"
 mkdir -p "$destination"
 cp -R "$repo_root/About" "$repo_root/Defs" "$repo_root/Languages" "$repo_root/Textures" "$destination"
 cp "$repo_root/LoadFolders.xml" "$destination/LoadFolders.xml"
-rm -f "$destination/Languages/.git"
-sed -i 's#<name>Multiplayer</name>#<name>Multiplayer [Continuous]</name>#' "$destination/About/About.xml"
+rm -rf "$destination/Languages/.git"
+python3 - "$destination/About/About.xml" "$display_name" <<'PYTHON'
+import sys
+import xml.etree.ElementTree as ET
+
+metadata = ET.parse(sys.argv[1])
+metadata.getroot().find('name').text = sys.argv[2]
+metadata.write(sys.argv[1], encoding='utf-8', xml_declaration=True)
+PYTHON
 
 for version in 1.6 1.7; do
   build="$repo_root/Source/Client/bin/$version/Release"

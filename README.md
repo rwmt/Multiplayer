@@ -56,6 +56,13 @@ full game session. The 1.7 check reads .NET 10, RimWorld, and Harmony assembly m
 without running the game assemblies. Live 1.7 CoreCLR and host/join testing remain
 unavailable.
 
+Pull requests build both game versions using the .NET 10 SDK. Download the
+`Multiplayer-mod-pr<number>-<commit>` and `Multiplayer-server-pr<number>-<commit>`
+artifacts from the **Validate Pull Request** Actions run; downloads are retained
+for seven days. The mod artifact extracts to `Multiplayer/` with both version
+folders. The server artifact includes Windows/Linux builds for both game versions,
+with the .NET 10 / 1.7 servers under `Server/1.7/`. Test results are uploaded separately.
+
 ## Donations
 
 If you’re feeling generous these are people who have contributed greatly to the mod’s development and upkeep.
