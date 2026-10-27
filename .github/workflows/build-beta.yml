@@ -20,10 +20,12 @@ jobs:
       with:
         submodules: recursive
       
-    - name: Setup Dotnet
-      uses: actions/setup-dotnet@v4
+    - name: Set up .NET
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
       with:
-        dotnet-version: 10.x
+        global-json-file: global.json
+        cache: true
+        cache-dependency-path: '**/*.csproj'
       
     - name: Restore and build RimWorld 1.6
       run: |
@@ -50,6 +52,7 @@ jobs:
         for directory in output/Server/Linux output/Server/1.7/Linux; do
           cat > "$directory/Server.sh" <<'EOF'
         #!/usr/bin/env bash
+        # Launch the published server DLL beside this script with the given arguments.
         set -euo pipefail
         SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
         exec dotnet "$SCRIPT_DIR/Server.dll" "$@"
@@ -58,7 +61,26 @@ jobs:
         done
 
     - name: Stage versioned Multiplayer mod
-      run: bash .github/scripts/stage-multiplayer-beta.sh output/Multiplayer
+      run: |
+        destination=output/Multiplayer
+        mkdir -p "$destination"
+        cp -R About Defs Languages Textures LoadFolders.xml "$destination/"
+        rm -rf "$destination/Languages/.git"
+        python3 - "$destination/About/About.xml" <<'PYTHON'
+        import sys
+        import xml.etree.ElementTree as ET
+
+        metadata = ET.parse(sys.argv[1])
+        metadata.getroot().find('name').text = 'Multiplayer [Continuous]'
+        metadata.write(sys.argv[1], encoding='utf-8', xml_declaration=True)
+        PYTHON
+
+        for version in 1.6 1.7; do
+          test -f "$version/Assemblies/MultiplayerLoader.dll"
+          test -f "$version/AssembliesCustom/Multiplayer.dll"
+          test -f "$version/AssembliesCustom/MultiplayerCommon.dll"
+          cp -R "$version" "$destination/"
+        done
 
     - name: Package files
       run: |

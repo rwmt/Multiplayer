@@ -3,6 +3,28 @@
 The 1.6 and 1.7 runtime paths differ, so these checks are deliberately separate.
 They are standalone probes, not full gameplay or multiplayer-session tests.
 
+## Run all local runtime probes
+
+From the repository root, run:
+
+```sh
+./run-local-tests.sh \
+  "/path/to/RimWorld-1.6/Managed" \
+  "/path/to/Prepatcher/Assemblies" \
+  "/path/to/Harmony/1.6/Assemblies" \
+  "/path/to/Multiplayer"
+```
+
+The optional final argument defaults to this repository. It must contain
+already-built assemblies for both `1.6/` and `1.7/`; the runner does not build
+or deploy them. It validates all required files before invoking Docker and
+then runs the two 1.6 probes below and the 1.7 metadata audit. Paths may contain
+spaces, and the runner can be invoked from another working directory. Docker
+and Python 3 must be installed and available on `PATH`.
+
+This does not run RimWorld, exercise full host/join gameplay, or run the manual
+Windows Mono `TestsOnMono.exe` described in [its README](../TestsOnMono/README.md).
+
 ## RimWorld 1.6: Mono and Harmony 2
 
 Build the 1.6 mod first. Then pass the actual 1.6 `Managed` directory, Prepatcher
@@ -42,13 +64,14 @@ bash Source/RuntimeTests/audit-rimworld-1.7-reference.sh
 bash Source/RuntimeTests/audit-rimworld-1.7-reference.sh "/path/to/Multiplayer"
 ```
 
-The audit uses `System.Reflection.Metadata` through Docker's .NET 10 SDK to read the
-assemblies' target-framework attributes and AssemblyRef/TypeRef tables without loading
-or executing the mod or game assemblies. It checks .NET 10, the RimWorld 1.7
+The audit uses `System.Reflection.Metadata` in Docker with the SDK version selected by
+the repository's root `global.json` to read the assemblies' target-framework
+attributes and AssemblyRef/TypeRef tables without loading or executing the mod or
+game assemblies. It checks the .NET 10 target, the RimWorld 1.7
 `Assembly-CSharp` reference, Harmony's external AssemblyRef, and the absence of
 Prepatcher/Cecil references and bundled Harmony/game DLLs. This is a metadata/reference
-check; there is no live RimWorld 1.7 CoreCLR runtime available here, so it does not
-establish successful in-game loading or host/join behavior.
+check only; it does not load the assemblies into a live RimWorld 1.7 CoreCLR process
+or test in-game loading, host/join behavior, or gameplay.
 
 ## RimWorld 1.6: late reflection-only Unity dependencies
 

@@ -60,12 +60,27 @@
 
   <PropertyGroup>
     <OutputPath>bin\$(RimWorldVersion)\$(Configuration)\</OutputPath>
+    <ModOutputPath Condition="'$(ModOutputPath)' == ''">..\..\</ModOutputPath>
   </PropertyGroup>
 
   <PropertyGroup Label="Normalise stack trace file locations">
     <PathMap>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)'))=$(AssemblyName)/</PathMap>
   </PropertyGroup>
 
+
+  <!-- Stage the mod from resolved runtime dependencies, not every DLL left in bin. -->
+  <Target Name="CopyToRimworld" AfterTargets="Build" Condition="'$(DesignTimeBuild)' != 'true'">
+    <ItemGroup>
+      <ModCustomAssemblies Include="$(TargetPath);$(TargetDir)MultiplayerCommon.dll" />
+      <ModRuntimeAssemblies Include="@(ReferenceCopyLocalPaths)"
+                            Condition="'%(Extension)' == '.dll' and '%(Filename)' != 'MultiplayerCommon'" />
+      <ModSymbols Include="$(TargetDir)Multiplayer.pdb;$(TargetDir)MultiplayerCommon.pdb"
+                  Condition="Exists('%(Identity)')" />
+    </ItemGroup>
+    <RemoveDir Directories="$(ModOutputPath)/$(RimWorldVersion)/Assemblies;$(ModOutputPath)/$(RimWorldVersion)/AssembliesCustom" />
+    <Copy SourceFiles="@(ModCustomAssemblies);@(ModSymbols)" DestinationFolder="$(ModOutputPath)/$(RimWorldVersion)/AssembliesCustom/" />
+    <Copy SourceFiles="@(ModRuntimeAssemblies)" DestinationFolder="$(ModOutputPath)/$(RimWorldVersion)/Assemblies/" />
+  </Target>
 
   <Import Project="PersonalDefinitions.targets" Condition="exists('PersonalDefinitions.targets')" />
 

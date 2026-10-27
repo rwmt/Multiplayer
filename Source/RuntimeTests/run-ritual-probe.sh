@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Probe 1.6 ritual registration and Prepatcher prefix dispatch under Mono.
 set -euo pipefail
 if [[ "$#" -lt 3 || "$#" -gt 4 ]]; then
   echo "Usage: bash $0 <RimWorld-1.6-Managed> <Prepatcher-Assemblies> <Harmony-1.6-Assemblies> [mod-root]" >&2

@@ -22,9 +22,12 @@ Please do all pull requests to the [dev](https://github.com/rwmt/Multiplayer/tre
 
 ## Building for RimWorld 1.6 and 1.7
 
-Use the .NET 10 SDK and select the matching game references with `RimWorldVersion`.
-The selector defaults to `1.6`; only `1.6` and `1.7` are accepted. It separates
-restore assets and outputs under version-specific `bin/` and `obj/` directories.
+The root `global.json` sets SDK 10.0.302 as the minimum and allows roll-forward
+to newer installed .NET 10 minor versions, feature bands, and patches. Select game
+references with `RimWorldVersion`; the selector defaults to `1.6` and accepts
+`1.6` or `1.7`. It separates restore assets and outputs under version-specific
+`bin/` and `obj/` directories. The 1.6 test project targets .NET 8, so the test
+commands use `DOTNET_ROLL_FORWARD=Major` separately to run it on the .NET 10 runtime.
 
 ```sh
 dotnet build Source/Multiplayer.sln -c Release -p:RimWorldVersion=1.6
@@ -46,15 +49,87 @@ Version-specific C# implementations live under `Source/1.6/Client/`,
 put shared code in the existing project folders and version-only code in the matching
 tree.
 
+For example, a client implementation can keep the same namespace, class name,
+and internal API in both version trees while the shared caller stays in
+`Source/Client/`:
+
+```csharp
+// Source/1.6/Client/RuntimeHooks.cs
+namespace Multiplayer;
+internal static class RuntimeHooks
+{
+    internal static bool RequiresPrepatcher => true;
+}
+```
+
+```csharp
+// Source/1.7/Client/RuntimeHooks.cs
+namespace Multiplayer;
+internal static class RuntimeHooks
+{
+    internal static bool RequiresPrepatcher => false;
+}
+```
+
+```csharp
+// Source/Client/RuntimeSetup.cs
+namespace Multiplayer;
+internal static class RuntimeSetup
+{
+    internal static void Configure()
+    {
+        if (RuntimeHooks.RequiresPrepatcher) InstallPrepatcherHooks();
+        else InstallRuntimeHooks();
+    }
+
+    private static void InstallPrepatcherHooks() { /* shared setup */ }
+    private static void InstallRuntimeHooks() { /* shared setup */ }
+}
+```
+
+`Source/Directory.Build.targets` maps the `Multiplayer` client project to
+`Client/` and includes only `Source/<RimWorldVersion>/Client/**/*.cs`. The same
+mapping selects `MultiplayerLoader` from `MultiplayerLoader/` and `Tests` from
+`Tests/`. No extra `.csproj` entries or preprocessor directives are needed;
+keep the version-specific class out of shared `Source/Client/` so the selected
+implementation is defined once. Build the client for either version with:
+
+```sh
+dotnet build Source/Client/Multiplayer.csproj -c Release -p:RimWorldVersion=1.6
+dotnet build Source/Client/Multiplayer.csproj -c Release -p:RimWorldVersion=1.7
+```
+
 The workshop bundler builds both variants and retains the historical 1.5 package.
+
+### Local runtime probes
+
+To run the assembly-dependent local probes for RimWorld 1.6 and 1.7, use
+`run-local-tests.sh` with the installed 1.6 game `Managed` directory, Prepatcher
+`Assemblies` directory, Harmony 1.6 `Assemblies` directory, and optionally a
+mod root containing already-built `1.6/` and `1.7/` assemblies:
+
+```sh
+./run-local-tests.sh \
+  "/path/to/RimWorld-1.6/Managed" \
+  "/path/to/Prepatcher/Assemblies" \
+  "/path/to/Harmony/1.6/Assemblies" \
+  "/path/to/Multiplayer"
+```
+
+The runner requires Docker and Python 3 and does not build or deploy the mod
+DLLs. Build both variants before running, or pass a mod root containing both
+built variants. It runs the 1.6 ritual-prefix and reflection-only Mono probes
+and the 1.7 metadata audit. These do not launch RimWorld or verify a full
+host/join session. Windows Mono `TestsOnMono.exe` remains a separate manual test; see
+[TestsOnMono](Source/TestsOnMono/README.md).
 
 The [version-specific ritual checks](Source/RuntimeTests/README.md) cover the 1.6
 registrar and direct `PrepatcherPrefix` dispatch under Mono/Harmony 2, including
 normal and psychic handlers and serializer registration. The probe stubs `DoSync`
 and calls the prefix directly; it does not exercise Prepatcher's Cecil injection or a
 full game session. The 1.7 check reads .NET 10, RimWorld, and Harmony assembly metadata
-without running the game assemblies. Live 1.7 CoreCLR and host/join testing remain
-unavailable.
+without running the game assemblies. Neither probe tests live RimWorld 1.7 CoreCLR
+loading, host/join networking, or gameplay.
 
 Pull requests build both game versions using the .NET 10 SDK. Download the
 `Multiplayer-mod-pr<number>-<commit>` and `Multiplayer-server-pr<number>-<commit>`

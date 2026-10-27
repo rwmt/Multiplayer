@@ -1,4 +1,5 @@
 #!/bin/bash
+# Build and package the RimWorld 1.5, 1.6, and 1.7 Multiplayer mod releases.
 
 VERSION=$(grep -Po '(?<=SimpleVersion = ")[0-9\.]+' Source/Common/Version.cs)
 
