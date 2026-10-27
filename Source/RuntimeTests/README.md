@@ -49,3 +49,17 @@ or executing the mod or game assemblies. It checks .NET 10, the RimWorld 1.7
 Prepatcher/Cecil references and bundled Harmony/game DLLs. This is a metadata/reference
 check; there is no live RimWorld 1.7 CoreCLR runtime available here, so it does not
 establish successful in-game loading or host/join behavior.
+
+## RimWorld 1.6: late reflection-only Unity dependencies
+
+```sh
+bash Source/RuntimeTests/run-reflection-only-probe.sh "/path/to/RimWorld-1.6/Managed"
+```
+
+An optional second argument selects a mod root with the updated 1.6 loader. This
+Mono probe reproduces the missing `UnityEngine.InputLegacyModule` metadata lookup
+with a null reflection-only resolver, then verifies Multiplayer's scoped resolver
+both reuses an already loaded Unity assembly and resolves a late dependency from
+that game's Managed directory. It uses the real Unity input DLL without running
+Unity methods. No Prepatcher files are changed; full live scene cleanup is not
+simulated. Logs are written to `bin/reflection-only-*.log`.
