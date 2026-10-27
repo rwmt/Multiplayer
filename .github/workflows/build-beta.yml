@@ -61,26 +61,10 @@ jobs:
         done
 
     - name: Stage versioned Multiplayer mod
-      run: |
-        destination=output/Multiplayer
-        mkdir -p "$destination"
-        cp -R About Defs Languages Textures LoadFolders.xml "$destination/"
-        rm -rf "$destination/Languages/.git"
-        python3 - "$destination/About/About.xml" <<'PYTHON'
-        import sys
-        import xml.etree.ElementTree as ET
-
-        metadata = ET.parse(sys.argv[1])
-        metadata.getroot().find('name').text = 'Multiplayer [Continuous]'
-        metadata.write(sys.argv[1], encoding='utf-8', xml_declaration=True)
-        PYTHON
-
-        for version in 1.6 1.7; do
-          test -f "$version/Assemblies/MultiplayerLoader.dll"
-          test -f "$version/AssembliesCustom/Multiplayer.dll"
-          test -f "$version/AssembliesCustom/MultiplayerCommon.dll"
-          cp -R "$version" "$destination/"
-        done
+      uses: ./.github/actions/package-mod
+      with:
+        destination: output/Multiplayer
+        display-name: Multiplayer [Continuous]
 
     - name: Package files
       run: |

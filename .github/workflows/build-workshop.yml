@@ -31,33 +31,10 @@ jobs:
         done
 
     - name: Package mod files
-      run: |
-        destination=output/Multiplayer
-        mkdir -p "$destination"
-        cp -R About Defs Languages Textures LoadFolders.xml "$destination/"
-        rm -rf "$destination/Languages/.git"
-
-        for version in 1.6 1.7; do
-          test -f "$version/Assemblies/MultiplayerLoader.dll"
-          test -f "$version/AssembliesCustom/Multiplayer.dll"
-          test -f "$version/AssembliesCustom/MultiplayerCommon.dll"
-          cp -R "$version" "$destination/"
-        done
-
-        python3 - "$destination/About/About.xml" "$(git rev-parse --short HEAD)" <<'PYTHON'
-        from pathlib import Path
-        import re
-        import sys
-        import xml.etree.ElementTree as ET
-
-        source = Path('Source/Common/Version.cs').read_text(encoding='utf-8')
-        version = re.search(r'\bSimpleVersion\s*=\s*"([^"]+)"', source)
-        if version is None:
-            raise SystemExit('Cannot find SimpleVersion in Source/Common/Version.cs')
-        metadata = ET.parse(sys.argv[1])
-        metadata.getroot().find('modVersion').text = f'{version[1]} ({sys.argv[2]})'
-        metadata.write(sys.argv[1], encoding='utf-8', xml_declaration=True)
-        PYTHON
+      uses: ./.github/actions/package-mod
+      with:
+        destination: output/Multiplayer
+        stamp-version: 'true'
 
     - id: get_version
       run: echo "VERSION=${GITHUB_REF_NAME//\//-}" >> "$GITHUB_OUTPUT"

@@ -119,23 +119,10 @@ jobs:
         done
 
     - name: Package mod files
-      env:
-        PR_NUMBER: ${{ github.event.pull_request.number }}
-      run: |
-        destination=artifacts/mod/Multiplayer
-        mkdir -p "$destination"
-        cp -R About Defs Languages Textures LoadFolders.xml "$destination/"
-        rm -rf "$destination/Languages/.git"
-        python3 - "$destination/About/About.xml" "$PR_NUMBER" <<'PYTHON'
-        import sys
-        import xml.etree.ElementTree as ET
-
-        metadata = ET.parse(sys.argv[1])
-        metadata.getroot().find('name').text = f'Multiplayer [PR #{sys.argv[2]}]'
-        metadata.write(sys.argv[1], encoding='utf-8', xml_declaration=True)
-        PYTHON
-
-        cp -R 1.6 1.7 "$destination/"
+      uses: ./.github/actions/package-mod
+      with:
+        destination: artifacts/mod/Multiplayer
+        display-name: "Multiplayer [PR #${{ github.event.pull_request.number }}]"
 
     # Upload the parent directories so downloaded ZIPs have Multiplayer/ or Server/ at root.
     - name: Upload mod artifact

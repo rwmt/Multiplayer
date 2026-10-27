@@ -1,0 +1,63 @@
+name: Package Multiplayer mod
+description: Stage shared assets and versioned assemblies, with optional package metadata.
+
+inputs:
+  destination:
+    description: Output mod directory, relative to the repository root or absolute.
+    required: true
+  display-name:
+    description: Optional replacement for the mod's display name.
+    default: ''
+  stamp-version:
+    description: Fill modVersion from SimpleVersion and the current commit hash.
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Stage mod files
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      env:
+        DESTINATION: ${{ inputs.destination }}
+      run: |
+        mkdir -p "$DESTINATION"
+        cp -R About Defs Languages Textures LoadFolders.xml "$DESTINATION/"
+        rm -rf "$DESTINATION/Languages/.git"
+
+        for version in 1.6 1.7; do
+          test -f "$version/Assemblies/MultiplayerLoader.dll"
+          test -f "$version/AssembliesCustom/Multiplayer.dll"
+          test -f "$version/AssembliesCustom/MultiplayerCommon.dll"
+          cp -R "$version" "$DESTINATION/"
+        done
+
+    - name: Update package metadata
+      if: ${{ inputs.display-name != '' || inputs.stamp-version == 'true' }}
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      env:
+        DESTINATION: ${{ inputs.destination }}
+        DISPLAY_NAME: ${{ inputs.display-name }}
+        STAMP_VERSION: ${{ inputs.stamp-version }}
+      run: |
+        python3 - <<'PYTHON'
+        from pathlib import Path
+        import os
+        import re
+        import subprocess
+        import xml.etree.ElementTree as ET
+
+        path = Path(os.environ['DESTINATION']) / 'About/About.xml'
+        metadata = ET.parse(path)
+        if os.environ['DISPLAY_NAME']:
+            metadata.getroot().find('name').text = os.environ['DISPLAY_NAME']
+        if os.environ['STAMP_VERSION'] == 'true':
+            source = Path('Source/Common/Version.cs').read_text(encoding='utf-8')
+            version = re.search(r'\bSimpleVersion\s*=\s*"([^"]+)"', source)
+            if version is None:
+                raise SystemExit('Cannot find SimpleVersion in Source/Common/Version.cs')
+            commit = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], text=True).strip()
+            metadata.getroot().find('modVersion').text = f'{version[1]} ({commit})'
+        metadata.write(path, encoding='utf-8', xml_declaration=True)
+        PYTHON
