@@ -263,7 +263,6 @@ namespace Multiplayer.Client
                 return (SyncMethod)internalIdToSyncMethod[id];
             }
 
-            MpUtil.MarkNoInlining(method);
 
             var handler = new SyncMethod(method.IsStatic ? null : method.DeclaringType, null, method, argTypes);
             methodBaseToInternalId[method] = internalIdToSyncMethod.Count;

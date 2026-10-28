@@ -20,7 +20,7 @@ namespace Multiplayer.Client
     public delegate void SyncMethodWriter(object obj, SyncType type, string debugInfo);
 
 
-    public partial class SyncMethod : SyncHandler, ISyncMethod
+    public class SyncMethod : SyncHandler, ISyncMethod
     {
         public readonly Type targetType;
         public readonly MethodInfo method;

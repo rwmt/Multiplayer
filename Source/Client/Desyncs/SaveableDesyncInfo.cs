@@ -17,7 +17,7 @@ using CompressionLevel = System.IO.Compression.CompressionLevel;
 
 namespace Multiplayer.Client.Desyncs;
 
-public partial class SaveableDesyncInfo(
+public class SaveableDesyncInfo(
     SyncCoordinator coordinator,
     ClientSyncOpinion local,
     ClientSyncOpinion remote,
@@ -105,9 +105,6 @@ public partial class SaveableDesyncInfo(
     private string GetDesyncDetails()
     {
         var desyncInfo = new StringBuilder();
-        var gpuFamily = new StringBuilder("Unavailable");
-        if (Native.IsMonoRuntime)
-            SetMonoGraphicsDeviceVendor(gpuFamily);
 
         desyncInfo
             .AppendLine("###Tick Data###")
@@ -131,7 +128,7 @@ public partial class SaveableDesyncInfo(
             .AppendLine($"Processor Speed (MHz)|||{SystemInfo.processorFrequency}")
             .AppendLine($"Thread Count|||{SystemInfo.processorCount}")
             .AppendLine("\n###GPU Info###")
-            .AppendLine($"GPU Family|||{gpuFamily}")
+            .AppendLine("GPU Family|||Unavailable")
             .AppendLine($"GPU Type|||{SystemInfo.graphicsDeviceType}")
             .AppendLine($"GPU Name|||{SystemInfo.graphicsDeviceName}")
             .AppendLine($"GPU VRAM|||{SystemInfo.graphicsMemorySize}")
@@ -143,8 +140,6 @@ public partial class SaveableDesyncInfo(
 
         return desyncInfo.ToString();
     }
-
-    partial void SetMonoGraphicsDeviceVendor(StringBuilder gpuFamily);
 
     private static string FindFileNameForNextDesyncFile()
     {

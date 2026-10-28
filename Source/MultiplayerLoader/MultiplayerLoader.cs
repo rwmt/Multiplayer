@@ -17,7 +17,6 @@ namespace MultiplayerLoader
         public Multiplayer(ModContentPack content) : base(content)
         {
             CheckHarmonyVersion();
-            InitializeVersionRuntime();
 
             instance = this;
             LoadAssembliesCustom();
@@ -25,8 +24,6 @@ namespace MultiplayerLoader
             FindTypeInAppDomain("Multiplayer.Client.Multiplayer")!.GetMethod("InitMultiplayer")!.Invoke(null, [content]);
         }
 
-        partial void CheckHarmonyVersion();
-        partial void InitializeVersionRuntime();
 
         public static Type? FindTypeInAppDomain(string typeFullName) =>
             AppDomain.CurrentDomain.GetAssemblies()

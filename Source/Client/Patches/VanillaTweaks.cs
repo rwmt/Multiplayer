@@ -11,7 +11,7 @@ namespace Multiplayer.Client
     // Fixes a lag spike when opening debug tools
     [HarmonyPatch(typeof(UIRoot))]
     [HarmonyPatch(nameof(UIRoot.UIRootOnGUI))]
-    static partial class UIRootPatch
+    static class UIRootPatch
     {
         static bool done;
 
@@ -19,11 +19,9 @@ namespace Multiplayer.Client
         {
             if (done) return;
             GUI.skin.font = Text.fontStyles[1].font;
-            SetMonoFontNames();
             done = true;
         }
 
-        static partial void SetMonoFontNames();
     }
 
     // Fix window focus handling

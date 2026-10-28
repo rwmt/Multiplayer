@@ -8,12 +8,8 @@ using Verse.Sound;
 
 namespace Multiplayer.Client.Util
 {
-    public static partial class MpUI
+    public static class MpUI
     {
-        // RimWorld 1.6 exposes this as a field; Waylith exposes it as a property.
-        private static readonly FieldInfo editorScrollOffsetField = AccessTools.Field(typeof(TextEditor), "scrollOffset");
-        private static readonly PropertyInfo editorScrollOffsetProperty = AccessTools.Property(typeof(TextEditor), "scrollOffset");
-
         public static Vector2 Resolution => new Vector2(UI.screenWidth, UI.screenHeight);
 
         public static string FixedEllipsis()
@@ -247,9 +243,7 @@ namespace Multiplayer.Client.Util
             Vector2 scrollOffset = default;
             bool keyDown = Event.current.type == EventType.KeyDown;
             if (te != null)
-                scrollOffset = (Vector2)(editorScrollOffsetField != null
-                    ? editorScrollOffsetField.GetValue(te)
-                    : editorScrollOffsetProperty.GetValue(te));
+                scrollOffset = te.scrollOffset;
 
             GUI.SetNextControlName(controlName);
 
@@ -268,16 +262,11 @@ namespace Multiplayer.Client.Util
 
             if (te != null && keyDown)
             {
-                if (editorScrollOffsetField != null)
-                    editorScrollOffsetField.SetValue(te, scrollOffset);
-                else
-                    editorScrollOffsetProperty.SetValue(te, scrollOffset);
+                te.scrollOffset = scrollOffset;
                 te.text = new string(PassChar, password.Length);
-                UpdateMonoPasswordCursor(te);
             }
         }
 
-        static partial void UpdateMonoPasswordCursor(TextEditor editor);
     }
 
     public enum ElementOrder

@@ -5,7 +5,7 @@ namespace MultiplayerLoader;
 
 public partial class Multiplayer
 {
-    partial void CheckHarmonyVersion()
+    private void CheckHarmonyVersion()
     {
         var harmonyVersion = typeof(Harmony).Assembly.GetName().Version;
         if (harmonyVersion.Major < 3)

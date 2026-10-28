@@ -1,63 +1,96 @@
 name: Package Multiplayer mod
-description: Stage shared assets and versioned assemblies, with optional package metadata.
-
+description: Assemble current and independently built legacy game versions.
 inputs:
   destination:
-    description: Output mod directory, relative to the repository root or absolute.
+    description: Destination mod directory.
+    required: true
+  current-root:
+    description: Downloaded current build, containing About and 1.7.
+    required: true
+  legacy-root:
+    description: Downloaded legacy build, containing About and 1.6.
     required: true
   display-name:
-    description: Optional replacement for the mod's display name.
+    description: Optional package display name.
     default: ''
   stamp-version:
-    description: Fill modVersion from SimpleVersion and the current commit hash.
+    description: Stamp the release version and current source commit.
     default: 'false'
-
 runs:
   using: composite
   steps:
-    - name: Stage mod files
+    - name: Assemble versioned mod
       shell: bash
-      working-directory: ${{ github.workspace }}
       env:
         DESTINATION: ${{ inputs.destination }}
-      run: |
-        mkdir -p "$DESTINATION"
-        cp -R About Defs Languages Textures LoadFolders.xml "$DESTINATION/"
-        rm -rf "$DESTINATION/Languages/.git"
-
-        for version in 1.6 1.7; do
-          test -f "$version/Assemblies/MultiplayerLoader.dll"
-          test -f "$version/AssembliesCustom/Multiplayer.dll"
-          test -f "$version/AssembliesCustom/MultiplayerCommon.dll"
-          cp -R "$version" "$DESTINATION/"
-        done
-
-    - name: Update package metadata
-      if: ${{ inputs.display-name != '' || inputs.stamp-version == 'true' }}
-      shell: bash
-      working-directory: ${{ github.workspace }}
-      env:
-        DESTINATION: ${{ inputs.destination }}
+        CURRENT_ROOT: ${{ inputs.current-root }}
+        LEGACY_ROOT: ${{ inputs.legacy-root }}
         DISPLAY_NAME: ${{ inputs.display-name }}
         STAMP_VERSION: ${{ inputs.stamp-version }}
       run: |
         python3 - <<'PYTHON'
+        from copy import deepcopy
         from pathlib import Path
         import os
         import re
+        import shutil
         import subprocess
         import xml.etree.ElementTree as ET
 
-        path = Path(os.environ['DESTINATION']) / 'About/About.xml'
-        metadata = ET.parse(path)
+        destination = Path(os.environ['DESTINATION'])
+        sources = {'1.7': Path(os.environ['CURRENT_ROOT']), '1.6': Path(os.environ['LEGACY_ROOT'])}
+        # Validate both independent inputs before copying any files.
+        metadata = {}
+        for version, source in sources.items():
+            metadata[version] = ET.parse(source / 'About/About.xml').getroot()
+            for relative in ('Assemblies/MultiplayerLoader.dll', 'AssembliesCustom/Multiplayer.dll', 'AssembliesCustom/MultiplayerCommon.dll'):
+                path = source / version / relative
+                if not path.is_file():
+                    raise SystemExit(f'Missing {version} build output: {path}')
+            for dll in (source / version).rglob('*.dll'):
+                name = dll.name.lower()
+                legacy_api = version == '1.6' and name == '0prepatcherapi.dll'
+                if name in ('0harmony.dll', 'assembly-csharp.dll', 'verse.dll', 'unitystubs.dll') or name.startswith(('unityengine', 'mono.cecil')) or (name.startswith(('0prepatcher', 'prepatcher')) and not legacy_api):
+                    raise SystemExit(f'Unexpected bundled game or dependency DLL: {dll}')
+        destination.mkdir(parents=True, exist_ok=False)
+        shutil.copytree(sources['1.7'] / 'About', destination / 'About')
+        root = deepcopy(metadata['1.7'])
+        for tag in ('supportedVersions', 'modDependencies', 'modDependenciesByVersion'):
+            for old in list(root.findall(tag)):
+                root.remove(old)
+        supported = ET.SubElement(root, 'supportedVersions')
+        dependencies = ET.SubElement(root, 'modDependenciesByVersion')
+        folders = ET.Element('loadFolders')
+        for version in ('1.6', '1.7'):
+            shutil.copytree(sources[version] / version, destination / version, ignore=shutil.ignore_patterns('.git'))
+            ET.SubElement(supported, 'li').text = version
+            selected = metadata[version].find(f'modDependenciesByVersion/v{version}')
+            if selected is None:
+                selected = metadata[version].find('modDependencies')
+            entry = ET.SubElement(dependencies, f'v{version}')
+            if selected is not None:
+                entry.extend(deepcopy(list(selected)))
+            folder = ET.SubElement(folders, f'v{version}')
+            ET.SubElement(folder, 'li').text = '/'
+            ET.SubElement(folder, 'li').text = version
+        # Preserve legacy dependency ordering as well as its declarations.
+        ordering = root.find('loadAfter')
+        if ordering is None:
+            ordering = ET.SubElement(root, 'loadAfter')
+        existing = {item.text for item in ordering}
+        for item in metadata['1.6'].findall('loadAfter/li'):
+            if item.text not in existing:
+                ordering.append(deepcopy(item))
+                existing.add(item.text)
         if os.environ['DISPLAY_NAME']:
-            metadata.getroot().find('name').text = os.environ['DISPLAY_NAME']
+            root.find('name').text = os.environ['DISPLAY_NAME']
         if os.environ['STAMP_VERSION'] == 'true':
             source = Path('Source/Common/Version.cs').read_text(encoding='utf-8')
             version = re.search(r'\bSimpleVersion\s*=\s*"([^"]+)"', source)
             if version is None:
-                raise SystemExit('Cannot find SimpleVersion in Source/Common/Version.cs')
+                raise SystemExit('Cannot find SimpleVersion')
             commit = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], text=True).strip()
-            metadata.getroot().find('modVersion').text = f'{version[1]} ({commit})'
-        metadata.write(path, encoding='utf-8', xml_declaration=True)
+            root.find('modVersion').text = f'{version[1]} ({commit})'
+        ET.ElementTree(root).write(destination / 'About/About.xml', encoding='utf-8', xml_declaration=True)
+        ET.ElementTree(folders).write(destination / 'LoadFolders.xml', encoding='utf-8', xml_declaration=True)
         PYTHON

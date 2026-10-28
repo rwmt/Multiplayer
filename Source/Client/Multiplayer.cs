@@ -95,18 +95,6 @@ namespace Multiplayer.Client
 #endif
 
             modContentPack = content;
-            Native.EarlyInit(
-                Application.platform switch
-                {
-                    RuntimePlatform.LinuxEditor => Native.NativeOS.Linux,
-                    RuntimePlatform.LinuxPlayer => Native.NativeOS.Linux,
-                    RuntimePlatform.OSXEditor => Native.NativeOS.OSX,
-                    RuntimePlatform.OSXPlayer => Native.NativeOS.OSX,
-                    _ => Native.NativeOS.Windows
-                });
-
-            DisableOmitFramePointer();
-            JittedMethods.Init();
 
             MultiplayerLoader.Multiplayer.settingsWindowDrawer =
                 rect => MpSettingsUI.DoSettingsWindowContents(settings, rect);
@@ -148,12 +136,7 @@ namespace Multiplayer.Client
             VersionChecker.Init();
         }
 
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private static void DisableOmitFramePointer()
-        {
-            if (!Native.IsMonoRuntime) return;
-            Native.mini_parse_debug_option("disable_omit_fp");
-        }
+
 
         private static void CheckInterfaceVersions()
         {

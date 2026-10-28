@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>$(RimWorldTargetFramework)</TargetFramework>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>12</LangVersion>
@@ -59,7 +58,7 @@
   </Target>
 
   <PropertyGroup>
-    <OutputPath>bin\$(RimWorldVersion)\$(Configuration)\</OutputPath>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
     <ModOutputPath Condition="'$(ModOutputPath)' == ''">..\..\</ModOutputPath>
   </PropertyGroup>
 
@@ -77,9 +76,9 @@
       <ModSymbols Include="$(TargetDir)Multiplayer.pdb;$(TargetDir)MultiplayerCommon.pdb"
                   Condition="Exists('%(Identity)')" />
     </ItemGroup>
-    <RemoveDir Directories="$(ModOutputPath)/$(RimWorldVersion)/Assemblies;$(ModOutputPath)/$(RimWorldVersion)/AssembliesCustom" />
-    <Copy SourceFiles="@(ModCustomAssemblies);@(ModSymbols)" DestinationFolder="$(ModOutputPath)/$(RimWorldVersion)/AssembliesCustom/" />
-    <Copy SourceFiles="@(ModRuntimeAssemblies)" DestinationFolder="$(ModOutputPath)/$(RimWorldVersion)/Assemblies/" />
+    <RemoveDir Directories="$(ModOutputPath)/1.7/Assemblies;$(ModOutputPath)/1.7/AssembliesCustom" />
+    <Copy SourceFiles="@(ModCustomAssemblies);@(ModSymbols)" DestinationFolder="$(ModOutputPath)/1.7/AssembliesCustom/" />
+    <Copy SourceFiles="@(ModRuntimeAssemblies)" DestinationFolder="$(ModOutputPath)/1.7/Assemblies/" />
   </Target>
 
   <Import Project="PersonalDefinitions.targets" Condition="exists('PersonalDefinitions.targets')" />

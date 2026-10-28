@@ -30,14 +30,5 @@ public class CoreClrRuntimeTest
         public static readonly List<int> Values = new() { 1, 2, 3 };
     }
 
-    [Test]
-    public void MonoInitializationIsSkippedOnCoreClr()
-    {
-        Assert.That(Native.IsMonoRuntime, Is.False);
-        // Both calls used to load Mono libraries or read Mono thread memory.
-        Native.EarlyInit(Native.NativeOS.Windows);
-        Native.InitLmfPtr(Native.NativeOS.Windows);
-        Assert.That(Native.DomainPtr, Is.EqualTo(IntPtr.Zero));
-        Assert.That(Native.LmfPtr, Is.Zero);
-    }
+
 }

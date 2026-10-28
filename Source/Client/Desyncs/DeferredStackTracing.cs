@@ -33,38 +33,25 @@ namespace Multiplayer.Client.Desyncs
 
         public static void Postfix()
         {
-            if (Native.IsMonoRuntime && Native.LmfPtr == 0) return;
             if (!ShouldAddStackTraceForDesyncLog()) return;
 
             var logItem = StackTraceLogItemRaw.GetFromPool();
-            if (!Native.IsMonoRuntime)
+            // Managed stack capture for the CoreCLR runtime.
+            var frames = new StackTrace(1, false).GetFrames();
+            var text = new StringBuilder();
+            int managedHash = 17;
+            int managedDepth = System.Math.Min(frames?.Length ?? 0, StackTraceLogItemRaw.MaxDepth);
+            for (int i = 0; i < managedDepth; i++)
             {
-                // Managed fallback: never interpret CoreCLR addresses as Mono frames.
-                var frames = new StackTrace(1, false).GetFrames();
-                var text = new StringBuilder();
-                int managedHash = 17;
-                int managedDepth = System.Math.Min(frames?.Length ?? 0, StackTraceLogItemRaw.MaxDepth);
-                for (int i = 0; i < managedDepth; i++)
-                {
-                    var method = frames[i].GetMethod();
-                    var name = $"{method?.DeclaringType?.FullName}.{method}";
-                    text.AppendLine(name);
-                    // Explicit stable hashing; no process-randomized string hashes.
-                    foreach (char c in name)
-                        managedHash = unchecked(managedHash * 31 + c);
-                }
-                logItem.managedTrace = text.ToString();
-                Multiplayer.game.sync.TryAddStackTraceForDesyncLogRaw(logItem, managedDepth, managedHash);
-                acc++;
-                return;
+                var method = frames[i].GetMethod();
+                var name = $"{method?.DeclaringType?.FullName}.{method}";
+                text.AppendLine(name);
+                // Explicit stable hashing; no process-randomized string hashes.
+                foreach (char c in name)
+                    managedHash = unchecked(managedHash * 31 + c);
             }
-            var trace = logItem.raw;
-            int hash = 0;
-            // Skip this (DeferredStackTracing.Postfix) frame. Keeping it in the trace doesn't provide any value.
-            int depth = DeferredStackTracingImpl.TraceImpl(trace, ref hash, skipFrames: 1);
-
-            Multiplayer.game.sync.TryAddStackTraceForDesyncLogRaw(logItem, depth, hash);
-
+            logItem.managedTrace = text.ToString();
+            Multiplayer.game.sync.TryAddStackTraceForDesyncLogRaw(logItem, managedDepth, managedHash);
             acc++;
         }
 

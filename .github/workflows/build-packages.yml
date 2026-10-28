@@ -1,0 +1,209 @@
+name: Build release packages
+on:
+  workflow_call:
+    inputs:
+      artifact-suffix:
+        required: true
+        type: string
+      display-name:
+        default: ''
+        type: string
+      stamp-version:
+        default: false
+        type: boolean
+      include-servers:
+        default: true
+        type: boolean
+    outputs:
+      mod-artifact:
+        value: ${{ jobs.package.outputs.mod-artifact }}
+      server-artifact:
+        value: ${{ jobs.package.outputs.server-artifact }}
+permissions:
+  contents: read
+jobs:
+  current:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+        submodules: recursive
+    - name: Set up .NET
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      with:
+        global-json-file: global.json
+        cache: true
+        cache-dependency-path: '**/*.csproj'
+    - name: Build current mod
+      run: dotnet build Source/Client/Multiplayer.csproj -c Release
+    - name: Stage current mod
+      run: |
+        mkdir -p artifacts/current/1.7
+        cp -R About artifacts/current/
+        cp -R Defs Languages Textures 1.7/Assemblies 1.7/AssembliesCustom artifacts/current/1.7/
+        rm -rf artifacts/current/1.7/Languages/.git
+    - name: Audit current assembly references
+      run: dotnet run --project Source/RuntimeTests/MetadataAudit.csproj -c Release -- artifacts/current/1.7
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: current-mod-${{ inputs.artifact-suffix }}
+        path: artifacts/current/
+        if-no-files-found: error
+        retention-days: 7
+    - name: Publish current servers
+      if: inputs.include-servers
+      run: |
+        for os in win linux; do
+          dotnet publish Source/Server/Server.csproj -c Release -r "$os-x64" --self-contained false -p:UseAppHost=true -o "artifacts/server/Server/1.7/$(if [[ $os == win ]]; then echo Windows; else echo Linux; fi)"
+        done
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      if: inputs.include-servers
+      with:
+        name: current-server-${{ inputs.artifact-suffix }}
+        path: artifacts/server/
+        retention-days: 7
+        if-no-files-found: error
+  legacy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+    - name: Resolve legacy 1.6 source
+      id: legacy
+      env:
+        LEGACY_BRANCH: rw-1.6
+        LEGACY_FALLBACK: 9df94bd04ea9a94c00bd39a276e58c4c2f965740
+      run: |
+        if refs=$(git ls-remote --exit-code --heads https://github.com/rwmt/Multiplayer.git "refs/heads/$LEGACY_BRANCH"); then
+          sha=${refs%%$'\t'*}
+          echo "Using $LEGACY_BRANCH at $sha"
+        else
+          status=$?
+          if [[ "$status" != 2 ]]; then
+            echo "Could not check the legacy branch (git exit $status)" >&2
+            exit "$status"
+          fi
+          sha=$LEGACY_FALLBACK
+          echo "No $LEGACY_BRANCH branch; using pinned commit $sha"
+        fi
+        echo "sha=$sha" >> "$GITHUB_OUTPUT"
+    - name: Checkout legacy source
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        repository: rwmt/Multiplayer
+        ref: ${{ steps.legacy.outputs.sha }}
+        path: legacy-src
+        persist-credentials: false
+        submodules: recursive
+    - name: Set up .NET
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      with:
+        global-json-file: global.json
+        cache: true
+        cache-dependency-path: '**/*.csproj'
+    - name: Build legacy mod
+      working-directory: legacy-src
+      run: dotnet build Source/Client/Multiplayer.csproj -c Release
+    - name: Stage legacy mod
+      env:
+        LEGACY_SHA: ${{ steps.legacy.outputs.sha }}
+      run: |
+        mkdir -p artifacts/legacy/1.6
+        cp -R legacy-src/About artifacts/legacy/
+        for directory in Assemblies AssembliesCustom Defs Languages Textures; do
+          cp -R "legacy-src/$directory" artifacts/legacy/1.6/
+        done
+        rm -rf artifacts/legacy/1.6/Languages/.git
+        echo "$LEGACY_SHA" > artifacts/legacy/1.6/source-commit.txt
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: legacy-mod-${{ inputs.artifact-suffix }}
+        path: artifacts/legacy/
+        retention-days: 7
+        if-no-files-found: error
+    - name: Publish legacy servers
+      if: inputs.include-servers
+      working-directory: legacy-src
+      run: |
+        for os in win linux; do
+          dotnet publish Source/Server/Server.csproj -c Release -r "$os-x64" --self-contained false -p:UseAppHost=true -o "../artifacts/server/Server/$(if [[ $os == win ]]; then echo Windows; else echo Linux; fi)"
+        done
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      if: inputs.include-servers
+      with:
+        name: legacy-server-${{ inputs.artifact-suffix }}
+        path: artifacts/server/
+        retention-days: 7
+        if-no-files-found: error
+  package:
+    needs: [current, legacy]
+    runs-on: ubuntu-latest
+    outputs:
+      mod-artifact: ${{ steps.names.outputs.mod }}
+      server-artifact: ${{ steps.names.outputs.server }}
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+    - uses: actions/download-artifact@v4
+      with:
+        name: current-mod-${{ inputs.artifact-suffix }}
+        path: bundle/current
+    - uses: actions/download-artifact@v4
+      with:
+        name: legacy-mod-${{ inputs.artifact-suffix }}
+        path: bundle/legacy
+    - name: Package mod
+      uses: ./.github/actions/package-mod
+      with:
+        destination: artifacts/mod/Multiplayer
+        current-root: bundle/current
+        legacy-root: bundle/legacy
+        display-name: ${{ inputs.display-name }}
+        stamp-version: ${{ inputs.stamp-version }}
+    - id: names
+      env:
+        SUFFIX: ${{ inputs.artifact-suffix }}
+      run: |
+        echo "mod=Multiplayer-mod-$SUFFIX" >> "$GITHUB_OUTPUT"
+        echo "server=Multiplayer-server-$SUFFIX" >> "$GITHUB_OUTPUT"
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: ${{ steps.names.outputs.mod }}
+        path: artifacts/mod/
+        retention-days: 7
+        if-no-files-found: error
+    - uses: actions/download-artifact@v4
+      if: inputs.include-servers
+      with:
+        name: current-server-${{ inputs.artifact-suffix }}
+        path: artifacts/server
+    - uses: actions/download-artifact@v4
+      if: inputs.include-servers
+      with:
+        name: legacy-server-${{ inputs.artifact-suffix }}
+        path: artifacts/server
+    - name: Add Linux server launchers
+      if: inputs.include-servers
+      run: |
+        for directory in artifacts/server/Server/Linux artifacts/server/Server/1.7/Linux; do
+          cat > "$directory/Server.sh" <<'EOF'
+        #!/usr/bin/env bash
+        # Run the server beside this script with the supplied arguments.
+        set -euo pipefail
+        SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+        exec dotnet "$SCRIPT_DIR/Server.dll" "$@"
+        EOF
+          chmod +x "$directory/Server.sh"
+        done
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      if: inputs.include-servers
+      with:
+        name: ${{ steps.names.outputs.server }}
+        path: artifacts/server/
+        retention-days: 7
+        if-no-files-found: error

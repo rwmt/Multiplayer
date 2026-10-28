@@ -1,91 +1,46 @@
 name: Build beta
-
 on:
   workflow_dispatch:
   push:
-    branches:
-      - dev
-    paths-ignore:
-      - 'README.md'
-
+    branches: [dev]
+    paths-ignore: ['README.md']
+permissions:
+  contents: read
 jobs:
   build:
-    name: Build beta
+    uses: ./.github/workflows/build-packages.yml
+    with:
+      artifact-suffix: beta-${{ github.run_id }}
+      display-name: Multiplayer [Continuous]
+  release:
+    needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     env:
-        GH_TOKEN: ${{ github.token }}
+      GH_TOKEN: ${{ github.token }}
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
-        submodules: recursive
-      
-    - name: Set up .NET
-      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        persist-credentials: false
+    - uses: actions/download-artifact@v4
       with:
-        global-json-file: global.json
-        cache: true
-        cache-dependency-path: '**/*.csproj'
-      
-    - name: Restore and build RimWorld 1.6
-      run: |
-        dotnet restore Source/Multiplayer.sln -p:RimWorldVersion=1.6
-        dotnet build Source/Multiplayer.sln --configuration Release --no-restore -p:RimWorldVersion=1.6
-
-    - name: Restore and build RimWorld 1.7
-      run: |
-        dotnet restore Source/Multiplayer.sln -p:RimWorldVersion=1.7
-        dotnet build Source/Multiplayer.sln --configuration Release --no-restore -p:RimWorldVersion=1.7
-
-    - name: Publish Server 1.6 and 1.7 (Windows)
-      run: |
-        dotnet publish Source/Server/Server.csproj --configuration Release --runtime win-x64 --self-contained false -p:UseAppHost=true -p:RimWorldVersion=1.6 -o output/Server/Windows
-        dotnet publish Source/Server/Server.csproj --configuration Release --runtime win-x64 --self-contained false -p:UseAppHost=true -p:RimWorldVersion=1.7 -o output/Server/1.7/Windows
-
-    - name: Publish Server 1.6 and 1.7 (Linux)
-      run: |
-        dotnet publish Source/Server/Server.csproj --configuration Release --runtime linux-x64 --self-contained false -p:UseAppHost=true -p:RimWorldVersion=1.6 -o output/Server/Linux
-        dotnet publish Source/Server/Server.csproj --configuration Release --runtime linux-x64 --self-contained false -p:UseAppHost=true -p:RimWorldVersion=1.7 -o output/Server/1.7/Linux
-
-    - name: Add Server Launchers
-      run: |
-        for directory in output/Server/Linux output/Server/1.7/Linux; do
-          cat > "$directory/Server.sh" <<'EOF'
-        #!/usr/bin/env bash
-        # Launch the published server DLL beside this script with the given arguments.
-        set -euo pipefail
-        SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-        exec dotnet "$SCRIPT_DIR/Server.dll" "$@"
-        EOF
-          chmod +x "$directory/Server.sh"
-        done
-
-    - name: Stage versioned Multiplayer mod
-      uses: ./.github/actions/package-mod
+        name: ${{ needs.build.outputs.mod-artifact }}
+        path: output
+    - uses: actions/download-artifact@v4
       with:
-        destination: output/Multiplayer
-        display-name: Multiplayer [Continuous]
-
-    - name: Package files
+        name: ${{ needs.build.outputs.server-artifact }}
+        path: output
+    - name: Package release ZIPs
+      working-directory: output
       run: |
-        cd output/
         zip -r ../Multiplayer-beta.zip Multiplayer/
         zip -r ../Server-beta.zip Server/
-        cd ../
-
-    - name: Upload Mod Artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: Multiplayer-beta
-        path: output/
-    
-    - name: Clean up last release
+    - name: Remove previous release
       continue-on-error: true
+      run: gh release delete --cleanup-tag --yes continuous
+    - name: Publish release
       run: |
-        gh release delete --cleanup-tag --yes "continuous"
-    
-    - name: Upload new release
-      run: |
-        gh release create --target "${{ github.sha }}" --title "Continuous" --notes-file ".github/workflows/alpha-notes.md" --draft "continuous"
-        gh release upload "continuous" Multiplayer-beta.zip Server-beta.zip
-        gh release edit "continuous" --draft=false
+        gh release create --target "${{ github.sha }}" --title Continuous --notes-file .github/workflows/alpha-notes.md --draft continuous
+        gh release upload continuous Multiplayer-beta.zip Server-beta.zip
+        gh release edit continuous --draft=false

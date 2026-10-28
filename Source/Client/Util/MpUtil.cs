@@ -16,14 +16,7 @@ namespace Multiplayer.Client
 {
     public static class MpUtil
     {
-        public static unsafe void MarkNoInlining(MethodBase method)
-        {
-            // This offset is a MonoMethod layout, not a CoreCLR MethodDesc.
-            // Harmony handles detouring on CoreCLR; writing here corrupts memory.
-            if (!Native.IsMonoRuntime) return;
-            ushort* iflags = (ushort*)(method.MethodHandle.Value) + 1;
-            *iflags |= (ushort)MethodImplOptions.NoInlining;
-        }
+
 
         public static object NewObjectNoCtor(Type type)
         {
@@ -85,14 +78,6 @@ namespace Multiplayer.Client
                     ? "No method"
                     : $"{m.DeclaringType.DeclaringType?.FullDescription()} {m.DeclaringType.FullDescription()} {m.Name}"
                         .Replace("<", "[").Replace(">", "]");
-        }
-
-        public static MethodBase GetOriginalFromHarmonyReplacement(long replacementAddr)
-        {
-            // Todo: this is using a non-public API of Harmony, we should refactor to use https://harmony.pardeike.net/api/HarmonyLib.Harmony.html#HarmonyLib_Harmony_GetOriginalMethod_System_Reflection_MethodInfo_
-            // as pardeike suggested in https://github.com/rwmt/Multiplayer/pull/270#issuecomment-1003298289
-            return HarmonySharedState.originals
-                .FirstOrDefault(kv => kv.Key.MethodHandle.GetFunctionPointer().ToInt64() == replacementAddr).Value;
         }
 
         public static string JoinStringsAtMost(this IEnumerable<string> strs, int atMost = 3)

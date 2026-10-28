@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>$(RimWorldTestTargetFramework)</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <LangVersion>12</LangVersion>
@@ -24,7 +23,6 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Compile Include="..\1.6\MultiplayerLoader\ReflectionOnlyUnityResolver.cs" Link="Loader\ReflectionOnlyUnityResolver.cs" Condition="'$(RimWorldVersion)' == '1.6'" />
       <Compile Include="..\Client\Util\DeterministicHash.cs" Link="Client\DeterministicHash.cs" />
       <Compile Include="..\Client\Util\HashCodeTranspiler.cs" Link="Client\HashCodeTranspiler.cs" />
       <Compile Include="..\Client\Patches\ViewedMapTracker.cs" Link="Client\ViewedMapTracker.cs" />
