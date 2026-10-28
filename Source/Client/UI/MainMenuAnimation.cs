@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
@@ -24,7 +24,8 @@ namespace Multiplayer.Client
 
         // The background might be drawn at the same time as the loading of a map on a different thread calls Verse.Rand
         // Verse.Rand can't be used here because it isn't thread-safe
-        private static Random rand = new(SystemInfo.deviceUniqueIdentifier.GetHashCode());
+        // Cosmetic only: no dependency on Unity's hardware identifier.
+        private static Random rand = new();
 
         private static float newPulseTimer;
 

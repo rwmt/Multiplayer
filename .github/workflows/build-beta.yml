@@ -1,79 +1,51 @@
 name: Build beta
-
-env:
-  SLN_PATH: Source/
-
 on:
   workflow_dispatch:
   push:
-    branches:
-      - dev
-    paths-ignore:
-      - 'README.md'
-
+    branches: [dev]
+    paths-ignore: ['README.md']
+permissions:
+  contents: read
 jobs:
   build:
-    name: Build beta
+    name: Build beta mod and server packages
+    uses: ./.github/workflows/build-packages.yml
+    with:
+      artifact-suffix: beta-${{ github.run_id }}
+      display-name: Multiplayer [Continuous]
+  release:
+    name: Publish beta release
+    needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     env:
-        GH_TOKEN: ${{ github.token }}
+      GH_TOKEN: ${{ github.token }}
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+    - name: Check out release metadata
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
-        submodules: recursive
-      
-    - name: Setup Dotnet
-      uses: actions/setup-dotnet@v4
+        persist-credentials: false
+    - name: Download combined mod package
+      uses: actions/download-artifact@v4
       with:
-        dotnet-version: 9.x
-      
-    - name: Install Mod Dependencies
-      run: dotnet restore ${{ env.SLN_PATH }}
-
-    - name: Build Mod
-      run: dotnet build ${{ env.SLN_PATH }} --configuration Release --no-restore
-
-    - name: Publish Server (Windows)
-      run: dotnet publish ${{ env.SLN_PATH }}Server/Server.csproj --configuration Release --runtime win-x64 --self-contained false -p:UseAppHost=true -o output/Server/Windows
-
-    - name: Publish Server (Linux)
-      run: dotnet publish ${{ env.SLN_PATH }}Server/Server.csproj --configuration Release --runtime linux-x64 --self-contained false -p:UseAppHost=true -o output/Server/Linux
-
-    - name: Add Server Launchers
+        name: ${{ needs.build.outputs.mod-artifact }}
+        path: output
+    - name: Download combined server package
+      uses: actions/download-artifact@v4
+      with:
+        name: ${{ needs.build.outputs.server-artifact }}
+        path: output
+    - name: Package release ZIPs
+      working-directory: output
       run: |
-        cat > output/Server/Linux/Server.sh <<'EOF'
-        #!/usr/bin/env bash
-        set -euo pipefail
-        SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-        exec dotnet "$SCRIPT_DIR/Server.dll" "$@"
-        EOF
-
-        chmod +x output/Server/Linux/Server.sh
-
-    - name: Package files
-      run: |
-        sed -i "s/<name>\(.*\)<\/name>\$/<name>\1 [Continuous]<\/name>/" About/About.xml
-        mkdir -p output/Multiplayer
-        mv About/ Assemblies/ AssembliesCustom/ Defs/ Languages/ Textures/ output/Multiplayer
-        cd output/
         zip -r ../Multiplayer-beta.zip Multiplayer/
         zip -r ../Server-beta.zip Server/
-        cd ../
-
-    - name: Upload Mod Artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: Multiplayer-beta
-        path: output/
-    
-    - name: Clean up last release
+    - name: Remove previous release
       continue-on-error: true
+      run: gh release delete --cleanup-tag --yes continuous
+    - name: Publish release
       run: |
-        gh release delete --cleanup-tag --yes "continuous"
-    
-    - name: Upload new release
-      run: |
-        gh release create --target "${{ github.sha }}" --title "Continuous" --notes-file ".github/workflows/alpha-notes.md" --draft "continuous"
-        gh release upload "continuous" Multiplayer-beta.zip Server-beta.zip
-        gh release edit "continuous" --draft=false
+        gh release create --target "${{ github.sha }}" --title Continuous --notes-file .github/workflows/alpha-notes.md --draft continuous
+        gh release upload continuous Multiplayer-beta.zip Server-beta.zip
+        gh release edit continuous --draft=false

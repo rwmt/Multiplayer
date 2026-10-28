@@ -2,36 +2,66 @@
 
 name: Validate Pull Request
 
-env:
-  SLN_PATH: Source/
+on: pull_request
 
-on:
-  pull_request
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
 
 jobs:
   builds:
     name: Builds
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-    
-    - uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
 
     - name: Set up .NET
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
       with:
-        dotnet-version: 9.x
-      env:
-        DOTNET_NOLOGO: true
-        DOTNET_CLI_TELEMETRY_OPTOUT: true
-        
+        global-json-file: global.json
+        cache: true
+        cache-dependency-path: '**/*.csproj'
+
     - name: Restore dependencies
-      run: dotnet restore ${{ env.SLN_PATH }}
+      run: dotnet restore Source/Multiplayer.sln
 
-    - name: Build debug
-      run: dotnet build ${{ env.SLN_PATH }} --no-restore   
-             
-    - name: Build release
-      run: dotnet build ${{ env.SLN_PATH }} --configuration Release --no-restore
+    - name: Build mod, server and tests (Debug)
+      run: dotnet build Source/Multiplayer.sln -c Debug --no-restore
 
-    - name: Run tests
-      run: dotnet test ${{ env.SLN_PATH }} --no-restore
+    - name: Build mod, server and tests (Release)
+      run: dotnet build Source/Multiplayer.sln -c Release --no-restore
+
+    - name: Run unit tests
+      run: >-
+        dotnet test Source/Tests/Tests.csproj -c Release --no-build --no-restore
+        --logger "trx;LogFileName=TestResults.trx"
+        --results-directory artifacts/test-results
+
+    - name: Upload unit test results
+      if: always()
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: test-results-rimworld-1.7
+        path: artifacts/test-results/
+        retention-days: 7
+        if-no-files-found: warn
+        overwrite: true
+
+  # Independent of tests so buildable PRs still supply reproduction packages.
+  package-artifacts:
+    name: Build PR mod and server packages
+    uses: ./.github/workflows/build-packages.yml
+    with:
+      artifact-suffix: pr${{ github.event.pull_request.number }}-${{ github.sha }}
+      display-name: "Multiplayer [PR #${{ github.event.pull_request.number }}]"

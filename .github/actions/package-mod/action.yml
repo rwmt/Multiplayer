@@ -1,0 +1,122 @@
+name: Package Multiplayer mod
+description: Assemble any number of independently built game versions.
+inputs:
+  destination:
+    description: Destination mod directory.
+    required: true
+  builds-root:
+    description: Directory containing one build per version, each with About and files.
+    required: true
+  versions:
+    description: JSON list of all required game versions; missing builds fail packaging.
+    required: true
+  current-version:
+    description: Version whose About metadata supplies the package name and description.
+    required: true
+  display-name:
+    description: Optional package display name.
+    default: ''
+  stamp-version:
+    description: Stamp the release version and current source commit.
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - name: Assemble versioned mod
+      shell: bash
+      env:
+        DESTINATION: ${{ inputs.destination }}
+        BUILDS_ROOT: ${{ inputs.builds-root }}
+        VERSIONS: ${{ inputs.versions }}
+        CURRENT_VERSION: ${{ inputs.current-version }}
+        DISPLAY_NAME: ${{ inputs.display-name }}
+        STAMP_VERSION: ${{ inputs.stamp-version }}
+      run: |
+        python3 - <<'PYTHON'
+        from copy import deepcopy
+        from pathlib import Path
+        import os
+        import json
+        import re
+        import shutil
+        import subprocess
+        import xml.etree.ElementTree as ET
+
+        destination = Path(os.environ['DESTINATION'])
+        builds_root = Path(os.environ['BUILDS_ROOT'])
+        sources = {p.name: p for p in builds_root.iterdir() if p.is_dir()}
+        current = os.environ['CURRENT_VERSION']
+        required = json.loads(os.environ['VERSIONS'])
+        if len(set(required)) != len(required) or set(sources) != set(required) or current not in sources or any(not re.fullmatch(r'\d+\.\d+', v) for v in sources):
+            raise SystemExit('Expected version-named build directories including the current version')
+        versions = sorted(sources, key=lambda value: tuple(map(int, value.split('.'))))
+        # Validate every independent build before copying any files.
+        metadata = {}
+        for version, source in sources.items():
+            metadata[version] = ET.parse(source / 'About/About.xml').getroot()
+            if version not in [item.text for item in metadata[version].findall('supportedVersions/li')]:
+                raise SystemExit(f'Source metadata does not support {version}')
+            for relative in ('Assemblies/MultiplayerLoader.dll', 'AssembliesCustom/Multiplayer.dll', 'AssembliesCustom/MultiplayerCommon.dll'):
+                path = source / 'files' / relative
+                if not path.is_file():
+                    raise SystemExit(f'Missing {version} build output: {path}')
+            for dll in (source / 'files').rglob('*.dll'):
+                name = dll.name.lower()
+                dependency_api = name == '0prepatcherapi.dll'
+                if name in ('0harmony.dll', 'assembly-csharp.dll', 'verse.dll', 'unitystubs.dll') or name.startswith(('unityengine', 'mono.cecil')) or (name.startswith(('0prepatcher', 'prepatcher')) and not dependency_api):
+                    raise SystemExit(f'Unexpected bundled game or dependency DLL: {dll}')
+        destination.mkdir(parents=True, exist_ok=False)
+        shutil.copytree(sources[current] / 'About', destination / 'About')
+        root = deepcopy(metadata[current])
+        for tag in ('supportedVersions', 'modDependencies', 'modDependenciesByVersion'):
+            for old in list(root.findall(tag)):
+                root.remove(old)
+        supported = ET.SubElement(root, 'supportedVersions')
+        dependencies = ET.SubElement(root, 'modDependenciesByVersion')
+        folders = ET.Element('loadFolders')
+        for version in versions:
+            shutil.copytree(sources[version] / 'files', destination / version, ignore=shutil.ignore_patterns('.git'))
+            ET.SubElement(supported, 'li').text = version
+            selected = metadata[version].find(f'modDependenciesByVersion/v{version}')
+            if selected is None:
+                selected = metadata[version].find('modDependencies')
+            entry = ET.SubElement(dependencies, f'v{version}')
+            if selected is not None:
+                entry.extend(deepcopy(list(selected)))
+            config_path = sources[version] / 'source.json'
+            config = json.loads(config_path.read_text()) if config_path.exists() else {}
+            identifiers = {item.findtext('packageId') for item in entry}
+            for dependency in config.get('extra-dependencies', []):
+                if dependency['packageId'] not in identifiers:
+                    item = ET.SubElement(entry, 'li')
+                    for key, value in dependency.items():
+                        ET.SubElement(item, key).text = value
+                    identifiers.add(dependency['packageId'])
+            folder = ET.SubElement(folders, f'v{version}')
+            ET.SubElement(folder, 'li').text = '/'
+            ET.SubElement(folder, 'li').text = version
+        # Preserve all source ordering requirements and any release dependency additions.
+        for tag in ('loadAfter', 'loadBefore'):
+            ordering = root.find(tag)
+            if ordering is None:
+                ordering = ET.SubElement(root, tag)
+            existing = {item.text for item in ordering}
+            values = [item.text for version in versions for item in metadata[version].findall(f'{tag}/li')]
+            if tag == 'loadAfter':
+                values += [item.findtext('packageId') for entry in dependencies for item in entry]
+            for value in values:
+                if value and value not in existing:
+                    ET.SubElement(ordering, 'li').text = value
+                    existing.add(value)
+        if os.environ['DISPLAY_NAME']:
+            root.find('name').text = os.environ['DISPLAY_NAME']
+        if os.environ['STAMP_VERSION'] == 'true':
+            source = Path('Source/Common/Version.cs').read_text(encoding='utf-8')
+            version = re.search(r'\bSimpleVersion\s*=\s*"([^"]+)"', source)
+            if version is None:
+                raise SystemExit('Cannot find SimpleVersion')
+            commit = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], text=True).strip()
+            root.find('modVersion').text = f'{version[1]} ({commit})'
+        ET.ElementTree(root).write(destination / 'About/About.xml', encoding='utf-8', xml_declaration=True)
+        ET.ElementTree(folders).write(destination / 'LoadFolders.xml', encoding='utf-8', xml_declaration=True)
+        PYTHON

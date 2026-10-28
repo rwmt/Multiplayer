@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using HarmonyLib;
 using Multiplayer.Client.Patches;
 using Multiplayer.Common;
@@ -26,28 +25,20 @@ namespace Multiplayer.Client.Desyncs
 
         public static int acc;
 
-        private static bool SupportsDeferredStackTracing =>
-            RuntimeInformation.ProcessArchitecture is Architecture.X64 or Architecture.X86;
-
         public static void Postfix()
         {
-            if (Native.LmfPtr == 0) return;
             if (!ShouldAddStackTraceForDesyncLog()) return;
 
+            if (!DesyncTraceCapture.TryCapture(Multiplayer.settings.desyncTracingMode, out var trace)) return;
+
             var logItem = StackTraceLogItemRaw.GetFromPool();
-            var trace = logItem.raw;
-            int hash = 0;
-            // Skip this (DeferredStackTracing.Postfix) frame. Keeping it in the trace doesn't provide any value.
-            int depth = DeferredStackTracingImpl.TraceImpl(trace, ref hash, skipFrames: 1);
-
-            Multiplayer.game.sync.TryAddStackTraceForDesyncLogRaw(logItem, depth, hash);
-
+            logItem.managedTrace = trace.Text;
+            Multiplayer.game.sync.TryAddStackTraceForDesyncLogRaw(logItem, trace.Depth, trace.Hash);
             acc++;
         }
 
         public static bool ShouldAddStackTraceForDesyncLog()
         {
-            if (!SupportsDeferredStackTracing) return false;
             if (Multiplayer.Client == null) return false;
             if (Multiplayer.settings.desyncTracingMode == DesyncTracingMode.None) return false;
             if (Multiplayer.game == null) return false;
@@ -97,7 +88,8 @@ namespace Multiplayer.Client.Desyncs
     {
         static void Prefix(Pawn_JobTracker __instance)
         {
-            if (MpVersion.IsDebug && __instance.curJob != null && DeferredStackTracing.ShouldAddStackTraceForDesyncLog())
+            if (MpVersion.IsDebug && __instance.curJob != null && DeferredStackTracing.ShouldAddStackTraceForDesyncLog()
+                && Multiplayer.settings.desyncTracingMode == DesyncTracingMode.Slow)
                 Multiplayer.game.sync.TryAddInfoForDesyncLog($"EndCurrentJob for {__instance.pawn}: {__instance.curJob}", "");
         }
     }

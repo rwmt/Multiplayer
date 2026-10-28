@@ -1,41 +1,15 @@
 name: Build workshop
-
 on:
   workflow_dispatch:
   push:
-    tags:
-      - 'v*'
-
+    tags: ['v*']
+permissions:
+  contents: read
 jobs:
   build:
-    name: Build workshop
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-        submodules: recursive # Updates the Languages submodule
-    
-    - name: Setup Dotnet
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: 9.x
-      
-    - name: Run workshop bundler
-      run: ./workshop_bundler.sh
-
-    - run: mkdir -p output
-
-    - name: Move files
-      run: mv Multiplayer/ output/
-
-    - id: get_version
-      run: echo ::set-output name=VERSION::$(echo ${{ github.ref }} | cut -d / -f 3) # github.ref is refs/tags/<tag> here
-
-    - name: Upload mod artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: Multiplayer-${{ steps.get_version.outputs.VERSION }}
-        path: |
-          output/
+    name: Build Workshop mod package
+    uses: ./.github/workflows/build-packages.yml
+    with:
+      artifact-suffix: workshop-${{ github.run_id }}
+      stamp-version: true
+      include-servers: false

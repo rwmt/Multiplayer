@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -39,19 +39,7 @@ namespace Multiplayer.Client
                 if (pInfo.IsOut) {
                     pType = pType.GetElementType();
                     yield return new CodeInstruction(OpCodes.Ldarg, argIndex);
-                    yield return CreateDefaultCodes(gen, pType).Last();
-                    if (AccessTools.IsClass(pType))
-                        yield return new CodeInstruction(OpCodes.Stind_Ref);
-                    if (AccessTools.IsValue(pType)) {
-                        if (pType == typeof(float))
-                            yield return new CodeInstruction(OpCodes.Stind_R4, (float) 0);
-                        else if (pType == typeof(double))
-                            yield return new CodeInstruction(OpCodes.Stind_R8, (double) 0);
-                        else if (pType == typeof(long))
-                            yield return new CodeInstruction(OpCodes.Stind_I8, (long) 0);
-                        else
-                            yield return new CodeInstruction(OpCodes.Stind_I4, 0);
-                    }
+                    yield return new CodeInstruction(OpCodes.Initobj, pType);
                 }
             }
 
@@ -94,28 +82,20 @@ namespace Multiplayer.Client
 
         static IEnumerable<CodeInstruction> CreateDefaultCodes(ILGenerator generator, Type type)
         {
+            if (type == typeof(void)) yield break;
             if (type.IsByRef)
                 type = type.GetElementType();
 
-            if (AccessTools.IsClass(type)) {
+            if (!type.IsValueType) {
                 yield return new CodeInstruction(OpCodes.Ldnull);
                 yield break;
             }
-            if (AccessTools.IsStruct(type)) {
+            if (type.IsValueType) {
                 var v = generator.DeclareLocal(type);
                 yield return new CodeInstruction(OpCodes.Ldloca, v);
                 yield return new CodeInstruction(OpCodes.Initobj, type);
+                yield return new CodeInstruction(OpCodes.Ldloc, v);
                 yield break;
-            }
-            if (AccessTools.IsValue(type)) {
-                if (type == typeof(float))
-                    yield return new CodeInstruction(OpCodes.Ldc_R4, (float) 0);
-                else if (type == typeof(double))
-                    yield return new CodeInstruction(OpCodes.Ldc_R8, (double) 0);
-                else if (type == typeof(long))
-                    yield return new CodeInstruction(OpCodes.Ldc_I8, (long) 0);
-                else
-                    yield return new CodeInstruction(OpCodes.Ldc_I4, 0);
             }
         }
 

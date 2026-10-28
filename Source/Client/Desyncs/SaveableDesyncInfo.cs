@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
@@ -128,7 +128,7 @@ public class SaveableDesyncInfo(
             .AppendLine($"Processor Speed (MHz)|||{SystemInfo.processorFrequency}")
             .AppendLine($"Thread Count|||{SystemInfo.processorCount}")
             .AppendLine("\n###GPU Info###")
-            .AppendLine($"GPU Family|||{SystemInfo.graphicsDeviceVendor}")
+            .AppendLine("GPU Family|||Unavailable")
             .AppendLine($"GPU Type|||{SystemInfo.graphicsDeviceType}")
             .AppendLine($"GPU Name|||{SystemInfo.graphicsDeviceName}")
             .AppendLine($"GPU VRAM|||{SystemInfo.graphicsMemorySize}")

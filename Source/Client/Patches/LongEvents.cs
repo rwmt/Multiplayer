@@ -37,32 +37,20 @@ namespace Multiplayer.Client.Patches
     [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.LongEventsUpdate))]
     static class NewLongEvent
     {
-        public static bool currentEventWasMarked;
-
-        static void Prefix(ref bool __state)
+        static void Prefix(out bool __state)
         {
-            __state = LongEventHandler.currentEvent == null;
-            currentEventWasMarked = MarkLongEvents.IsTickMarked(LongEventHandler.currentEvent?.eventAction);
+            __state = MarkLongEvents.IsTickMarked(LongEventHandler.currentEvent?.eventAction);
         }
 
         static void Postfix(bool __state)
         {
-            currentEventWasMarked = false;
-
             if (Multiplayer.Client == null) return;
 
-            if (__state && MarkLongEvents.IsTickMarked(LongEventHandler.currentEvent?.eventAction))
-                Multiplayer.Client.Send(ClientFreezePacket.Freeze());
-        }
-    }
-
-    [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.ExecuteToExecuteWhenFinished))]
-    static class LongEventEnd
-    {
-        static void Postfix()
-        {
-            if (Multiplayer.Client != null && NewLongEvent.currentEventWasMarked)
-                Multiplayer.Client.Send(ClientFreezePacket.Unfreeze());
+            // Observe the event's lifetime at the update boundary. Completion can
+            // also clear the event after an exception, without running finish callbacks.
+            var marked = MarkLongEvents.IsTickMarked(LongEventHandler.currentEvent?.eventAction);
+            if (__state != marked)
+                Multiplayer.Client.Send(new ClientFreezePacket(marked));
         }
     }
 

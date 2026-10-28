@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -16,6 +17,9 @@ namespace Multiplayer.Client
 {
     public class MultiplayerGame
     {
+        private static readonly Action resetDebugSettings = MpReflection.CreateStaticConstructorInvoker(typeof(DebugSettings));
+        private static readonly Action resetSingleThingResolver = MpReflection.CreateStaticConstructorInvoker(typeof(SymbolResolver_SingleThing));
+
         public SyncCoordinator sync = new();
 
         public AsyncWorldTimeComp asyncWorldTimeComp;
@@ -68,13 +72,13 @@ namespace Multiplayer.Client
                 if (!field.IsLiteral && field.FieldType == typeof(bool))
                     field.SetValue(null, default(bool));
 
-            typeof(DebugSettings).TypeInitializer.Invoke(null, null);
+            resetDebugSettings();
 
             foreach (var resolver in DefDatabase<RuleDef>.AllDefs.SelectMany(r => r.resolvers))
                 if (resolver is SymbolResolver_EdgeThing edgeThing)
                     edgeThing.randomRotations = new List<int>() { 0, 1, 2, 3 };
 
-            typeof(SymbolResolver_SingleThing).TypeInitializer.Invoke(null, null);
+            resetSingleThingResolver();
 
             FactionCreator.ClearData();
         }

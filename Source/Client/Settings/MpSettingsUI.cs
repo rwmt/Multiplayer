@@ -13,7 +13,6 @@ public static class MpSettingsUI
 {
     private static string slotsBuffer;
     private static string desyncRadiusBuffer;
-    private static string jittedMethodsBuffer;
 
     private static Vector2 scrollPosition = Vector2.zero;
     private static SettingsPage currentPage = SettingsPage.General;
@@ -108,12 +107,22 @@ public static class MpSettingsUI
         if (VersionChecker.IsContinuousRelease || VersionChecker.IsLocalBuild)
             listing.CheckboxLabeled("MpIncludeReplayInDesync".Translate(), ref settings.includeReplayInDesync);
 
+        using (MpStyle.Set(TextAnchor.MiddleCenter))
+            if (listing.ButtonTextLabeled("Desync tracing mode", settings.desyncTracingMode.ToString()))
+                settings.desyncTracingMode = settings.desyncTracingMode.Cycle();
+
+        listing.Label(settings.desyncTracingMode switch
+        {
+            DesyncTracingMode.None => "None: Diagnostic history disabled.",
+            DesyncTracingMode.Slow => "Slow: Detailed stacks (high CPU/memory cost).",
+            _ => "Fast: Context only (recommended)."
+        }, tooltip: "Desync detection stays enabled in every mode. Fast records event context without call stacks. Slow captures a managed stack for each eligible event and can significantly increase CPU and memory usage.");
+
         if (Prefs.DevMode)
         {
             listing.CheckboxLabeled("Show debug info", ref settings.showDevInfo);
             listing.TextFieldNumericLabeled("Desync radius:  ", ref settings.desyncTracesRadius, ref desyncRadiusBuffer, 1f,
                 200f);
-            listing.TextFieldNumericLabeled("Jitted methods:  ", ref settings.jittedMethodsInDesync, ref jittedMethodsBuffer);
 
             if (MpVersion.IsDebug && FileAssoc.IsSupported())
             {
@@ -126,11 +135,6 @@ public static class MpSettingsUI
                     if (listing.ButtonText("Register file associations")) FileAssoc.Register();
                 }
             }
-#if DEBUG
-            using (MpStyle.Set(TextAnchor.MiddleCenter))
-                if (listing.ButtonTextLabeled("Desync tracing mode", settings.desyncTracingMode.ToString()))
-                    settings.desyncTracingMode = settings.desyncTracingMode.Cycle();
-#endif
         }
 
         listing.End();
