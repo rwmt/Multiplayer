@@ -38,6 +38,19 @@ installation and must not be packaged. See [the metadata audit](Source/RuntimeTe
 for local validation and its limitations. Full host/join, reload/rejoin, stockpile
 filter/cache, and ritual scenarios still require live game testing.
 
+## Desync tracing modes
+
+RNG, world, map, and command synchronization checks remain enabled in every mode.
+The normal **Fast** setting records lightweight event context (tick, RNG state and
+thing identity), without walking managed call stacks or formatting stack strings.
+**None** disables diagnostic event history. **Slow** additionally captures detailed
+managed stacks for each eligible event and can significantly increase CPU and memory
+usage. Use Slow only when collecting diagnostics for a reproducible issue.
+
+Diagnostic history also requires the session's desync trace logging to be enabled.
+The selector is available in the normal mod settings in Release builds, and the
+chosen mode is saved. Managed tracing works on ARM64 as well as x64.
+
 ## Versioned CI packages
 
 The Workshop mod currently includes RimWorld 1.5 and 1.6. New packages retain

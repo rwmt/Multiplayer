@@ -37,7 +37,7 @@ namespace Multiplayer.Client
 
     public class StackTraceLogItemRaw : StackTraceLogItem
     {
-        public const int MaxDepth = 32;
+        public const int MaxDepth = DesyncTraceCapture.MaxDepth;
         public int depth;
         public string managedTrace;
 

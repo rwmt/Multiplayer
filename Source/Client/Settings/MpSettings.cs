@@ -65,6 +65,7 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref showDevInfo, "showDevInfo");
             Scribe_Values.Look(ref includeReplayInDesync, "includeReplayInDesync", VersionChecker.IsContinuousRelease);
             Scribe_Values.Look(ref desyncTracesRadius, "desyncTracesRadius", 40);
+            Scribe_Values.Look(ref desyncTracingMode, "desyncTracingMode", DesyncTracingMode.Fast);
             Scribe_Values.Look(ref serverAddress, "serverAddress", "127.0.0.1");
             Scribe_Values.Look(ref showModCompatibility, "showModCompatibility", true);
             Scribe_Values.Look(ref hideTranslationMods, "hideTranslationMods", true);
@@ -88,11 +89,6 @@ namespace Multiplayer.Client
             Scribe_Deep.Look(ref serverSettingsClient, "serverSettings");
             serverSettingsClient ??= new ServerSettingsClient();
         }
-    }
-
-    public enum DesyncTracingMode
-    {
-        None, Fast, Slow
     }
 
     public struct ColorRGBClient : IExposable
