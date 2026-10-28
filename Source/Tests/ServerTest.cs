@@ -171,6 +171,8 @@ public class ServerTest
         port = liteNet.netManagers[0].manager.LocalPort;
 
         var serverThread = new Thread(server.Run) { IsBackground = true };
+        // Register the loop thread so TryStop's join contract is exercised here too.
+        server.serverThread = serverThread;
         serverThread.Start();
 
         teardownActions.Add(() =>

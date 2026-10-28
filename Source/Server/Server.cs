@@ -115,7 +115,7 @@ if (settings.lan)
     server.netManagers.Add(lan);
 }
 
-new Thread(server.Run) { Name = "Server thread" }.Start();
+server.StartServer();
 
 while (server.running)
 {

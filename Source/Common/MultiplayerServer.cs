@@ -61,6 +61,10 @@ namespace Multiplayer.Common
             InitDataState.Requested;
 
         public volatile bool running;
+        public Thread? serverThread;
+        // Atomic latch: TryStop may be called both from a handler and from Run's
+        // exit; teardown must run only once.
+        private int stopFlag;
 
         public bool ArbiterPlaying => PlayingPlayers.Any(p => p.IsArbiter && p.status == PlayerStatus.Playing);
         public ServerPlayer HostPlayer => PlayingPlayers.First(p => p.IsHost);
@@ -200,8 +204,32 @@ namespace Multiplayer.Common
                 serverTimePerTick = StandardTimePerTick * 4f;
         }
 
+        public Thread StartServer(string threadName = "Server thread")
+        {
+            // #993 review: starting the same instance twice would leak a second
+            // loop thread racing on shared state, so require a clean slate.
+            if (serverThread != null)
+                throw new InvalidOperationException("Server loop thread is already running; stop the server before starting it again.");
+
+            serverThread = new Thread(Run) { Name = threadName };
+            serverThread.Start();
+            return serverThread;
+        }
+
+        // Waits for the server loop to end before tearing down, so nulling
+        // instance can't race with Tick (#991). Callers must clear running first.
+        // Never joins the loop thread itself, which would deadlock Run -> TryStop.
         public void TryStop()
         {
+            if (serverThread is { } thread && thread != Thread.CurrentThread)
+            {
+                if (!thread.Join(TimeSpan.FromSeconds(5)))
+                    ServerLog.Error("Server loop thread did not stop within 5 seconds, proceeding with shutdown");
+            }
+
+            if (Interlocked.CompareExchange(ref stopFlag, 1, 0) != 0)
+                return;
+
             ServerLog.Detail("Server shutting down...");
 
             playerManager.OnServerStop();
