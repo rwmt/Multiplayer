@@ -23,13 +23,15 @@ permissions:
   contents: read
 jobs:
   configuration:
+    name: Select supported game versions
     runs-on: ubuntu-latest
     outputs:
       current: ${{ steps.config.outputs.current }}
       releases: ${{ steps.config.outputs.releases }}
       versions: ${{ steps.config.outputs.versions }}
     steps:
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - name: Check out packaging configuration
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         persist-credentials: false
     - id: config
@@ -55,25 +57,27 @@ jobs:
             output.write('releases=' + json.dumps(config['releases'], separators=(',', ':')) + '\n')
         PYTHON
   current:
+    name: Build RimWorld ${{ needs.configuration.outputs.current }}
     needs: configuration
     env:
       GAME_VERSION: ${{ needs.configuration.outputs.current }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - name: Check out current game source
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         persist-credentials: false
         submodules: recursive
-    - name: Set up .NET
+    - name: Set up .NET SDK for RimWorld ${{ env.GAME_VERSION }}
       uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
       with:
         global-json-file: global.json
         cache: true
         cache-dependency-path: '**/*.csproj'
-    - name: Build current mod
+    - name: Build RimWorld ${{ env.GAME_VERSION }} mod (Release)
       run: dotnet build Source/Client/Multiplayer.csproj -c Release
-    - name: Stage current mod
+    - name: Stage RimWorld ${{ env.GAME_VERSION }} mod files
       run: |
         destination="artifacts/mod-build/$GAME_VERSION"
         mkdir -p "$destination/files"
@@ -81,21 +85,23 @@ jobs:
         cp -R Defs Languages Textures "$GAME_VERSION/Assemblies" "$GAME_VERSION/AssembliesCustom" "$destination/files/"
         rm -rf "$destination/files/Languages/.git"
         git rev-parse HEAD > "$destination/files/source-commit.txt"
-    - name: Audit current assembly references
+    - name: Audit RimWorld ${{ env.GAME_VERSION }} mod references
       run: dotnet run --project Source/RuntimeTests/MetadataAudit.csproj -c Release -- "artifacts/mod-build/$GAME_VERSION/files"
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+    - name: Upload RimWorld ${{ env.GAME_VERSION }} mod build
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: mod-build-${{ env.GAME_VERSION }}-${{ inputs.artifact-suffix }}
         path: artifacts/mod-build/
         if-no-files-found: error
         retention-days: 7
-    - name: Publish current servers
+    - name: Publish RimWorld ${{ env.GAME_VERSION }} Windows/Linux servers
       if: inputs.include-servers
       run: |
         for os in win linux; do
           dotnet publish Source/Server/Server.csproj -c Release -r "$os-x64" --self-contained false -p:UseAppHost=true -o "artifacts/server/Server/$GAME_VERSION/$(if [[ $os == win ]]; then echo Windows; else echo Linux; fi)"
         done
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+    - name: Upload RimWorld ${{ env.GAME_VERSION }} Windows/Linux server builds
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       if: inputs.include-servers
       with:
         name: server-build-${{ env.GAME_VERSION }}-${{ inputs.artifact-suffix }}
@@ -103,6 +109,7 @@ jobs:
         retention-days: 7
         if-no-files-found: error
   versions:
+    name: Build RimWorld ${{ matrix.source.version }}
     needs: configuration
     strategy:
       fail-fast: false
@@ -113,10 +120,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - name: Check out build configuration
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         persist-credentials: false
-    - name: Resolve version source
+    - name: Resolve RimWorld ${{ env.GAME_VERSION }} source branch or fallback
       id: source
       env:
         SOURCE_BRANCH: ${{ matrix.source.branch }}
@@ -139,7 +147,7 @@ jobs:
           echo "No $SOURCE_BRANCH branch; using pinned commit $sha"
         fi
         echo "sha=$sha" >> "$GITHUB_OUTPUT"
-    - name: Checkout version source
+    - name: Check out RimWorld ${{ env.GAME_VERSION }} source
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         repository: rwmt/Multiplayer
@@ -147,16 +155,16 @@ jobs:
         path: version-src
         persist-credentials: false
         submodules: recursive
-    - name: Set up .NET
+    - name: Set up .NET SDK for RimWorld ${{ env.GAME_VERSION }}
       uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
       with:
         global-json-file: global.json
         cache: true
         cache-dependency-path: '**/*.csproj'
-    - name: Build version mod
+    - name: Build RimWorld ${{ env.GAME_VERSION }} mod (Release)
       working-directory: version-src
       run: dotnet build Source/Client/Multiplayer.csproj -c Release
-    - name: Stage version mod
+    - name: Stage RimWorld ${{ env.GAME_VERSION }} mod files
       env:
         SOURCE_SHA: ${{ steps.source.outputs.sha }}
         SOURCE_CONFIG: ${{ toJSON(matrix.source) }}
@@ -170,20 +178,22 @@ jobs:
         rm -rf "$destination/files/Languages/.git"
         echo "$SOURCE_SHA" > "$destination/files/source-commit.txt"
         printf '%s\n' "$SOURCE_CONFIG" > "$destination/source.json"
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+    - name: Upload RimWorld ${{ env.GAME_VERSION }} mod build
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: mod-build-${{ env.GAME_VERSION }}-${{ inputs.artifact-suffix }}
         path: artifacts/mod-build/
         retention-days: 7
         if-no-files-found: error
-    - name: Publish version servers
+    - name: Publish RimWorld ${{ env.GAME_VERSION }} Windows/Linux servers
       if: inputs.include-servers
       working-directory: version-src
       run: |
         for os in win linux; do
           dotnet publish Source/Server/Server.csproj -c Release -r "$os-x64" --self-contained false -p:UseAppHost=true -o "../artifacts/server/Server/$GAME_VERSION/$(if [[ $os == win ]]; then echo Windows; else echo Linux; fi)"
         done
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+    - name: Upload RimWorld ${{ env.GAME_VERSION }} Windows/Linux server builds
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       if: inputs.include-servers
       with:
         name: server-build-${{ env.GAME_VERSION }}-${{ inputs.artifact-suffix }}
@@ -191,21 +201,24 @@ jobs:
         retention-days: 7
         if-no-files-found: error
   package:
+    name: Assemble release packages
     needs: [configuration, current, versions]
     runs-on: ubuntu-latest
     outputs:
       mod-artifact: ${{ steps.names.outputs.mod }}
       server-artifact: ${{ steps.names.outputs.server }}
     steps:
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - name: Check out packaging action and release metadata
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         persist-credentials: false
-    - uses: actions/download-artifact@v4
+    - name: Download mod builds for all supported versions
+      uses: actions/download-artifact@v4
       with:
         pattern: mod-build-*-${{ inputs.artifact-suffix }}
         path: bundle
         merge-multiple: true
-    - name: Package mod
+    - name: Assemble multi-version mod package
       uses: ./.github/actions/package-mod
       with:
         destination: artifacts/mod/Multiplayer
@@ -214,25 +227,28 @@ jobs:
         current-version: ${{ needs.configuration.outputs.current }}
         display-name: ${{ inputs.display-name }}
         stamp-version: ${{ inputs.stamp-version }}
-    - id: names
+    - name: Name mod and server artifacts
+      id: names
       env:
         SUFFIX: ${{ inputs.artifact-suffix }}
       run: |
         echo "mod=Multiplayer-mod-$SUFFIX" >> "$GITHUB_OUTPUT"
         echo "server=Multiplayer-server-$SUFFIX" >> "$GITHUB_OUTPUT"
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+    - name: Upload combined mod package
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: ${{ steps.names.outputs.mod }}
         path: artifacts/mod/
         retention-days: 7
         if-no-files-found: error
-    - uses: actions/download-artifact@v4
+    - name: Download server builds for all supported versions
+      uses: actions/download-artifact@v4
       if: inputs.include-servers
       with:
         pattern: server-build-*-${{ inputs.artifact-suffix }}
         path: artifacts/server
         merge-multiple: true
-    - name: Add Linux server launchers
+    - name: Add Linux server launchers for each version
       if: inputs.include-servers
       run: |
         for directory in artifacts/server/Server/*/Linux; do
@@ -245,7 +261,8 @@ jobs:
         EOF
           chmod +x "$directory/Server.sh"
         done
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+    - name: Upload combined server package
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       if: inputs.include-servers
       with:
         name: ${{ steps.names.outputs.server }}

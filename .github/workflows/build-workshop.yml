@@ -7,6 +7,7 @@ permissions:
   contents: read
 jobs:
   build:
+    name: Build Workshop mod package
     uses: ./.github/workflows/build-packages.yml
     with:
       artifact-suffix: workshop-${{ github.run_id }}

@@ -8,11 +8,13 @@ permissions:
   contents: read
 jobs:
   build:
+    name: Build beta mod and server packages
     uses: ./.github/workflows/build-packages.yml
     with:
       artifact-suffix: beta-${{ github.run_id }}
       display-name: Multiplayer [Continuous]
   release:
+    name: Publish beta release
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -20,14 +22,17 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - name: Check out release metadata
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         persist-credentials: false
-    - uses: actions/download-artifact@v4
+    - name: Download combined mod package
+      uses: actions/download-artifact@v4
       with:
         name: ${{ needs.build.outputs.mod-artifact }}
         path: output
-    - uses: actions/download-artifact@v4
+    - name: Download combined server package
+      uses: actions/download-artifact@v4
       with:
         name: ${{ needs.build.outputs.server-artifact }}
         path: output
