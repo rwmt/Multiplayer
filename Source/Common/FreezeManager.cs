@@ -29,17 +29,6 @@ namespace Multiplayer.Common
 
         public void Tick()
         {
-            // Old fix for #991, disabled — superseded by the loop join in TryStop.
-            // var hostUsername = Server.hostUsername;
-            // ServerPlayer hostPlayer = null;
-            // foreach (var p in Server.PlayingPlayers)
-            // {
-            //     if (hostUsername != null && p.Username == hostUsername)
-            //     {
-            //         hostPlayer = p;
-            //         break;
-            //     }
-            // }
             var hostPlayer = Server.PlayingPlayers.FirstOrDefault(p => p.IsHost);
 
             if (hostPlayer != null)

@@ -206,6 +206,11 @@ namespace Multiplayer.Common
 
         public Thread StartServer(string threadName = "Server thread")
         {
+            // #993 review: starting the same instance twice would leak a second
+            // loop thread racing on shared state, so require a clean slate.
+            if (serverThread != null)
+                throw new InvalidOperationException("Server loop thread is already running; stop the server before starting it again.");
+
             serverThread = new Thread(Run) { Name = threadName };
             serverThread.Start();
             return serverThread;
