@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
 using Multiplayer.Client.Util;
+using RimWorld.QuestGen;
 using Verse;
 using Verse.Grammar;
 
@@ -168,6 +169,14 @@ namespace Multiplayer.Client
             yield return AccessTools.Method(typeof(GrammarResolver), nameof(GrammarResolver.Resolve));
             yield return AccessTools.Method(typeof(PawnBioAndNameGenerator), nameof(PawnBioAndNameGenerator.GeneratePawnName));
             yield return AccessTools.Method(typeof(NameGenerator), nameof(NameGenerator.GenerateName), [typeof(RulePackDef), typeof(Predicate<string>), typeof(bool), typeof(string), typeof(string), typeof(List<Rule>)]);
+            // The GrammarRequest overload holds the validator retry loop and is called directly
+            // (bypassing the RulePackDef overload above) by quest naming among others; a validator
+            // rejection count depends on the generated text and therefore on the client's language.
+            yield return AccessTools.Method(typeof(NameGenerator), nameof(NameGenerator.GenerateName), [typeof(GrammarRequest), typeof(Predicate<string>), typeof(bool), typeof(string), typeof(string)]);
+            // Quest naming additionally retries whole NameGenerator calls while the name collides
+            // with an existing quest's name — wrap the outer loop too so quest naming costs exactly
+            // one synced draw regardless of language or collisions.
+            yield return AccessTools.Method(typeof(QuestNode_ResolveQuestName), nameof(QuestNode_ResolveQuestName.Resolve));
         }
 
         [HarmonyPriority(MpPriority.MpFirst)]
