@@ -1,14 +1,17 @@
 name: Package Multiplayer mod
-description: Assemble current and independently built legacy game versions.
+description: Assemble any number of independently built game versions.
 inputs:
   destination:
     description: Destination mod directory.
     required: true
-  current-root:
-    description: Downloaded current build, containing About and 1.7.
+  builds-root:
+    description: Directory containing one build per version, each with About and files.
     required: true
-  legacy-root:
-    description: Downloaded legacy build, containing About and 1.6.
+  versions:
+    description: JSON list of all required game versions; missing builds fail packaging.
+    required: true
+  current-version:
+    description: Version whose About metadata supplies the package name and description.
     required: true
   display-name:
     description: Optional package display name.
@@ -23,8 +26,9 @@ runs:
       shell: bash
       env:
         DESTINATION: ${{ inputs.destination }}
-        CURRENT_ROOT: ${{ inputs.current-root }}
-        LEGACY_ROOT: ${{ inputs.legacy-root }}
+        BUILDS_ROOT: ${{ inputs.builds-root }}
+        VERSIONS: ${{ inputs.versions }}
+        CURRENT_VERSION: ${{ inputs.current-version }}
         DISPLAY_NAME: ${{ inputs.display-name }}
         STAMP_VERSION: ${{ inputs.stamp-version }}
       run: |
@@ -32,37 +36,46 @@ runs:
         from copy import deepcopy
         from pathlib import Path
         import os
+        import json
         import re
         import shutil
         import subprocess
         import xml.etree.ElementTree as ET
 
         destination = Path(os.environ['DESTINATION'])
-        sources = {'1.7': Path(os.environ['CURRENT_ROOT']), '1.6': Path(os.environ['LEGACY_ROOT'])}
-        # Validate both independent inputs before copying any files.
+        builds_root = Path(os.environ['BUILDS_ROOT'])
+        sources = {p.name: p for p in builds_root.iterdir() if p.is_dir()}
+        current = os.environ['CURRENT_VERSION']
+        required = json.loads(os.environ['VERSIONS'])
+        if len(set(required)) != len(required) or set(sources) != set(required) or current not in sources or any(not re.fullmatch(r'\d+\.\d+', v) for v in sources):
+            raise SystemExit('Expected version-named build directories including the current version')
+        versions = sorted(sources, key=lambda value: tuple(map(int, value.split('.'))))
+        # Validate every independent build before copying any files.
         metadata = {}
         for version, source in sources.items():
             metadata[version] = ET.parse(source / 'About/About.xml').getroot()
+            if version not in [item.text for item in metadata[version].findall('supportedVersions/li')]:
+                raise SystemExit(f'Source metadata does not support {version}')
             for relative in ('Assemblies/MultiplayerLoader.dll', 'AssembliesCustom/Multiplayer.dll', 'AssembliesCustom/MultiplayerCommon.dll'):
-                path = source / version / relative
+                path = source / 'files' / relative
                 if not path.is_file():
                     raise SystemExit(f'Missing {version} build output: {path}')
-            for dll in (source / version).rglob('*.dll'):
+            for dll in (source / 'files').rglob('*.dll'):
                 name = dll.name.lower()
-                legacy_api = version == '1.6' and name == '0prepatcherapi.dll'
-                if name in ('0harmony.dll', 'assembly-csharp.dll', 'verse.dll', 'unitystubs.dll') or name.startswith(('unityengine', 'mono.cecil')) or (name.startswith(('0prepatcher', 'prepatcher')) and not legacy_api):
+                dependency_api = name == '0prepatcherapi.dll'
+                if name in ('0harmony.dll', 'assembly-csharp.dll', 'verse.dll', 'unitystubs.dll') or name.startswith(('unityengine', 'mono.cecil')) or (name.startswith(('0prepatcher', 'prepatcher')) and not dependency_api):
                     raise SystemExit(f'Unexpected bundled game or dependency DLL: {dll}')
         destination.mkdir(parents=True, exist_ok=False)
-        shutil.copytree(sources['1.7'] / 'About', destination / 'About')
-        root = deepcopy(metadata['1.7'])
+        shutil.copytree(sources[current] / 'About', destination / 'About')
+        root = deepcopy(metadata[current])
         for tag in ('supportedVersions', 'modDependencies', 'modDependenciesByVersion'):
             for old in list(root.findall(tag)):
                 root.remove(old)
         supported = ET.SubElement(root, 'supportedVersions')
         dependencies = ET.SubElement(root, 'modDependenciesByVersion')
         folders = ET.Element('loadFolders')
-        for version in ('1.6', '1.7'):
-            shutil.copytree(sources[version] / version, destination / version, ignore=shutil.ignore_patterns('.git'))
+        for version in versions:
+            shutil.copytree(sources[version] / 'files', destination / version, ignore=shutil.ignore_patterns('.git'))
             ET.SubElement(supported, 'li').text = version
             selected = metadata[version].find(f'modDependenciesByVersion/v{version}')
             if selected is None:
@@ -70,18 +83,31 @@ runs:
             entry = ET.SubElement(dependencies, f'v{version}')
             if selected is not None:
                 entry.extend(deepcopy(list(selected)))
+            config_path = sources[version] / 'source.json'
+            config = json.loads(config_path.read_text()) if config_path.exists() else {}
+            identifiers = {item.findtext('packageId') for item in entry}
+            for dependency in config.get('extra-dependencies', []):
+                if dependency['packageId'] not in identifiers:
+                    item = ET.SubElement(entry, 'li')
+                    for key, value in dependency.items():
+                        ET.SubElement(item, key).text = value
+                    identifiers.add(dependency['packageId'])
             folder = ET.SubElement(folders, f'v{version}')
             ET.SubElement(folder, 'li').text = '/'
             ET.SubElement(folder, 'li').text = version
-        # Preserve legacy dependency ordering as well as its declarations.
-        ordering = root.find('loadAfter')
-        if ordering is None:
-            ordering = ET.SubElement(root, 'loadAfter')
-        existing = {item.text for item in ordering}
-        for item in metadata['1.6'].findall('loadAfter/li'):
-            if item.text not in existing:
-                ordering.append(deepcopy(item))
-                existing.add(item.text)
+        # Preserve all source ordering requirements and any release dependency additions.
+        for tag in ('loadAfter', 'loadBefore'):
+            ordering = root.find(tag)
+            if ordering is None:
+                ordering = ET.SubElement(root, tag)
+            existing = {item.text for item in ordering}
+            values = [item.text for version in versions for item in metadata[version].findall(f'{tag}/li')]
+            if tag == 'loadAfter':
+                values += [item.findtext('packageId') for entry in dependencies for item in entry]
+            for value in values:
+                if value and value not in existing:
+                    ET.SubElement(ordering, 'li').text = value
+                    existing.add(value)
         if os.environ['DISPLAY_NAME']:
             root.find('name').text = os.environ['DISPLAY_NAME']
         if os.environ['STAMP_VERSION'] == 'true':

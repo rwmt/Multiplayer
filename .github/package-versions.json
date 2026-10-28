@@ -1,0 +1,21 @@
+{
+  "current": "1.7",
+  "releases": [
+    {
+      "version": "1.5",
+      "branch": "rw-1.5",
+      "extra-dependencies": [
+        {
+          "packageId": "zetrith.prepatcher",
+          "displayName": "Prepatcher",
+          "steamWorkshopUrl": "steam://url/CommunityFilePage/2934420800"
+        }
+      ]
+    },
+    {
+      "version": "1.6",
+      "branch": "rw-1.6",
+      "fallback": "9df94bd04ea9a94c00bd39a276e58c4c2f965740"
+    }
+  ]
+}

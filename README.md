@@ -38,25 +38,35 @@ installation and must not be packaged. See [the metadata audit](Source/RuntimeTe
 for local validation and its limitations. Full host/join, reload/rejoin, stockpile
 filter/cache, and ritual scenarios still require live game testing.
 
-## Legacy versions and CI packages
+## Versioned CI packages
 
-Legacy compatibility is a packaging concern. PR, beta, and workshop workflows
-call `.github/workflows/build-packages.yml`. Independent jobs build this branch
-and upstream's `rw-1.6` branch, when present. Until that branch exists, the legacy
-job uses commit `9df94bd04ea9a94c00bd39a276e58c4c2f965740`. A branch-check network
-failure fails the job rather than silently selecting the fallback. Its resolved
-SHA is recorded in the artifact's `1.6/source-commit.txt`.
+The Workshop mod currently includes RimWorld 1.5 and 1.6. New packages retain
+both and add the current 1.7 source build. `.github/package-versions.json` is the
+single list of included versions: `current` identifies this source branch;
+`releases` lists the upstream branches to build independently. Adding another
+release entry creates another CI matrix job without changing the packaging code.
 
-Legacy code is built unchanged with its own references. Backports must be made
-explicitly on the legacy source branch; changes here do not automatically affect
-1.6. A shared GitHub action assembles independently built version folders, keeping
-each version's Defs, Languages, Textures, assemblies, and dependency declarations.
-Only release metadata is shared at the package root. `LoadFolders.xml` selects the
-correct assets and DLLs. No standalone bundler script is used.
+PR, beta, and workshop workflows call `.github/workflows/build-packages.yml`.
+The 1.5 job uses upstream `rw-1.5`. The 1.6 job uses `rw-1.6` when available,
+otherwise commit `9df94bd04ea9a94c00bd39a276e58c4c2f965740`. Network failures fail
+the job rather than silently selecting a fallback. Every version records the
+resolved SHA in `<version>/source-commit.txt` in the package.
 
-PR runs upload mod, server, and test-result artifacts for seven days. Server
-artifacts retain .NET 8 legacy servers under `Server/Windows` and `Server/Linux`,
-with current .NET 10 servers under `Server/1.7/Windows` and `Server/1.7/Linux`.
+Each source is built unchanged with its own references. Backports are explicit;
+changes to the 1.7 code do not automatically affect other game versions. Build
+artifacts use a common `<version>/About` and `<version>/files` layout. The shared
+packaging action consumes one `builds-root` and a list of required versions. It
+fails on missing builds, preserves each version's Defs, Languages, Textures and
+assemblies, and generates matching dependency metadata and `LoadFolders.xml`.
+Only release metadata is shared at the package root. No bundler script is used.
+
+The 1.5 release entry explicitly retains the Workshop package's Prepatcher
+requirement: the branch's older About metadata lists Harmony alone, but its ritual
+implementation uses Prepatcher. Additional release dependencies are merged without
+duplicating source declarations.
+
+PR runs upload mod, server, and test-result artifacts for seven days. Standalone
+servers use `Server/<version>/Windows` and `Server/<version>/Linux` for every version.
 The workshop workflow stamps the mod version and uploads the combined mod package.
 
 ## Donations

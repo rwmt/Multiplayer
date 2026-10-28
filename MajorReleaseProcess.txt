@@ -1,7 +1,7 @@
 1. Check the mod version in Source/Common/Version.cs.
-2. Check supported RimWorld versions in About/About.xml and the legacy source ref in .github/workflows/build-packages.yml.
+2. Check supported RimWorld versions in About/About.xml and the release sources in .github/package-versions.json.
 3. Check About/Preview.png.
 4. Preserve a release branch for older RimWorld versions when dropping support.
 5. Push the release tag (v*) or manually run the Build workshop workflow.
-6. Download the Multiplayer-mod-workshop-<run-id> artifact from the workflow run. It contains Multiplayer/ with both supported version folders and a generated modVersion.
+6. Download the Multiplayer-mod-workshop-<run-id> artifact from the workflow run. It contains Multiplayer/ with all configured version folders and a generated modVersion.
 7. Use the downloaded ZIP for GitHub releases and the extracted Multiplayer/ folder for the Steam Workshop upload.

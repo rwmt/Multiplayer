@@ -1,5 +1,5 @@
-Development build for RimWorld 1.7, bundled with a separately built legacy 1.6 version.
+Development build for RimWorld 1.7, bundled with independently built 1.5 and 1.6 versions.
 
-Install the Harmony version matching your game. Legacy 1.6 also requires Prepatcher.
-Extract the mod ZIP to Mods; version folders are selected through LoadFolders.xml.
-Legacy fixes are backported separately. See README.md for exact source selection.
+Install the dependencies matching your game version. The 1.5 and 1.6 packages
+require Prepatcher; 1.7 requires Harmony 3. Extract the mod ZIP to Mods;
+LoadFolders.xml selects matching assets and assemblies. See README.md for source selection.
