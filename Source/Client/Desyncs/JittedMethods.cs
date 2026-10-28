@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -38,6 +38,7 @@ public static class JittedMethods
 
     public static void Init()
     {
+        if (!Native.IsMonoRuntime) return;
         profiler = Native.mono_profiler_create(IntPtr.Zero);
         Native.mono_profiler_set_jit_done_callback(profiler, (_, method, _) =>
         {
@@ -73,11 +74,14 @@ public static class JittedMethods
 
     public static void OnApplicationQuit()
     {
+        if (!Native.IsMonoRuntime || profiler == IntPtr.Zero) return;
         Native.mono_profiler_set_jit_done_callback(profiler, null);
     }
 
     public static string GetJittedMethodsString()
     {
+        if (!Native.IsMonoRuntime)
+            return "Mono JIT history is unavailable on this runtime.";
         // Two ToArrays to prevent a compilation in between from causing a "Collection was modified" exception
         var jittedMethods = methodQueue.ToArray().Select((j, i) => (j, i)).ToArray();
 

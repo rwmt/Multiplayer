@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -29,7 +29,9 @@ public static class Prepatches
     [FreePatch]
     static void ApplySyncPrepatches(ModuleDefinition module)
     {
+#if !RIMWORLD_1_7
         SyncRituals.ApplyPrepatches(module);
+#endif
     }
 
     internal static void AddPrepatcherPrefix(ModuleDefinition module, int id, MethodInfo target, MethodInfo prefix)

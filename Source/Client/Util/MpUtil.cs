@@ -18,6 +18,9 @@ namespace Multiplayer.Client
     {
         public static unsafe void MarkNoInlining(MethodBase method)
         {
+            // This offset is a MonoMethod layout, not a CoreCLR MethodDesc.
+            // Harmony handles detouring on CoreCLR; writing here corrupts memory.
+            if (!Native.IsMonoRuntime) return;
             ushort* iflags = (ushort*)(method.MethodHandle.Value) + 1;
             *iflags |= (ushort)MethodImplOptions.NoInlining;
         }
