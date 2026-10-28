@@ -16,8 +16,7 @@ namespace Multiplayer.Client
         {
             void Error(string error)
             {
-                Multiplayer.loadingErrors = true;
-                Log.Error(error);
+                Multiplayer.LoadingError(error);
             }
 
             // TODO: Use MpMethodUtil instead if we decide to make it work with generic types/methods (already in MP Compat, so use it). Or remove this TODO if we decide not to.

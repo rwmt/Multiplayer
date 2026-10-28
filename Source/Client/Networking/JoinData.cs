@@ -76,9 +76,23 @@ namespace Multiplayer.Client
         {
             return
                 remote.remoteRwVersion == VersionControl.CurrentVersionString &&
+                // Letter/message text is Translate()d at fire time and scribed -
+                // mismatched game languages scribe divergent text
+                remote.remoteLanguage == LanguageDatabase.activeLanguage.folderName &&
                 remote.CompareMods(activeModsSnapshot) == ModListDiff.None &&
                 remote.remoteFiles.DictsEqual(modFilesSnapshot) &&
-                (!remote.hasConfigs || remote.remoteModConfigs.EqualAsSets(SyncConfigs.GetSyncableConfigContents(remote.RemoteModIds.ToList())));
+                (!remote.hasConfigs || ConfigsEquivalent(remote.remoteModConfigs,
+                    SyncConfigs.GetSyncableConfigContents(remote.RemoteModIds.ToList())));
+        }
+
+        // Don't fail the check over CRLF vs LF: mods writing settings with
+        // platform-default newlines produce different bytes for identical configs
+        private static bool ConfigsEquivalent(IEnumerable<ModConfig> a, IEnumerable<ModConfig> b)
+        {
+            static ModConfig Normalize(ModConfig c) =>
+                c with { Contents = c.Contents?.Replace("\r\n", "\n").Replace("\r", "\n") };
+
+            return a.Select(Normalize).EqualAsSets(b.Select(Normalize));
         }
 
         internal static void TakeModDataSnapshot()
@@ -148,6 +162,7 @@ namespace Multiplayer.Client
     {
         public string remoteRwVersion;
         public string remoteMpVersion;
+        public string remoteLanguage;
 
         public List<ModInfo> remoteMods = new();
         public ModFileDict remoteFiles = new();
@@ -176,6 +191,7 @@ namespace Multiplayer.Client
             {
                 remoteRwVersion = packet.rwVersion,
                 remoteMpVersion = packet.mpVersion,
+                remoteLanguage = packet.language,
                 hasConfigs = packet.configsIncluded,
             };
 

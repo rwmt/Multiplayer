@@ -182,7 +182,7 @@ namespace Multiplayer.Client
             {
                 process.Kill();
             }
-            catch { }
+            catch { } // best-effort shutdown; the process may already have exited
         }
 
         /// <summary>

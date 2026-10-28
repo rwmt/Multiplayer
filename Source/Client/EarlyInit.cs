@@ -30,8 +30,7 @@ public static class EarlyInit
                 if (type.IsDefined(typeof(EarlyPatchAttribute)))
                     harmony.CreateClassProcessor(type).Patch();
             } catch (Exception e) {
-                Log.Error($"FAIL: {type} with {e}");
-                Multiplayer.loadingErrors = true;
+                Multiplayer.LoadingError($"FAIL: {type} with {e}");
             }
         });
 

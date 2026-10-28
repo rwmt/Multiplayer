@@ -248,11 +248,15 @@ namespace Multiplayer.Client.Comp
         /// Runs QuestTick() on all quests passed
         /// </summary>
         /// <param name="quests">Quests to run QuestTick() on</param>
-        private static void TickQuests(IEnumerable<Quest> quests)
+        private static void TickQuests(List<Quest> quests)
         {
-            foreach (var quest in quests.ToList())
+            // Index loop, not foreach: a quest ending during its own tick
+            // removes itself from this list via RemoveQuestFromCacheOnQuestEnd
+            // (live find: InvalidOperationException in AsyncTimeComp ticking).
+            // Removals are deterministic, so any skip is identical on all clients.
+            for (int i = 0; i < quests.Count; i++)
             {
-                quest.QuestTick();
+                quests[i].QuestTick();
             }
         }
 

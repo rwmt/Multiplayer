@@ -3,6 +3,7 @@ using System.Linq;
 using System.Reflection;
 using HarmonyLib;
 using Multiplayer.Client.Factions;
+using Multiplayer.Client.Util;
 using RimWorld;
 using RimWorld.Planet;
 using Verse;
@@ -50,26 +51,87 @@ namespace Multiplayer.Client.AsyncTime
         static bool Prefix() => Multiplayer.Client == null || !MapUpdateMarker.updating;
     }
 
+    // Season notifications. The old patch pushed Multiplayer.RealPlayerFaction
+    // and that client's own faction's map clock into a method that runs in the
+    // synced world tick and writes scribed state (lastSeason) - per-client
+    // inputs in the deterministic sim. Under async, clients' chosen maps cross
+    // season boundaries at different world ticks and lastSeason diverges (the
+    // "summer arrived twice" desync); a spectating client diverged even in
+    // single-faction games. Replaced with a per-faction pass over synced state
+    // only: each ownable player faction, in deterministic order, gets its
+    // season computed from ITS min-timezone home map's async clock, with its
+    // own scribed lastSeason (FactionWorldData) and its letters routed by the
+    // pushed context. Identical inputs on every client by construction.
     [HarmonyPatch(typeof(DateNotifier), nameof(DateNotifier.DateNotifierTick))]
     static class DateNotifierPatch
     {
-        static void Prefix(DateNotifier __instance, ref int? __state)
+        static bool Prefix(DateNotifier __instance)
         {
-            if (Multiplayer.Client == null && Multiplayer.RealPlayerFaction != null) return;
+            if (Multiplayer.Client == null)
+                return true;
 
-            Map map = __instance.FindPlayerHomeWithMinTimezone();
-            if (map == null) return;
+            foreach (var kv in Multiplayer.WorldComp.factionData)
+            {
+                var faction = Find.FactionManager.GetById(kv.Key);
+                if (!QuestFactionOwnership.IsOwnablePlayerFaction(faction))
+                    continue;
 
-            __state = Find.TickManager.TicksGame;
-            FactionContext.Push(Multiplayer.RealPlayerFaction);
-            Find.TickManager.DebugSetTicksGame(map.AsyncTime().mapTicks);
+                ((Map)null).PushFaction(faction);
+                try
+                {
+                    TickForFaction(__instance, kv.Value);
+                }
+                finally
+                {
+                    FactionExtensions.PopFaction();
+                }
+            }
+
+            return false;
         }
 
-        static void Finalizer(int? __state)
+        // Vanilla DateNotifierTick body (1.6.4871) against per-faction state,
+        // under the faction's context and its map's clock
+        static void TickForFaction(DateNotifier notifier, FactionWorldData data)
         {
-            if (!__state.HasValue) return;
-            Find.TickManager.DebugSetTicksGame(__state.Value);
-            FactionContext.Pop();
+            // First run on an existing save: adopt the global pre-fix state so
+            // the transition already seen isn't re-announced
+            if (data.lastSeason == Season.Undefined && notifier.lastSeason != Season.Undefined)
+                data.lastSeason = notifier.lastSeason;
+
+            Map map = notifier.FindPlayerHomeWithMinTimezone();
+
+            int prevTicks = Find.TickManager.TicksGame;
+            if (map != null)
+                Find.TickManager.DebugSetTicksGame(map.AsyncTime().mapTicks);
+
+            try
+            {
+                float latitude = map != null ? Find.WorldGrid.LongLatOf(map.Tile).y : 0f;
+                float longitude = map != null ? Find.WorldGrid.LongLatOf(map.Tile).x : 0f;
+                Season season = GenDate.Season(Find.TickManager.TicksAbs, latitude, longitude);
+
+                if (season == data.lastSeason ||
+                    (data.lastSeason != Season.Undefined && season == data.lastSeason.GetPreviousSeason()))
+                    return;
+
+                if (data.lastSeason != Season.Undefined && notifier.AnyPlayerHomeSeasonsAreMeaningful())
+                {
+                    if (GenDate.YearsPassed == 0 && season == Season.Summer &&
+                        notifier.AnyPlayerHomeAvgTempIsLowInWinter())
+                        Find.LetterStack.ReceiveLetter("LetterLabelFirstSummerWarning".Translate(),
+                            "FirstSummerWarning".Translate(), LetterDefOf.NeutralEvent);
+                    else if (GenDate.DaysPassed > 5)
+                        Messages.Message("MessageSeasonBegun".Translate(season.Label()).CapitalizeFirst(),
+                            MessageTypeDefOf.NeutralEvent);
+                }
+
+                data.lastSeason = season;
+            }
+            finally
+            {
+                Find.TickManager.DebugSetTicksGame(prevTicks);
+            }
         }
     }
 
@@ -149,6 +211,7 @@ namespace Multiplayer.Client.AsyncTime
             if (Multiplayer.Client == null) return;
             if (WorldRendererUtility.WorldSelected) return;
             if (FactionCreator.generatingMap) return;
+            if (Find.CurrentMap == null) return;
 
             var asyncTime = Find.CurrentMap.AsyncTime();
             var timeSpeed = Multiplayer.IsReplay ? TickPatch.replayTimeSpeed : asyncTime.DesiredTimeSpeed;

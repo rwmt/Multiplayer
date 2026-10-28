@@ -13,6 +13,10 @@ public class Page_ChooseIdeo_Multifaction : Page
 
     public Page_ChooseIdeoPreset pageChooseIdeo = new();
 
+    // Custom ideology from a saved .rid file, loaded as a detached object
+    // (TryLoadIdeo registers nothing) and serialized into the creation command
+    private Ideo customIdeo;
+
     public override void DoWindowContents(Rect inRect)
     {
         DrawPageTitle(inRect);
@@ -26,6 +30,13 @@ public class Page_ChooseIdeo_Multifaction : Page
         totalHeight += descHeight + 10f;
 
         pageChooseIdeo.DrawStructureAndStyleSelection(inRect);
+
+        var loadRect = new Rect(inRect.xMax - 260f, inRect.y, 250f, 32f);
+        var loadLabel = customIdeo == null
+            ? "Load custom ideoligion..."
+            : $"Custom: {customIdeo.name} (click to change)";
+        if (Widgets.ButtonText(loadRect, loadLabel))
+            OpenCustomIdeoMenu();
 
         Rect outRect = mainRect;
         outRect.width = 954f;
@@ -49,25 +60,58 @@ public class Page_ChooseIdeo_Multifaction : Page
         DoBottomButtons(inRect);
     }
 
+    private void OpenCustomIdeoMenu()
+    {
+        var ideosDir = GenFilePaths.FolderUnderSaveData("Ideos");
+        var files = new System.IO.DirectoryInfo(ideosDir).GetFiles("*.rid");
+
+        if (files.Length == 0)
+        {
+            Messages.Message(
+                "No saved ideoligions found. Create one in singleplayer's ideoligion editor and save it, then load it here.",
+                MessageTypeDefOf.RejectInput, historical: false);
+            return;
+        }
+
+        var options = files
+            .Select(f => new FloatMenuOption(System.IO.Path.GetFileNameWithoutExtension(f.Name), () =>
+            {
+                if (GameDataSaveLoader.TryLoadIdeo(f.FullName, out var loaded))
+                    customIdeo = loaded;
+                else
+                    Messages.Message($"Failed to load {f.Name} - see log.",
+                        MessageTypeDefOf.RejectInput, historical: false);
+            }))
+            .Append(new FloatMenuOption("Clear custom ideoligion", () => customIdeo = null))
+            .ToList();
+
+        Find.WindowStack.Add(new FloatMenu(options));
+    }
+
     public override bool CanDoNext()
     {
-        if (pageChooseIdeo.selectedIdeo == null)
+        if (customIdeo == null && pageChooseIdeo.selectedIdeo == null)
         {
-            Messages.Message("Please select a preset.", MessageTypeDefOf.RejectInput, historical: false);
+            Messages.Message("Please select a preset or load a custom ideoligion.", MessageTypeDefOf.RejectInput, historical: false);
             return false;
         }
 
         return base.CanDoNext();
-    }   
+    }
 
     public IdeologyData GetIdeologyData()
     {
-        return new IdeologyData(pageChooseIdeo.selectedIdeo, pageChooseIdeo.selectedStructure, pageChooseIdeo.selectedStyles);
+        return new IdeologyData(
+            pageChooseIdeo.selectedIdeo,
+            pageChooseIdeo.selectedStructure,
+            pageChooseIdeo.selectedStyles,
+            customIdeo != null ? ScribeUtil.WriteExposable(customIdeo) : null);
     }
 }
 
 public record IdeologyData(
     IdeoPresetDef SelectedIdeo = null,
     MemeDef SelectedStructure = null,
-    List<StyleCategoryDef> SelectedStyles = null
+    List<StyleCategoryDef> SelectedStyles = null,
+    byte[] CustomIdeoData = null
 ) : ISyncSimple;

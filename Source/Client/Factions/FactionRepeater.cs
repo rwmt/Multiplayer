@@ -196,6 +196,71 @@ namespace Multiplayer.Client
             );
     }
 
+    // An impassable building spawned while another faction's (or the
+    // spectator's) zoneManager is installed - e.g. from a quest signal during
+    // the world tick - clears zone cells only from that copy, leaving stale
+    // zone cells under the building in the owner's zones. Objective event with
+    // a single caller (Thing.SpawnSetup), so repeat it across every copy.
+    [HarmonyPatch(typeof(ZoneManager), nameof(ZoneManager.Notify_NoZoneOverlapThingSpawned))]
+    static class ZoneOverlapSpawnedPatch
+    {
+        static bool ignore;
+
+        static bool Prefix(ZoneManager __instance, Thing thing) =>
+            FactionRepeater.Template(
+                __instance.map.MpComp()?.factionData,
+                d => d.zoneManager.Notify_NoZoneOverlapThingSpawned(thing),
+                __instance.map,
+                ref ignore
+            );
+    }
+
+    // Destroying a designated thing cleans designations only from each map's
+    // installed designationManager - other factions' copies keep a stale
+    // designation on a dead thing. RemoveAllDesignationsOn itself also backs
+    // player-intent designators (cancel/tame), where repeating would delete
+    // other factions' designations, so hook the objective call sites instead:
+    // Thing's destroy-time cleanup and faction changes (recruit/capture).
+    [HarmonyPatch(typeof(Thing), nameof(Thing.RemoveAllReservationsAndDesignationsOnThis))]
+    static class ThingDestroyedDesignationsPatch
+    {
+        static void Postfix(Thing __instance)
+        {
+            if (Multiplayer.Client == null || __instance.def.category == ThingCategory.Mote)
+                return;
+
+            // Mirrors the patched method: designations can live on any map's copies
+            foreach (var map in Find.Maps)
+            {
+                var dummy = false;
+                FactionRepeater.Template(
+                    map.MpComp()?.factionData,
+                    d => d.designationManager.RemoveAllDesignationsOn(__instance),
+                    map,
+                    ref dummy
+                );
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(Pawn), nameof(Pawn.SetFaction))]
+    static class PawnSetFactionDesignationsPatch
+    {
+        static void Postfix(Pawn __instance)
+        {
+            if (Multiplayer.Client == null || !__instance.Spawned)
+                return;
+
+            var dummy = false;
+            FactionRepeater.Template(
+                __instance.Map.MpComp()?.factionData,
+                d => d.designationManager.RemoveAllDesignationsOn(__instance),
+                __instance.Map,
+                ref dummy
+            );
+        }
+    }
+
     // Fix for RimWorld 1.6 bug where HistoryAutoRecorder.Tick() calls .Last() on empty collection
     [HarmonyPatch(typeof(HistoryAutoRecorder), nameof(HistoryAutoRecorder.Tick))]
     static class HistoryAutoRecorderTickPatch

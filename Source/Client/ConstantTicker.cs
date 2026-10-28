@@ -137,10 +137,21 @@ namespace Multiplayer.Client
         {
             if (ShipCountdown.timeLeft > 0f)
             {
-                ShipCountdown.timeLeft -= 1f / GenTicks.TicksPerRealSecond;
+                // CountdownEnded does sim work but the constant tick runs
+                // under whatever clock the frame installed (the viewer's
+                // since the viewer-clock install) - pin it to the world clock
+                var prev = TimeSnapshot.GetAndSetFromWorld();
+                try
+                {
+                    ShipCountdown.timeLeft -= 1f / GenTicks.TicksPerRealSecond;
 
-                if (ShipCountdown.timeLeft <= 0f)
-                    ShipCountdown.CountdownEnded();
+                    if (ShipCountdown.timeLeft <= 0f)
+                        ShipCountdown.CountdownEnded();
+                }
+                finally
+                {
+                    prev?.Set();
+                }
             }
         }
     }

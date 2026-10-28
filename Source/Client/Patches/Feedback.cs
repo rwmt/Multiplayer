@@ -242,12 +242,24 @@ namespace Multiplayer.Client.Patches
 
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {
+            var endCurrentJobCalls = 0;
+
             foreach (var inst in instructions)
             {
                 if (inst.Calls(tryTakeOrderedJob)) inst.operand = ((Delegate)CustomTryTakeOrderedJob).Method;
-                else if (inst.Calls(endCurrentJob)) inst.operand = ((Delegate)CustomEndCurrentJob).Method;
+                if (inst.Calls(endCurrentJob))
+                {
+                    inst.operand = ((Delegate)SyncedEndGotoJob).Method;
+                    endCurrentJobCalls++;
+                }
                 yield return inst;
             }
+
+            // #849: the EndCurrentJob call (goto onto the pawn's own cell) stopped
+            // the pawn on the clicking client only; fail loud if the shape changes
+            if (endCurrentJobCalls != 1)
+                Multiplayer.LoadingError(
+                    $"DraftedMove_GotoFeedbackPatch: expected 1 EndCurrentJob call in PawnGotoAction, found {endCurrentJobCalls}");
         }
 
         [SyncMethod(exposeParameters = [1], context = SyncContext.QueueOrder_Down)]
@@ -259,14 +271,14 @@ namespace Multiplayer.Client.Patches
             return false;
         }
 
-        // PawnGotoAction can also stop a pawn without going through TryTakeOrderedJob: when the pawn is
-        // already standing on gotoLoc and its current job is Goto, it calls EndCurrentJob directly. That
-        // call isn't synced, so the pawn stops only for the player who issued the order while it keeps
-        // walking for everyone else, causing a desync. Sync it the same way as the TryTakeOrderedJob call.
         [SyncMethod]
-        static void CustomEndCurrentJob(Pawn_JobTracker self, JobCondition condition,
-            bool startNewJob = true, bool canReturnToPool = true)
+        static void SyncedEndGotoJob(Pawn_JobTracker self, JobCondition condition, bool startNewJob, bool canReturnToPool)
         {
+            // The command lands ticks after the click - only end the job if it's
+            // still the goto this order was aimed at
+            if (Multiplayer.Client != null && self.curJob?.def != JobDefOf.Goto)
+                return;
+
             self.EndCurrentJob(condition, startNewJob, canReturnToPool);
         }
     }

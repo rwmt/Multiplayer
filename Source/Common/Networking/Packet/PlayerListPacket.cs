@@ -98,7 +98,8 @@ public record struct ServerPlayerListPacket : IPacket
             buf.BindEnum(ref type);
             buf.BindEnum(ref status);
             buf.Bind(ref steamId);
-            buf.Bind(ref steamPersonaName, maxLength: Constants.k_cwchPersonaNameMax);
+            // k_cwchPersonaNameMax counts chars but ReadString limits UTF-8 bytes (up to 4 per char)
+            buf.Bind(ref steamPersonaName, maxLength: Constants.k_cwchPersonaNameMax * 4);
             buf.Bind(ref ticksBehind);
             buf.Bind(ref simulating);
             buf.Bind(ref r);

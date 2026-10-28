@@ -19,9 +19,29 @@ namespace Multiplayer.Client.Comp
         public Dictionary<int, PlayerData> playerData = new(); // player id to player data
         public int nextSessionId;
 
+        // Synced view table: player id -> viewed map uniqueID, with
+        // VTRSync.WorldMapId for the planet view. Source of truth for the VTR
+        // player counts - counts are derived from this table, never
+        // incremented, so no send/wipe/disconnect ordering can drift them.
+        // Written only from CommandType.PlayerCount commands (client view
+        // announces and the server's disconnect removal) and scribed so join
+        // points and rehosts keep the views instead of resetting every map to
+        // the no-viewer rate.
+        public Dictionary<int, int> playerViewedMaps = new();
+        public int playerViewsVersion;
+
         public string idBlockBase64;
 
         public bool IsLowestWins => timeControl == TimeControl.LowestWins;
+
+        public void SetPlayerViewedMap(int playerId, int mapId)
+        {
+            if (mapId == Patches.VTRSync.InvalidMapId)
+                playerViewedMaps.Remove(playerId);
+            else
+                playerViewedMaps[playerId] = mapId;
+            playerViewsVersion++;
+        }
 
         public PlayerData LocalPlayerDataOrNull => playerData.GetValueOrDefault(Multiplayer.session.playerId);
 
@@ -34,6 +54,15 @@ namespace Multiplayer.Client.Comp
             Scribe_Values.Look(ref pauseOnLetter, "pauseOnLetter");
             Scribe_Values.Look(ref timeControl, "timeControl");
             Scribe_Values.Look(ref nextSessionId, "nextSessionId");
+
+            Scribe_Collections.Look(ref playerViewedMaps, "playerViewedMaps", LookMode.Value, LookMode.Value);
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+            {
+                // Absent on saves predating the table; version bump invalidates
+                // every comp's cached count after a (re)load
+                playerViewedMaps ??= new Dictionary<int, int>();
+                playerViewsVersion++;
+            }
 
             // Store for back-compat conversion in GameExposeComponentsPatch
             if (Scribe.mode == LoadSaveMode.LoadingVars)

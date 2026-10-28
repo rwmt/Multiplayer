@@ -9,6 +9,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
+using Multiplayer.Client.Factions;
 using Multiplayer.Client.Patches;
 using UnityEngine;
 using Verse;
@@ -410,6 +411,16 @@ namespace Multiplayer.Client
                 int index = part.choices.IndexOf(___localChoice);
 
                 if (index >= 0) {
+                    // Multifaction: only the owning faction claims its rewards
+                    if (Multiplayer.GameComp.multifaction &&
+                        QuestFactionOwnership.GetOwner(part.quest) is { } owner &&
+                        owner != Multiplayer.RealPlayerFaction)
+                    {
+                        Messages.Message($"Only {owner.Name} can choose this quest's reward.",
+                            MessageTypeDefOf.RejectInput, historical: false);
+                        return false;
+                    }
+
                     Choose(part, index);
                     return false;
                 }
@@ -423,7 +434,24 @@ namespace Multiplayer.Client
         // Registered in SyncMethods.cs
         internal static void Choose(QuestPart_Choice part, int index)
         {
-            part.Choose(part.choices[index]);
+            // The synced command executes in the clicking player's faction context;
+            // reward actions must resolve against the quest owner's instead
+            var owner = Multiplayer.Client != null && Multiplayer.GameComp.multifaction
+                ? QuestFactionOwnership.GetOwner(part.quest)
+                : null;
+
+            if (owner != null)
+                ((Map)null).PushFaction(owner);
+
+            try
+            {
+                part.Choose(part.choices[index]);
+            }
+            finally
+            {
+                if (owner != null)
+                    FactionExtensions.PopFaction();
+            }
         }
     }
 

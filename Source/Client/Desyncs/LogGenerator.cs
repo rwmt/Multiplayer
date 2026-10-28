@@ -13,6 +13,11 @@ namespace Multiplayer.Client
     public static class LogGenerator
     {
         private const int MaxLogLineCount = 10000;
+        // The incident is always at the end of the log, so when over budget
+        // keep the newest lines; a small head preserves startup/env context
+        // (mod list details live in local_metadata anyway)
+        private const int HeadLineCount = 2000;
+        private const int TailLineCount = MaxLogLineCount - HeadLineCount;
 
         internal static string PrepareLogData()
         {
@@ -49,11 +54,17 @@ namespace Multiplayer.Client
         private static string TrimExcessLines(string log)
         {
             var indexOfLastNewline = log.IndexOfOccurrence('\n', MaxLogLineCount);
-            if (indexOfLastNewline >= 0)
-            {
-                log = $"{log.Substring(0, indexOfLastNewline + 1)}(log trimmed to {MaxLogLineCount:N0} lines.)";
-            }
-            return log;
+            if (indexOfLastNewline < 0)
+                return log;
+
+            var lines = log.Split('\n');
+            var omitted = lines.Length - HeadLineCount - TailLineCount;
+            if (omitted <= 0)
+                return log;
+
+            return string.Join("\n", lines.Take(HeadLineCount)) +
+                   $"\n(... {omitted:N0} lines omitted ...)\n" +
+                   string.Join("\n", lines.Skip(lines.Length - TailLineCount));
         }
 
         private static string RedactUselessLines(string log)

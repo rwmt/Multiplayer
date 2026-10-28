@@ -97,7 +97,7 @@ public class StandaloneMapStreamingTest
         state.HandleClientCommand(new ClientCommandPacket(
             CommandType.PlayerCount,
             ScheduledCommand.Global,
-            ByteWriter.GetBytes(-1, 5)
+            ByteWriter.GetBytes(player.id, 5)
         ));
 
         Assert.That(player.currentMapId, Is.EqualTo(5));
@@ -116,7 +116,7 @@ public class StandaloneMapStreamingTest
         state.HandleClientCommand(new ClientCommandPacket(
             CommandType.PlayerCount,
             ScheduledCommand.Global,
-            ByteWriter.GetBytes(-2, 5)
+            ByteWriter.GetBytes(player.id, 5)
         ));
 
         Assert.That(player.currentMapId, Is.EqualTo(5));
@@ -134,11 +134,41 @@ public class StandaloneMapStreamingTest
         state.HandleClientCommand(new ClientCommandPacket(
             CommandType.PlayerCount,
             ScheduledCommand.Global,
-            ByteWriter.GetBytes(3, 5)
+            ByteWriter.GetBytes(player.id, 5)
         ));
 
         Assert.That(player.currentMapId, Is.EqualTo(5));
         Assert.That(conn.SentPackets, Does.Not.Contain(Packets.Server_MapResponse));
+    }
+
+    [Test]
+    public void PlayerCountForOtherPlayer_IsDropped()
+    {
+        var (player, conn) = AddPlayer("player", 3);
+
+        // The drop logs a server error by design - capture it instead of
+        // letting the global Assert.Fail hook (ServerTest.SetUp) eat it
+        var prevErrorHook = ServerLog.error;
+        string? loggedError = null;
+        ServerLog.error = s => loggedError = s;
+
+        try
+        {
+            var state = player.conn.GetState<ServerPlayingState>()!;
+            state.HandleClientCommand(new ClientCommandPacket(
+                CommandType.PlayerCount,
+                ScheduledCommand.Global,
+                ByteWriter.GetBytes(player.id + 1, 5)
+            ));
+        }
+        finally
+        {
+            ServerLog.error = prevErrorHook;
+        }
+
+        Assert.That(loggedError, Does.Contain("announced a view"));
+        Assert.That(player.currentMapId, Is.EqualTo(3));
+        Assert.That(conn.SentPackets, Does.Not.Contain(Packets.Server_Command));
     }
 
     [Test]

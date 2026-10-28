@@ -81,7 +81,17 @@ namespace Multiplayer.Client
 
         public static bool arbiterInstance;
         public static bool loadingErrors;
+        public static readonly List<string> loadingErrorsList = new();
         public static Stopwatch harmonyWatch = new();
+
+        // Central sink for init-time failures; keeps the message so the UI can
+        // show what broke instead of just a warning marker
+        public static void LoadingError(string message)
+        {
+            Log.Error(message);
+            loadingErrors = true;
+            loadingErrorsList.Add(message);
+        }
 
         public static ModContentPack modContentPack;
 

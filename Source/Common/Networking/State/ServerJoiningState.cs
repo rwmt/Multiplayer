@@ -155,6 +155,7 @@ public class ServerJoiningState : AsyncConnectionState
             playerId = Player.id,
             rwVersion = serverInitData.RwVersion,
             mpVersion = MpVersion.Version,
+            language = serverInitData.Language,
             defStatus = defStatus,
             configsIncluded = serverInitData.IncludeConfigs,
             rawServerInitData = serverInitData.RawData,

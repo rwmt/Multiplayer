@@ -37,12 +37,20 @@ namespace Multiplayer.Common
 
             if (packet.type == CommandType.PlayerCount)
             {
+                // Payload: (playerId, viewedMapId) - an absolute announce into
+                // the clients' synced view table. The player id must be the
+                // sender's own; the server also sends removals on its behalf
+                // at disconnect (PlayerManager.SetDisconnected).
                 ByteReader reader = new ByteReader(packet.data);
-                var prevMapId = reader.ReadInt32();
+                var playerId = reader.ReadInt32();
                 var newMapId = reader.ReadInt32();
-                if (Player.currentMapId != prevMapId)
-                    ServerLog.Error($"Inconsistent player {Player.Username} map. Last known map: {Player.currentMapId}, " +
-                                    $"however received command with transition: {prevMapId} -> {newMapId}");
+
+                if (playerId != Player.id)
+                {
+                    ServerLog.Error($"Player {Player.Username} announced a view for player id {playerId} - dropped");
+                    return;
+                }
+
                 Player.currentMapId = newMapId;
                 Player.hasReportedCurrentMap = true;
 

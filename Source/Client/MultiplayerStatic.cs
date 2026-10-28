@@ -256,8 +256,7 @@ namespace Multiplayer.Client
                 if (categoryNeedsAnnouncement) {
                     Log.Message($"Multiplayer :: {category}");
                 }
-                Log.Error(str);
-                Multiplayer.loadingErrors = true;
+                Multiplayer.LoadingError(str);
             }
 
             var harmony = Multiplayer.harmony;
