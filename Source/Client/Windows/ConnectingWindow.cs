@@ -54,9 +54,10 @@ namespace Multiplayer.Client
                 case ClientLoadingState { subState: LoadingState.Downloading } state:
                     label = "MpDownloading".Translate() + $" ({state.DownloadProgressPercent}%)";
                     var leftToDownloadKBps = (state.WorldExpectedSize - state.WorldReceivedSize) / 1000;
-                    if (state.DownloadSpeedKBps != 0)
+                    var downloadSpeedKBps = state.DownloadSpeedKBps;
+                    if (downloadSpeedKBps > 0)
                     {
-                        var timeLeftSecs = leftToDownloadKBps / state.DownloadSpeedKBps;
+                        var timeLeftSecs = leftToDownloadKBps / downloadSpeedKBps;
                         label +=
                             $"\n{timeLeftSecs}s – ";
                     }
@@ -64,7 +65,7 @@ namespace Multiplayer.Client
                         label += "\n";
 
                     label +=
-                        $"{state.WorldReceivedSize / 1000}/{state.WorldExpectedSize / 1000} KB ({state.DownloadSpeedKBps} KB/s)";
+                        $"{state.WorldReceivedSize / 1000}/{state.WorldExpectedSize / 1000} KB ({downloadSpeedKBps} KB/s)";
                     break;
                 default:
                     label = result ?? (ConnectingString + MpUI.FixedEllipsis());
