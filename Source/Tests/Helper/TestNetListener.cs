@@ -15,6 +15,9 @@ public class TestNetListener(Type joiningStateType) : INetEventListener
         conn = new LiteNetConnection(peer);
         conn.username = "test1";
 
+        // The registry is process-wide and additive, so a registration from an earlier test has to
+        // be removed before this one can take its place.
+        MpConnectionState.ClearImplementation(ConnectionStateEnum.ClientJoining);
         MpConnectionState.SetImplementation(ConnectionStateEnum.ClientJoining, joiningStateType);
         conn.ChangeState(ConnectionStateEnum.ClientJoining);
 

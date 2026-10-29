@@ -31,17 +31,10 @@ public class ServerTest
         var server = MakeServer(out var port);
         ConnectClient(port, typeof(TestJoiningState));
 
-        var timeoutWatch = Stopwatch.StartNew();
-        while (true)
-        {
-            if (server.InitDataState == InitDataState.Complete && server.playerManager.Players.Count == 0)
-                break; // Success
-
-            if (timeoutWatch.ElapsedMilliseconds > 2000)
-                Assert.Fail("Timeout");
-
-            Thread.Sleep(50);
-        }
+        WaitUntil(
+            nameof(Test),
+            () => server.InitDataState == InitDataState.Complete && server.playerManager.Players.Count == 0,
+            () => $"InitDataState={server.InitDataState} Players={server.playerManager.Players.Count}");
     }
 
     [Test]
@@ -83,17 +76,22 @@ public class ServerTest
 
         ConnectClient(port, typeof(TestLoadingKeepAliveState));
 
-        var timeoutWatch = Stopwatch.StartNew();
-        while (true)
-        {
-            if (server.playerManager.Players.Count == 0)
-                break;
+        // Players.Count == 0 already holds before the client connects, so waiting on it alone proves
+        // nothing. Observe the client arrive and then leave: both conditions start out false.
+        WaitUntil(
+            $"{nameof(LoadingStateHandlesKeepAliveWhileWaitingForJoinPoint)}.joined",
+            () => server.playerManager.Players.Count == 1,
+            () => $"Players={server.playerManager.Players.Count} " +
+                  $"CreatingJoinPoint={server.worldData.CreatingJoinPoint}");
 
-            if (timeoutWatch.ElapsedMilliseconds > 2000)
-                Assert.Fail("Timeout");
+        WaitUntil(
+            $"{nameof(LoadingStateHandlesKeepAliveWhileWaitingForJoinPoint)}.left",
+            () => server.playerManager.Players.Count == 0,
+            () => $"Players={server.playerManager.Players.Count} " +
+                  $"CreatingJoinPoint={server.worldData.CreatingJoinPoint}");
 
-            Thread.Sleep(50);
-        }
+        // The loading state was blocked on this join point, so reaching here means it completed.
+        Assert.That(server.worldData.CreatingJoinPoint, Is.False);
     }
 
     [Test]
@@ -110,20 +108,68 @@ public class ServerTest
 
         ConnectClient(port, typeof(TestJoiningState));
 
-        var timeoutWatch = Stopwatch.StartNew();
-        while (true)
-        {
-            if (server.playerManager.Players.Count == 1)
-                break;
+        // The seeded player above already satisfies Players.Count == 1, so waiting on that alone
+        // would pass without the client ever joining. Wait for it to arrive, then to leave.
+        WaitUntil(
+            $"{nameof(StandaloneJoinWithExistingPlayer_DoesNotStartJoinPoint)}.joined",
+            () => server.playerManager.Players.Count == 2,
+            () => $"Players={server.playerManager.Players.Count} " +
+                  $"CreatingJoinPoint={server.worldData.CreatingJoinPoint}");
 
-            if (timeoutWatch.ElapsedMilliseconds > 2000)
-                Assert.Fail("Timeout");
-
-            Thread.Sleep(50);
-        }
+        WaitUntil(
+            $"{nameof(StandaloneJoinWithExistingPlayer_DoesNotStartJoinPoint)}.left",
+            () => server.playerManager.Players.Count == 1,
+            () => $"Players={server.playerManager.Players.Count} " +
+                  $"CreatingJoinPoint={server.worldData.CreatingJoinPoint}");
 
         Assert.That(server.worldData.CreatingJoinPoint, Is.False);
     }
+
+    /// <summary>
+    /// Polls until <paramref name="condition"/> holds, or fails with what was actually observed.
+    ///
+    /// These tests drive a real server on a real socket, so how long the condition takes depends on the
+    /// machine. "Timeout" on its own says only that something did not happen; it does not say which half
+    /// of a compound condition was still false, nor how close to the budget the run came. Both are needed
+    /// to choose a defensible budget rather than a superstitious one.
+    ///
+    /// Every wait emits one measurement line, on success as well as failure, so a repeated run yields the
+    /// distribution instead of a single anecdote. Written through TestContext.Progress because NUnit only
+    /// surfaces captured Console output for tests that fail, and the successful runs are the interesting
+    /// ones here.
+    /// </summary>
+    private static void WaitUntil(string label, Func<bool> condition, Func<string> describeState,
+        int timeoutMs = 5000)
+    {
+        var watch = Stopwatch.StartNew();
+        var polls = 0;
+
+        while (true)
+        {
+            polls++;
+
+            if (condition())
+            {
+                Report(label, "ok", watch.ElapsedMilliseconds, polls, describeState());
+                return;
+            }
+
+            if (watch.ElapsedMilliseconds > timeoutMs)
+            {
+                var state = describeState();
+                Report(label, "timeout", watch.ElapsedMilliseconds, polls, state);
+                Assert.Fail($"{label} timed out after {watch.ElapsedMilliseconds} ms " +
+                            $"({polls} polls, budget {timeoutMs} ms); observed {state}");
+            }
+
+            Thread.Sleep(50);
+        }
+    }
+
+    /// <summary>One greppable line per wait. Prefixed so a harness can pick it out of ordinary test output.</summary>
+    private static void Report(string label, string outcome, long elapsedMs, int polls, string state) =>
+        TestContext.Progress.WriteLine(
+            $"##WAIT## label={label} outcome={outcome} elapsed_ms={elapsedMs} polls={polls} state=[{state}]");
 
     private void ConnectClient(int port, Type joiningStateType)
     {
