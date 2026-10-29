@@ -4,16 +4,9 @@ using Multiplayer.Common.Networking.Packet;
 
 namespace Multiplayer.Common
 {
-    public class CommandHandler
+    public class CommandHandler(MultiplayerServer server)
     {
-        private MultiplayerServer server;
-
         public int SentCmds { get; private set; }
-
-        public CommandHandler(MultiplayerServer server)
-        {
-            this.server = server;
-        }
 
         public void Send(CommandType cmdType, int factionId, int mapId, byte[] data, ServerPlayer? sourcePlayer = null, ServerPlayer? fauxSource = null)
         {
@@ -23,7 +16,7 @@ namespace Multiplayer.Common
                 bool debugCmd =
                     cmdType == CommandType.DebugTools ||
                     cmdType == CommandType.Sync && server.InitData!.DebugOnlySyncCmds.Contains(BitConverter.ToInt32(data, 0));
-                if (debugCmd && !CanUseDevMode(sourcePlayer))
+                if (debugCmd && !RequireDevModeOrNotify(sourcePlayer))
                     return;
 
                 bool hostOnly = cmdType == CommandType.Sync && server.InitData!.HostOnlySyncCmds.Contains(BitConverter.ToInt32(data, 0));
@@ -83,6 +76,15 @@ namespace Multiplayer.Common
                     ScheduledCommand.Global,
                     Array.Empty<byte>()
                 );
+        }
+
+        public bool RequireDevModeOrNotify(ServerPlayer player)
+        {
+            if (CanUseDevMode(player))
+                return true;
+
+            player.SendNotification(server.settings.debugMode ? "MpDevModeHostOnly" : "MpDevModeDisabled");
+            return false;
         }
 
         public bool CanUseDevMode(ServerPlayer player) =>
