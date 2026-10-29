@@ -24,7 +24,8 @@ public record struct ClientSelectedPacket : IPacket
     public void Bind(PacketBuffer buf)
     {
         buf.Bind(ref reset);
-        buf.Bind(ref newlySelectedIds, BinderOf.Int(), maxLength: 200);
-        buf.Bind(ref unselectedIds, BinderOf.Int(), maxLength: 200);
+        // Vanilla limits the amount of selected items to 200, but mods can increase that
+        buf.Bind(ref newlySelectedIds, BinderOf.Int(), maxLength: 8000);
+        buf.Bind(ref unselectedIds, BinderOf.Int(), maxLength: 8000);
     }
 }
