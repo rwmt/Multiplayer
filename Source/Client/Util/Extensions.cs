@@ -309,7 +309,7 @@ namespace Multiplayer.Client
         public static int IndexOfOccurrence(this string s, char match, int occurrence)
         {
             var currentOccurrence = 1;
-            var currentIndex = 0;
+            var currentIndex = -1;
             while (currentOccurrence <= occurrence && (currentIndex = s.IndexOf(match, currentIndex + 1)) != -1)
             {
                 if (currentOccurrence == occurrence) return currentIndex;
