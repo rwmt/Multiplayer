@@ -53,7 +53,7 @@ public class TestLoadingKeepAliveState : AsyncConnectionState
         packet = await Packet(Packets.Server_WorldData).Fragmented();
         packet.Seek(packet.Length);
 
-        connection.Close(MpDisconnectReason.Generic);
+        connection.Close();
         connection.ChangeState(ConnectionStateEnum.Disconnected);
     }
 }

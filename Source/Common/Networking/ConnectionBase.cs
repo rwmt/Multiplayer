@@ -256,18 +256,14 @@ namespace Multiplayer.Common
             }
         }
 
-        public void Close(MpDisconnectReason reason, byte[]? data = null)
-        {
-            // Ideally, we'd send the final packet here and let OnClose handle only the connection teardown.
-            // However, LiteNetLib closes connections immediately, discarding any queued packets.
-            // To ensure reliable delivery before closing, data must be sent via the Disconnect method itself.
+        /// Closes the connection without sending a server disconnect reason. Use this for client-side
+        /// shutdown, including cleanup after the server has already disconnected.
+        public void Close() => OnClose(null);
 
-            // State.IsServer check only used when disconnecting from a self-hosted local server
-            if (State != ConnectionStateEnum.Disconnected && State.IsServer())
-                OnClose(new ServerDisconnectPacket { reason = reason, data = data ?? [] });
-            else
-                OnClose(null);
-        }
+        /// Closes a server-side connection and delivers the reason to the client. LiteNetLib puts the
+        /// reason in disconnect data because it discards queued packets; Steam sends it as a packet.
+        public void Disconnect(MpDisconnectReason reason, byte[]? data = null) =>
+            OnClose(new ServerDisconnectPacket { reason = reason, data = data ?? [] });
 
         protected abstract void OnClose(ServerDisconnectPacket? goodbye);
 
