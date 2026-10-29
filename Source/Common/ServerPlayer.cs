@@ -131,6 +131,7 @@ namespace Multiplayer.Common
 
         public void SendMsg(string msg) => SendPacket(ServerChatPacket.Create(msg));
         public void SendRawMsg(string msg) => SendPacket(ServerChatPacket.CreateRaw(msg));
+        public void SendNotification(string key) => SendPacket(new ServerNotificationPacket(key));
     }
 
     public enum PlayerStatus : byte
