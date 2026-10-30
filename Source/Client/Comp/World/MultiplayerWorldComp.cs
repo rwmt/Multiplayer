@@ -126,6 +126,7 @@ public class MultiplayerWorldComp : IHasSessionData
             // Game manager order?
             factionData[currentFactionId] = FactionWorldData.FromCurrent(currentFactionId);
         }
+
     }
 
     public void WriteSessionData(ByteWriter writer)
@@ -164,6 +165,8 @@ public class MultiplayerWorldComp : IHasSessionData
         game.history = data.history;
         game.storyteller = data.storyteller;
         game.storyWatcher = data.storyWatcher;
+
+        //data?.gravshipCache.Apply();
     }
 
     public void DirtyColonyTradeForMap(Map map)
