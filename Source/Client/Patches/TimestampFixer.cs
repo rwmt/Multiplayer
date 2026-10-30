@@ -33,6 +33,17 @@ public static class TimestampFixer
 
     public static void FixPawn(Pawn p, Map oldMap, Map newMap)
     {
+        // Return early for two reasons.
+        //
+        // Nothing to fix: this method shifts four timestamps, and all four cover things only a
+        // live pawn does -- sleeping, lovin', escaping, breaking out of prison.
+        //
+        // Nothing but noise if we try: the method reads the pawn's data by saving it, and the
+        // game warns when a save touches a destroyed thing. Every kill on a map passes through
+        // here, so that was one warning per dead squirrel.
+        if (p.Destroyed)
+            return;
+
         var oldTime = oldMap?.AsyncTime().mapTicks ?? Multiplayer.AsyncWorldTime.worldTicks;
         var newTime = newMap?.AsyncTime().mapTicks ?? Multiplayer.AsyncWorldTime.worldTicks;
         currentOffset = newTime - oldTime;
