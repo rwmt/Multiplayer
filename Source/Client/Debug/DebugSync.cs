@@ -48,6 +48,12 @@ namespace Multiplayer.Client
 
             int selectedId = data.ReadInt32();
 
+            // Replay under the acting player's view, not the local one. Read before the node graph is
+            // rebuilt below, because node labels are allowed to depend on it -- the incident action's label
+            // embeds its target's name, so a wrong view here produces a path that matches nothing and the
+            // command silently does not run on this client.
+            WorldSelectedPatch.result = data.ReadBool();
+
             if (Multiplayer.MapContext != null)
             {
                 var thing = Multiplayer.ThingsById.GetValueSafe(selectedId);
@@ -115,6 +121,7 @@ namespace Multiplayer.Client
 
                 MouseCellPatch.result = null;
                 MouseTilePatch.result = null;
+                WorldSelectedPatch.result = null;
                 Find.Selector.selected = prevSelected;
                 FieldRefs.worldSelected(Find.WorldSelector) = prevWorldSelected;
 
@@ -155,6 +162,11 @@ namespace Multiplayer.Client
                 writer.WriteInt32(Find.Selector.SingleSelectedThing?.thingIDNumber ?? -1);
             else
                 writer.WriteInt32(Find.WorldSelector.SingleSelectedObject?.ID ?? -1);
+
+            // Which view the acting player had open. Debug actions may legitimately read it -- vanilla's
+            // incident action derives its entire target from it -- so replaying one faithfully means
+            // reproducing it, exactly as the cursor and selection above are reproduced.
+            writer.WriteBool(WorldRendererUtility.WorldSelected);
 
             Multiplayer.WriterLog.AddCurrentNode(writer);
 
