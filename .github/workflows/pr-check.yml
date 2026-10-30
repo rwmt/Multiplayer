@@ -4,34 +4,222 @@ name: Validate Pull Request
 
 env:
   SLN_PATH: Source/
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+permissions:
+  contents: read
 
 on:
   pull_request
 
-jobs:
-  builds:
-    name: Builds
-    runs-on: ubuntu-latest
-    steps:
-    
-    - uses: actions/checkout@v4
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
-    - name: Set up .NET
-      uses: actions/setup-dotnet@v4
+jobs:
+  build-test:
+    name: Build, Test (${{ matrix.os }}, .NET ${{ matrix.sdk }}, ${{ matrix.configuration }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    # '11' is preview-only right now, so let it fail without blocking the PR -
+    # this leg exists to catch upcoming breaks early, not to gate on
+    # preview-SDK bugs unrelated to this repo's code.
+    continue-on-error: ${{ matrix.sdk == '11' }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        configuration: [Debug, Release]
+        # Add another major version (e.g. '12', '8') to test more SDKs.
+        sdk: [global.json, '10', '11']
+      fail-fast: false
+    steps:
+
+    - name: Checkout repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
-        dotnet-version: 9.x
-      env:
-        DOTNET_NOLOGO: true
-        DOTNET_CLI_TELEMETRY_OPTOUT: true
-        
+        persist-credentials: false
+
+    # The committed global.json pins a specific major version, which would
+    # otherwise force every "dotnet" invocation on this leg (including
+    # setup-dotnet's own internal calls) back to that version regardless of
+    # which SDK we install below.
+    - name: Remove committed global.json for SDK override leg
+      if: matrix.sdk != 'global.json'
+      run: rm global.json
+
+    - name: Set up .NET (pinned)
+      if: matrix.sdk == 'global.json'
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      with:
+        global-json-file: global.json
+        cache: true
+        cache-dependency-path: '**/*.csproj'
+
+    - name: Set up .NET (override)
+      if: matrix.sdk != 'global.json'
+      id: setup_dotnet_override
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      with:
+        dotnet-version: ${{ matrix.sdk }}.0.x
+        cache: true
+        cache-dependency-path: '**/*.csproj'
+
+    # A generic "major.0.100" anchor + rollForward doesn't reliably match a
+    # preview-only install (dotnet/sdk#12335, reproduced here for the "11"
+    # leg) - pin the exact resolved version instead, per
+    # https://github.com/actions/setup-dotnet#matrix-testing.
+    - name: Pin global.json to resolved override SDK
+      if: matrix.sdk != 'global.json'
+      run: echo '{"sdk":{"version":"${{ steps.setup_dotnet_override.outputs.dotnet-version }}","rollForward":"latestPatch"}}' > ./global.json
+
+    - name: Display SDK version
+      run: dotnet --version
+
+    # Catches a silent wrong-SDK regression: dotnet --version could report
+    # the global.json-pinned major instead of this leg's intended one
+    # without anything failing until the logs were read by hand.
+    - name: Verify resolved SDK matches this leg's expected major version
+      shell: bash
+      run: |
+        ACTUAL_MAJOR=$(dotnet --version | cut -d. -f1)
+        if [ "${{ matrix.sdk }}" = "global.json" ]; then
+          EXPECTED_MAJOR=$(grep -oE '"version": *"[0-9]+' global.json | grep -oE '[0-9]+$')
+        else
+          EXPECTED_MAJOR="${{ matrix.sdk }}"
+        fi
+        echo "Resolved SDK major: $ACTUAL_MAJOR, expected: $EXPECTED_MAJOR"
+        if [ "$ACTUAL_MAJOR" != "$EXPECTED_MAJOR" ]; then
+          echo "::error::Resolved .NET SDK major ($ACTUAL_MAJOR) does not match this leg's expected major ($EXPECTED_MAJOR)"
+          exit 1
+        fi
+
     - name: Restore dependencies
       run: dotnet restore ${{ env.SLN_PATH }}
 
-    - name: Build debug
-      run: dotnet build ${{ env.SLN_PATH }} --no-restore   
-             
-    - name: Build release
-      run: dotnet build ${{ env.SLN_PATH }} --configuration Release --no-restore
+    - name: Build solution
+      run: dotnet build ${{ env.SLN_PATH }} --configuration ${{ matrix.configuration }} --no-restore
 
     - name: Run tests
-      run: dotnet test ${{ env.SLN_PATH }} --no-restore
+      run: dotnet test ${{ env.SLN_PATH }} --configuration ${{ matrix.configuration }} --no-restore --logger "trx;logfilename=TestResults.trx"
+
+    # overwrite: true because this name is keyed by matrix values, not run
+    # attempt - re-running a flaky test leg without a new push would
+    # otherwise 409-conflict against the first attempt's artifact.
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: test-results-${{ matrix.os }}-${{ matrix.sdk }}-${{ matrix.configuration }}
+        path: '**/TestResults/**'
+        retention-days: 7
+        if-no-files-found: error
+        overwrite: true
+
+  format-check:
+    name: Code formatting (non-blocking)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+
+    - name: Checkout repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - name: Set up .NET
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      with:
+        global-json-file: global.json
+        cache: true
+        cache-dependency-path: '**/*.csproj'
+
+    - name: Restore dependencies
+      run: dotnet restore ${{ env.SLN_PATH }}
+
+    # continue-on-error keeps this from failing the PR: the repo has existing
+    # formatting debt, so this reports issues in the log without blocking
+    # merges until that debt is cleaned up.
+    - name: Check code formatting
+      continue-on-error: true
+      run: dotnet format ${{ env.SLN_PATH }} --verify-no-changes
+
+  package-artifacts:
+    name: Package mod, server artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+
+    # submodules: recursive is required here (unlike the other jobs) because
+    # Languages/ is a submodule and gets bundled directly into the mod
+    # artifact.
+    - name: Checkout repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+        submodules: recursive
+
+    # GitHub Actions expressions have no substring function, so the short
+    # SHA used to name artifacts below is computed here instead.
+    - name: Compute short commit SHA
+      id: vars
+      run: echo "short_sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+    - name: Set up .NET
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      with:
+        global-json-file: global.json
+        cache: true
+        cache-dependency-path: '**/*.csproj'
+
+    - name: Restore dependencies
+      run: dotnet restore ${{ env.SLN_PATH }}
+
+    # Multiplayer.csproj copies its build output into Assemblies/ and
+    # AssembliesCustom/ as a post-build step, alongside the static About/,
+    # Defs/, Languages/, and Textures/ content - together these are the
+    # complete mod folder.
+    - name: Build mod (Release)
+      run: dotnet build ${{ env.SLN_PATH }} --configuration Release --no-restore
+
+    # Server.csproj publish restores runtime-specific assets itself, so no
+    # --no-restore here.
+    - name: Publish server (Windows)
+      run: dotnet publish ${{ env.SLN_PATH }}Server/Server.csproj --configuration Release --runtime win-x64 --self-contained false -p:UseAppHost=true -o artifacts/server/Server/Windows
+
+    - name: Publish server (Linux)
+      run: dotnet publish ${{ env.SLN_PATH }}Server/Server.csproj --configuration Release --runtime linux-x64 --self-contained false -p:UseAppHost=true -o artifacts/server/Server/Linux
+
+    - name: Add server launcher script
+      run: |
+        cat > artifacts/server/Server/Linux/Server.sh <<'EOF'
+        #!/usr/bin/env bash
+        set -euo pipefail
+        SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+        exec dotnet "$SCRIPT_DIR/Server.dll" "$@"
+        EOF
+        chmod +x artifacts/server/Server/Linux/Server.sh
+
+    - name: Package mod files
+      run: |
+        mkdir -p artifacts/mod/Multiplayer
+        mv About/ Assemblies/ AssembliesCustom/ Defs/ Languages/ Textures/ artifacts/mod/Multiplayer/
+
+    # upload-artifact strips exactly the given "path" and keeps everything
+    # below it, so pointing at the parent of Multiplayer/ and Server/ (rather
+    # than at those folders directly) is what makes them the zip's root.
+    - name: Upload mod artifact
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: Multiplayer-mod-pr${{ github.event.pull_request.number }}-${{ steps.vars.outputs.short_sha }}
+        path: artifacts/mod/
+        retention-days: 7
+        if-no-files-found: error
+
+    - name: Upload server artifact
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: Multiplayer-server-pr${{ github.event.pull_request.number }}-${{ steps.vars.outputs.short_sha }}
+        path: artifacts/server/
+        retention-days: 7
+        if-no-files-found: error
