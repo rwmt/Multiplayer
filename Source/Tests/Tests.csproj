@@ -29,4 +29,9 @@
       <ProjectReference Include="..\SourceGen\SourceGen.csproj" ReferenceOutputAssembly="true" />
     </ItemGroup>
 
+    <ItemGroup>
+        <EmbeddedResource Include="../MultiplayerLoader/SyncRituals.cs" LogicalName="Tests.SyncRituals.cs" />
+        <EmbeddedResource Include="RitualRoleCacheFixtures.txt" LogicalName="Tests.RitualRoleCacheFixtures.txt" />
+    </ItemGroup>
+
 </Project>
