@@ -34,23 +34,37 @@ namespace Multiplayer.Client
             {
                 ServerLog.Log($"Received P2P session request from {req.m_steamIDRemote}");
                 var session = Multiplayer.session;
-                if (Multiplayer.LocalServer?.settings.steam == true && !session.pendingSteam.Contains(req.m_steamIDRemote))
-                {
-                    if (Multiplayer.settings.autoAcceptSteam)
-                        SteamNetworking.AcceptP2PSessionWithUser(req.m_steamIDRemote);
-                    else
-                    {
-                        session.pendingSteam.Add(req.m_steamIDRemote);
-                        PendingPlayerWindow.EnqueueJoinRequest(req.m_steamIDRemote, (joinReq, accepted) =>
-                        {
-                            if(joinReq.steamId.HasValue && accepted) AcceptPlayerJoinRequest(joinReq.steamId.Value);
-                        });
-                    }
-                    session.knownUsers.Add(req.m_steamIDRemote);
-                    session.NotifyChat();
+                if (Multiplayer.LocalServer?.settings.steam != true)
+                    return;
 
-                    SteamFriends.RequestUserInformation(req.m_steamIDRemote, true);
+                var remoteId = req.m_steamIDRemote;
+
+                if (Multiplayer.settings.autoAcceptSteam)
+                {
+                    SteamNetworking.AcceptP2PSessionWithUser(remoteId);
                 }
+                // pendingSteam doubles as the dedup set: an entry exists exactly while a prompt is
+                // unanswered (both accept and reject clear it), so this skips duplicate prompts
+                // without a stale entry ever blocking a reconnect permanently (#843).
+                else if (!session.pendingSteam.Contains(remoteId))
+                {
+                    session.pendingSteam.Add(remoteId);
+                    PendingPlayerWindow.EnqueueJoinRequest(remoteId, (joinReq, accepted) =>
+                    {
+                        if (!joinReq.steamId.HasValue) return;
+                        if (accepted)
+                            AcceptPlayerJoinRequest(joinReq.steamId.Value);
+                        else
+                            // Clean up so the player isn't blocked from prompting again on reconnect.
+                            session.pendingSteam.Remove(joinReq.steamId.Value);
+                    });
+                }
+
+                if (!session.knownUsers.Contains(remoteId))
+                    session.knownUsers.Add(remoteId);
+                session.NotifyChat();
+
+                SteamFriends.RequestUserInformation(remoteId, true);
             });
 
             friendRchpUpdate = Callback<FriendRichPresenceUpdate_t>.Create(update =>

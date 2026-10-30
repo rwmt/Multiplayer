@@ -87,10 +87,19 @@ public class ServerJoiningState : AsyncConnectionState
             return;
         }
 
-        if (Server.GetPlayer(username) != null)
+        var existing = Server.GetPlayer(username);
+        if (existing != null)
         {
-            Player.Disconnect(MpDisconnectReason.UsernameAlreadyOnline);
-            return;
+            // Coming from the same remote as the player already holding this username means it's them
+            // reconnecting before their old connection was reaped, so give them their name back. Anyone
+            // else claiming it is turned away as before.
+            if (existing.conn.RemoteIdentity?.Equals(connection.RemoteIdentity) == true)
+                Server.playerManager.ReplaceStale(existing, connection);
+            else
+            {
+                Player.Disconnect(MpDisconnectReason.UsernameAlreadyOnline);
+                return;
+            }
         }
 
         connection.username = username;

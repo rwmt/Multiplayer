@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading.Tasks;
 using Multiplayer.Common;
 using Multiplayer.Common.Networking.Packet;
 using Steamworks;
@@ -16,6 +17,19 @@ namespace Multiplayer.Client.Networking
 
         public readonly ushort recvChannel = recvChannel; // currently only for client
         public readonly ushort sendChannel = sendChannel; // currently only for server
+
+        // Time given to Steam to flush a queued goodbye packet before the P2P session is freed (#843).
+        private static readonly TimeSpan SteamGoodbyeFlushDelay = TimeSpan.FromSeconds(3);
+
+        public override object? RemoteIdentity => remoteId;
+
+        // Steam carries every connection with a peer over one P2P session keyed by their id, so a
+        // replacement from the same id arrived on this very session and closing would take it down too.
+        public override void CloseReplacedBy(ConnectionBase replacement, MpDisconnectReason reason)
+        {
+            if (replacement is SteamBaseConn conn && conn.remoteId == remoteId) return;
+            base.CloseReplacedBy(replacement, reason);
+        }
 
         protected override void SendRaw(byte[] raw, bool reliable = true)
         {
@@ -42,12 +56,48 @@ namespace Multiplayer.Client.Networking
 
         public abstract void OnError(EP2PSessionError error);
 
+        // A goodbye is only ever non-null server-side, and CloseP2PSessionWithUser discards queued unsent
+        // packets. Closing immediately would drop the just-queued goodbye (e.g. a wrong-password or kick
+        // reason) before Steam flushes it, so defer the close to let the reliable packet reach the client.
         protected override void OnClose(ServerDisconnectPacket? goodbye)
         {
-            if (goodbye.HasValue) Send(goodbye.Value);
-            // TODO this should probably include SteamNetworking.CloseP2PSessionWithUser to free up any leftover
-            //   resources in the Steam API. The API docs are not clear whether the connection is closed instantly, or
-            //   are the queued packets sent.
+            if (!goodbye.HasValue)
+            {
+                CloseSteamSession();
+                return;
+            }
+
+            Send(goodbye.Value);
+
+            var server = serverPlayer.Server;
+            var id = remoteId;
+
+            Task.Delay(SteamGoodbyeFlushDelay).ContinueWith(_ => server.Enqueue(() =>
+            {
+                // A fast reconnect (SteamP2PNetManager.Tick) reuses this same remoteId on a fresh
+                // connection during the delay window. Closing then would tear that new session down, so
+                // skip the close if another connection already replaced this one (#843).
+                if (server.playerManager.Players.Any(p => p.conn is SteamBaseConn c && c != this && c.remoteId == id))
+                {
+                    ServerLog.Log($"Skipping delayed Steam P2P session close with {id}; a reconnect replaced it");
+                    return;
+                }
+
+                CloseSteamSession();
+            }));
+        }
+
+        // Frees the underlying Steam P2P session. This is required so that a later reconnect from
+        // the same user produces a fresh P2PSessionRequest_t (and, on the host, a new accept prompt)
+        // instead of Steam silently reusing the still-open session, which left the peer stuck and the
+        // host without a prompt (#843).
+        //
+        // Called immediately when no goodbye is queued; server-initiated disconnects that queue a goodbye
+        // defer it (see OnClose) so SendP2PPacket can flush the reason before the session is torn down.
+        protected void CloseSteamSession()
+        {
+            ServerLog.Log($"Closing Steam P2P session with {remoteId}");
+            SteamNetworking.CloseP2PSessionWithUser(remoteId);
         }
 
         public override string ToString() => $"SteamP2P ({remoteId}:{username})";
@@ -108,6 +158,10 @@ namespace Multiplayer.Client.Networking
 
         private void OnDisconnect()
         {
+            // The P2P timeout/error path does not go through OnClose, so close the Steam session here
+            // too. Otherwise the host keeps a half-open session with the departed client and their
+            // reconnect reuses it without firing a new accept prompt (#843).
+            CloseSteamSession();
             serverPlayer.Server.playerManager.SetDisconnected(this, MpDisconnectReason.ClientLeft);
         }
     }
@@ -132,9 +186,16 @@ namespace Multiplayer.Client.Networking
                 var player = playerManager.Players
                     .FirstOrDefault(p => p.conn is SteamBaseConn conn && conn.remoteId == packet.remote);
 
-                if (packet.joinPacket && player == null)
+                if (packet.joinPacket)
                 {
                     ConnectionBase conn = new SteamServerConn(packet.remote, packet.channel);
+
+                    // A join packet from a remote we still consider connected means their previous
+                    // session died and they are reconnecting on a fresh one (e.g. a quick rejoin before
+                    // the old connection timed out). Without replacing the stale player the join would be
+                    // discarded, leaving them stuck on "waiting for host to accept" (#843).
+                    if (player != null)
+                        playerManager.ReplaceStale(player, conn);
 
                     var preConnect = playerManager.OnPreConnect(packet.remote);
                     if (preConnect != null)
@@ -155,14 +216,13 @@ namespace Multiplayer.Client.Networking
 
                     conn.Send(Packets.Server_SteamAccept);
                 }
-                else if (!packet.joinPacket && player != null)
+                else if (player != null)
                 {
                     player.HandleReceive(packet.data, packet.reliable);
                 }
                 else
                 {
-                    ServerLog.Error(
-                        $"Received a join packet: {packet.joinPacket} for player: {player} (player should only be null when joinPacket is true)");
+                    ServerLog.Error($"Received a data packet from {packet.remote}, who has no connection");
                 }
             }
         }
