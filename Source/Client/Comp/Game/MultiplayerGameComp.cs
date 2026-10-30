@@ -22,6 +22,7 @@ namespace Multiplayer.Client.Comp
         public string idBlockBase64;
 
         public bool IsLowestWins => timeControl == TimeControl.LowestWins;
+        public bool IsMapOwners => timeControl == TimeControl.MapOwners;
 
         public PlayerData LocalPlayerDataOrNull => playerData.GetValueOrDefault(Multiplayer.session.playerId);
 

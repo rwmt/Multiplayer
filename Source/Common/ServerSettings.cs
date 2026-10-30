@@ -136,6 +136,12 @@ namespace Multiplayer.Common
     {
         EveryoneControls,
         LowestWins,
-        HostOnly
+        HostOnly,
+        /// <summary>
+        /// Every map is controlled by the players who have colonists on it, the global time is host only.
+        /// New members must control after <see cref="HostOnly"/>: the serialized value is persisted with the
+        /// session in <c>GameComp.timeControl</c> and read by older servers, which would reject the save.
+        /// </summary>
+        MapOwners
     }
 }
