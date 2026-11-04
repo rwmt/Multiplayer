@@ -21,7 +21,10 @@ jobs:
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 9.x
-      
+
+    - name: Display SDK version
+      run: dotnet --version
+
     - name: Run workshop bundler
       run: ./workshop_bundler.sh
 
