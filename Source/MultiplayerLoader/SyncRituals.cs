@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -13,6 +13,17 @@ namespace MultiplayerLoader;
 public static class SyncRituals
 {
     private static List<ISyncMethodForPrepatcher> syncMethodsWithPrepatches = new();
+#if RIMWORLD_1_7
+    private static readonly Dictionary<(Type, string), ISyncMethodForPrepatcher> runtimeSyncMethods = new();
+    private static readonly HashSet<MethodBase> runtimePatchedMethods = new();
+    private static readonly Harmony runtimeHarmony = new("rwmt.Multiplayer.WaylithRituals");
+
+    public static bool RuntimePrefix(object __instance, object[] __args, MethodBase __originalMethod)
+    {
+        return !runtimeSyncMethods.TryGetValue((__instance.GetType(), __originalMethod.Name), out var sync)
+            || !sync.DoSync(__instance, __args);
+    }
+#endif
 
     public static bool PrepatcherPrefix(int index, object __instance, object[] __args)
     {
@@ -50,6 +61,13 @@ public static class SyncRituals
                 var newSyncMethod = (ISyncMethodForPrepatcher)syncMethod.Invoke(null, [derivedType, method, null]);
                 postProcess?.Invoke(newSyncMethod);
                 syncMethodsWithPrepatches.Add(newSyncMethod);
+#if RIMWORLD_1_7
+                // Waylith supports runtime patching; the Mono preloader is not used.
+                runtimeSyncMethods.Add((derivedType, method), newSyncMethod);
+                var target = AccessTools.Method(derivedType, method);
+                if (runtimePatchedMethods.Add(target))
+                    runtimeHarmony.Patch(target, prefix: new HarmonyMethod(typeof(SyncRituals), nameof(RuntimePrefix)));
+#endif
             }
         }
 
