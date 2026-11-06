@@ -29,7 +29,6 @@ Prepatcher is not required. Normal builds have no game-version selector.
 ```sh
 dotnet build Source/Multiplayer.sln -c Release
 dotnet test Source/Tests/Tests.csproj -c Release --no-build
-./run-local-tests.sh
 ```
 
 The client build stages resolved mod dependencies into `1.7/Assemblies` and
