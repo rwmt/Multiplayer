@@ -128,6 +128,7 @@ namespace Multiplayer.Client
             DeepProfiler.Start("Multiplayer LoadInMainThread");
 
             ClearState();
+            Current.Game?.Dispose();
             MemoryUtility.ClearAllMapsAndWorld();
 
             LoadPatch.gameToLoad = gameData;

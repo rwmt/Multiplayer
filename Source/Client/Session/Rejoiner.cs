@@ -13,6 +13,7 @@ public static class Rejoiner
         LongEventHandler.ClearQueuedEvents();
         LongEventHandler.QueueLongEvent(() =>
         {
+            Current.Game?.Dispose();
             MemoryUtility.ClearAllMapsAndWorld();
             Current.Game = null;
 
