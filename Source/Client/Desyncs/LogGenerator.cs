@@ -13,6 +13,8 @@ namespace Multiplayer.Client
     public static class LogGenerator
     {
         private const int MaxLogLineCount = 10000;
+        private const int HeadLineCount = 2000;
+        private const int TailLineCount = MaxLogLineCount - HeadLineCount;
 
         internal static string PrepareLogData()
         {
@@ -48,12 +50,33 @@ namespace Multiplayer.Client
 
         private static string TrimExcessLines(string log)
         {
-            var indexOfLastNewline = log.IndexOfOccurrence('\n', MaxLogLineCount);
-            if (indexOfLastNewline >= 0)
+            if (log.NullOrEmpty()) return log;
+
+            var lineCount = 0;
+            var headEnd = 0;
+            var searchFrom = 0;
+            while (true)
             {
-                log = $"{log.Substring(0, indexOfLastNewline + 1)}(log trimmed to {MaxLogLineCount:N0} lines.)";
+                var newline = log.IndexOf('\n', searchFrom);
+                if (newline < 0) break;
+                searchFrom = newline + 1;
+                lineCount++;
+                if (lineCount == HeadLineCount)
+                    headEnd = searchFrom;
             }
-            return log;
+
+            var endsWithNewline = log[^1] == '\n';
+            if (!endsWithNewline) lineCount++;
+            if (lineCount <= MaxLogLineCount) return log;
+
+            var newlinesToSkip = TailLineCount + (endsWithNewline ? 1 : 0);
+            var tailStart = log.Length;
+            for (var i = 0; i < newlinesToSkip; i++)
+                tailStart = log.LastIndexOf('\n', tailStart - 1);
+
+            return log[..headEnd] +
+                   $"(... {lineCount - MaxLogLineCount:N0} lines omitted ...)\n" +
+                   log[(tailStart + 1)..];
         }
 
         private static string RedactUselessLines(string log)
