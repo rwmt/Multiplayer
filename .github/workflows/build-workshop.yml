@@ -16,22 +16,26 @@ jobs:
       with:
         fetch-depth: 0
         submodules: recursive # Updates the Languages submodule
-    
+
     - name: Setup Dotnet
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
       with:
-        dotnet-version: 9.x
-      
+        global-json-file: global.json
+        cache: true
+        cache-dependency-path: '**/*.csproj'
+
     - name: Run workshop bundler
       run: ./workshop_bundler.sh
 
-    - run: mkdir -p output
+    - name: Create output directory
+      run: mkdir -p output
 
     - name: Move files
       run: mv Multiplayer/ output/
 
-    - id: get_version
-      run: echo ::set-output name=VERSION::$(echo ${{ github.ref }} | cut -d / -f 3) # github.ref is refs/tags/<tag> here
+    - name: Name Workshop artifact
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF_NAME//\//-}" >> "$GITHUB_OUTPUT"
 
     - name: Upload mod artifacts
       uses: actions/upload-artifact@v4

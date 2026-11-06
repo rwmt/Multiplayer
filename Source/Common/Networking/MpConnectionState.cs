@@ -2,6 +2,7 @@ using System;
 using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
+using MethodInvoker = HarmonyLib.MethodInvoker;
 using Multiplayer.Common.Networking.Packet;
 
 namespace Multiplayer.Common

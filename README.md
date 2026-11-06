@@ -20,6 +20,44 @@ The RimWorld Multiplayer mod allows users to play full games of Rimworld coopera
 
 Please do all pull requests to the [dev](https://github.com/rwmt/Multiplayer/tree/dev) branch.
 
+## Building for RimWorld 1.7
+
+This source branch targets RimWorld 1.7, .NET 10, and Harmony 3. SDK selection
+comes from `global.json`; later installed .NET 10 SDKs are allowed by `latestMinor`.
+Prepatcher is not required. Normal builds have no game-version selector.
+
+```sh
+dotnet build Source/Multiplayer.sln -c Release
+dotnet test Source/Tests/Tests.csproj -c Release --no-build
+```
+
+The client build stages resolved mod dependencies into `1.7/Assemblies` and
+`1.7/AssembliesCustom`. Game and Harmony DLLs are supplied by the game/mod
+installation and must not be packaged. See [the metadata audit](Source/RuntimeTests/README.md)
+for local validation and its limitations. Full host/join, reload/rejoin, stockpile
+filter/cache, and ritual scenarios still require live game testing.
+
+## Desync tracing modes
+
+RNG, world, map, and command synchronization checks remain enabled in every mode.
+The normal **Fast** setting records lightweight event context (tick, RNG state and
+thing identity), without walking managed call stacks or formatting stack strings.
+**None** disables diagnostic event history. **Slow** additionally captures detailed
+managed stacks for each eligible event and can significantly increase CPU and memory
+usage. Use Slow only when collecting diagnostics for a reproducible issue.
+
+Diagnostic history also requires the session's desync trace logging to be enabled.
+The selector is available in the normal mod settings in Release builds, and the
+chosen mode is saved. Managed tracing works on ARM64 as well as x64.
+
+## Workshop releases
+
+`./workshop_bundler.sh` builds the current RimWorld 1.7 mod and retains 1.5 and
+1.6 in the release package. The older versions come from their frozen upstream
+release sources; they do not share the 1.7 implementation. For 1.6, the bundler
+uses `rw-1.6` when available, otherwise commit
+`9df94bd04ea9a94c00bd39a276e58c4c2f965740`.
+
 ## Donations
 
 If you’re feeling generous these are people who have contributed greatly to the mod’s development and upkeep.

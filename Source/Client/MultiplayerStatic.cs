@@ -48,18 +48,6 @@ namespace Multiplayer.Client
 
         static MultiplayerStatic()
         {
-            Native.InitLmfPtr(
-                Application.platform switch
-                {
-                    RuntimePlatform.LinuxEditor => Native.NativeOS.Linux,
-                    RuntimePlatform.LinuxPlayer => Native.NativeOS.Linux,
-                    RuntimePlatform.OSXEditor => Native.NativeOS.OSX,
-                    RuntimePlatform.OSXPlayer => Native.NativeOS.OSX,
-                    _ => Native.NativeOS.Windows
-                }
-            );
-
-            Native.HarmonyOriginalGetter = MpUtil.GetOriginalFromHarmonyReplacement;
 
             // UnityEngine.Debug.Log instead of Verse.Log.Message because the server runs on its own thread
             ServerLog.info = str => Debug.Log($"MpServerLog: {str}");

@@ -5,6 +5,28 @@ namespace Multiplayer.Client.Util
         public const int DefaultSeed = 352654597;
         public const int DefaultSeed2 = 1566083941;
 
+        public static int HashCombineInt(int v1, int v2)
+        {
+            unchecked
+            {
+                return (int)(v1 ^ (v2 + 2654435769u + (v1 << 6) + (v1 >> 2)));
+            }
+        }
+
+        public static int HashCombineInt(int v1, int v2, int v3, int v4)
+        {
+            unchecked
+            {
+                int h1 = DefaultSeed;
+                int h2 = h1;
+                h1 = ((h1 << 5) + h1 + (h1 >> 27)) ^ v1;
+                h2 = ((h2 << 5) + h2 + (h2 >> 27)) ^ v2;
+                h1 = ((h1 << 5) + h1 + (h1 >> 27)) ^ v3;
+                h2 = ((h2 << 5) + h2 + (h2 >> 27)) ^ v4;
+                return h1 + h2 * DefaultSeed2;
+            }
+        }
+
         // 3-value combiner  ──────────────────────────────────────
         public static int HashCombineInt(int v1, int v2, int v3)
         {

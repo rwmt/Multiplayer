@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Linq;
 using Ionic.Zlib;
 using Multiplayer.Client.Saving;
+using Multiplayer.Client.Patches;
 using Multiplayer.Common;
 using Verse;
 
@@ -64,6 +65,9 @@ public class ClientLoadingState(ConnectionBase connection) : ClientBaseState(con
     [PacketHandler(Packets.Server_WorldData, allowFragmented: true)]
     public void HandleWorldData(ByteReader data)
     {
+        // Preserve the last reported map on rejoin, but don't report temporary
+        // loading views or views encountered while replaying catch-up commands.
+        VTRSync.Suspend();
         var downloadMs = downloadTimeStopwatch.ElapsedMilliseconds;
         downloadTimeStopwatch.Reset();
         Log.Message($"Game data size: {data.Length}. Took {downloadMs}ms to receive.");
@@ -130,7 +134,11 @@ public class ClientLoadingState(ConnectionBase connection) : ClientBaseState(con
 
         TickPatch.SetSimulation(
             toTickUntil: true,
-            onFinish: () => Multiplayer.Client.Send(Packets.Client_WorldReady),
+            onFinish: () =>
+            {
+                Multiplayer.Client.Send(Packets.Client_WorldReady);
+                VTRSync.Start();
+            },
             cancelButtonKey: "Quit",
             onCancel: GenScene.GoToMainMenu // Calls StopMultiplayer through a patch
         );

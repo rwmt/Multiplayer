@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Reflection;
 using HarmonyLib;
 using RimWorld;
 using UnityEngine;
@@ -263,10 +264,9 @@ namespace Multiplayer.Client.Util
             {
                 te.scrollOffset = scrollOffset;
                 te.text = new string(PassChar, password.Length);
-                AccessTools.Field(typeof(TextEditor), "m_RevealCursor").SetValue(te, true);
-                te.UpdateScrollOffsetIfNeeded(new Event());
             }
         }
+
     }
 
     public enum ElementOrder

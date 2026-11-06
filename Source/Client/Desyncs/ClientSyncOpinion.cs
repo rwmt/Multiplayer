@@ -53,8 +53,6 @@ namespace Multiplayer.Client
             if (!commandRandomStates.SequenceEqual(other.commandRandomStates))
                 return "Random state from commands doesn't match";
 
-            if (!simulating && !other.simulating && desyncStackTraceHashes.Any() && other.desyncStackTraceHashes.Any() && !desyncStackTraceHashes.SequenceEqual(other.desyncStackTraceHashes))
-                return "Trace hashes don't match";
 
             return null;
         }

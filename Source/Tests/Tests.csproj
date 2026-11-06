@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <LangVersion>12</LangVersion>
@@ -18,12 +17,17 @@
         <PackageReference Include="NUnit.Analyzers" Version="4.10.0" />
         <PackageReference Include="coverlet.collector" Version="3.1.2" />
 
-        <PackageReference Include="Lib.Harmony" Version="2.4.2" />
+        <PackageReference Include="Lib.Harmony" Version="$(MultiplayerHarmonyVersion)" />
 
         <PackageReference Include="Verify.NUnit" Version="21.3.0" />
     </ItemGroup>
 
     <ItemGroup>
+      <Compile Include="..\Client\Settings\DesyncTracingMode.cs" Link="Client\DesyncTracingMode.cs" />
+      <Compile Include="..\Client\Desyncs\DesyncTraceCapture.cs" Link="Client\DesyncTraceCapture.cs" />
+      <Compile Include="..\Client\Util\DeterministicHash.cs" Link="Client\DeterministicHash.cs" />
+      <Compile Include="..\Client\Util\HashCodeTranspiler.cs" Link="Client\HashCodeTranspiler.cs" />
+      <Compile Include="..\Client\Patches\ViewedMapTracker.cs" Link="Client\ViewedMapTracker.cs" />
       <ProjectReference Include="..\ChatCommandContracts\ChatCommandContracts.csproj" />
       <ProjectReference Include="..\Common\Common.csproj" />
       <ProjectReference Include="..\SourceGen\SourceGen.csproj" ReferenceOutputAssembly="true" />

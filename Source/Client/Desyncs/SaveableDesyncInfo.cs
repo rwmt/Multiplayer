@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
@@ -45,9 +45,6 @@ public class SaveableDesyncInfo(
 
             zip.AddEntry("local_traces.txt", GetLocalTraces());
             zip.AddEntry("host_traces.txt", hostInfo?.Traces ?? "No host traces");
-
-            zip.AddEntry("local_jitted_methods.txt", JittedMethods.GetJittedMethodsString());
-            zip.AddEntry("host_jitted_methods.txt", hostInfo?.JittedMethods ?? "No host jitted methods");
 
             var extraLogs = LogGenerator.PrepareLogData();
             if (extraLogs != null) zip.AddEntry("local_logs.txt", extraLogs);
@@ -128,7 +125,7 @@ public class SaveableDesyncInfo(
             .AppendLine($"Processor Speed (MHz)|||{SystemInfo.processorFrequency}")
             .AppendLine($"Thread Count|||{SystemInfo.processorCount}")
             .AppendLine("\n###GPU Info###")
-            .AppendLine($"GPU Family|||{SystemInfo.graphicsDeviceVendor}")
+            .AppendLine("GPU Family|||Unavailable")
             .AppendLine($"GPU Type|||{SystemInfo.graphicsDeviceType}")
             .AppendLine($"GPU Name|||{SystemInfo.graphicsDeviceName}")
             .AppendLine($"GPU VRAM|||{SystemInfo.graphicsMemorySize}")
@@ -195,5 +192,5 @@ public class SaveableDesyncInfo(
         }
     }
 
-    public record HostInfo([CanBeNull] string Traces, [CanBeNull] string JittedMethods);
+    public record HostInfo([CanBeNull] string Traces);
 }

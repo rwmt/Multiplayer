@@ -135,6 +135,8 @@ namespace Multiplayer.Client
             dict["ISyncSimple"] = GetDefInfo(ApiSerialization.syncSimples, TypeHash);
             dict["ISession"] = GetDefInfo(ApiSerialization.sessions, TypeHash);
 
+            // RimWorld 1.7 enables WaylithClr.MonoStringHashCode, keeping NameTriple's
+            // string-based hashes compatible with Mono and stable across processes.
             dict["PawnBio"] = GetDefInfo(SolidBioDatabase.allBios, b => b.name.GetHashCode());
 
             foreach (var defType in GenTypes.AllLeafSubclasses(typeof(Def)))

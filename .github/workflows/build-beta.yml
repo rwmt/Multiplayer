@@ -22,12 +22,14 @@ jobs:
       uses: actions/checkout@v4
       with:
         submodules: recursive
-      
+
     - name: Setup Dotnet
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
       with:
-        dotnet-version: 9.x
-      
+        global-json-file: global.json
+        cache: true
+        cache-dependency-path: '**/*.csproj'
+
     - name: Install Mod Dependencies
       run: dotnet restore ${{ env.SLN_PATH }}
 
@@ -44,6 +46,7 @@ jobs:
       run: |
         cat > output/Server/Linux/Server.sh <<'EOF'
         #!/usr/bin/env bash
+        # Run the server beside this script with the supplied arguments.
         set -euo pipefail
         SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
         exec dotnet "$SCRIPT_DIR/Server.dll" "$@"
@@ -55,7 +58,7 @@ jobs:
       run: |
         sed -i "s/<name>\(.*\)<\/name>\$/<name>\1 [Continuous]<\/name>/" About/About.xml
         mkdir -p output/Multiplayer
-        mv About/ Assemblies/ AssembliesCustom/ Defs/ Languages/ Textures/ output/Multiplayer
+        mv About/ 1.7/ Defs/ Languages/ Textures/ LoadFolders.xml output/Multiplayer
         cd output/
         zip -r ../Multiplayer-beta.zip Multiplayer/
         zip -r ../Server-beta.zip Server/
@@ -66,12 +69,12 @@ jobs:
       with:
         name: Multiplayer-beta
         path: output/
-    
+
     - name: Clean up last release
       continue-on-error: true
       run: |
         gh release delete --cleanup-tag --yes "continuous"
-    
+
     - name: Upload new release
       run: |
         gh release create --target "${{ github.sha }}" --title "Continuous" --notes-file ".github/workflows/alpha-notes.md" --draft "continuous"

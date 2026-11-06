@@ -37,9 +37,9 @@ namespace Multiplayer.Client
 
     public class StackTraceLogItemRaw : StackTraceLogItem
     {
-        public const int MaxDepth = 32;
-        public long[] raw = new long[MaxDepth];
+        public const int MaxDepth = DesyncTraceCapture.MaxDepth;
         public int depth;
+        public string managedTrace;
 
         public int ticksGame;
         public ulong rngState;
@@ -50,26 +50,7 @@ namespace Multiplayer.Client
 
         public override string AdditionalInfo => $"{ticksGame} {thingDef}{thingId} {factionName} {depth} {rngState} {moreInfo}";
 
-        private static Dictionary<long, string> methodNameCache = new();
-
-        public override string StackTraceString
-        {
-            get
-            {
-                var builder = new StringBuilder();
-                for (int i = 0; i < depth; i++)
-                {
-                    var addr = raw[i];
-
-                    if (!methodNameCache.TryGetValue(addr, out string method))
-                        methodNameCache[addr] = method = Native.MethodNameFromAddr(raw[i], false);
-
-                    builder.AppendLine(method != null ? SyncCoordinator.MethodNameWithIL(method) : "Null");
-                }
-
-                return builder.ToString();
-            }
-        }
+        public override string StackTraceString => managedTrace ?? string.Empty;
 
         public static StackTraceLogItemRaw GetFromPool()
         {
@@ -78,6 +59,7 @@ namespace Multiplayer.Client
 
         public override void Dispose()
         {
+            managedTrace = null;
             depth = 0;
             ticksGame = 0;
             rngState = 0;

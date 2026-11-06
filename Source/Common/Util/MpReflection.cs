@@ -22,6 +22,18 @@ namespace Multiplayer.Client
         private static Dictionary<string, Getter> getters = new();
         private static Dictionary<string, Setter?> setters = new();
 
+        public static Action CreateStaticConstructorInvoker(Type type)
+        {
+            var constructor = type.TypeInitializer ?? throw new ArgumentException("Type has no static constructor", nameof(type));
+            // ConstructorInfo.Invoke only ensures initialization on CoreCLR. An
+            // explicit call is needed to execute the initializer again on reload.
+            var method = new DynamicMethod("MP_Reinitialize_" + type.Name, typeof(void), Type.EmptyTypes, type, true);
+            var il = method.GetILGenerator();
+            il.Emit(OpCodes.Call, constructor);
+            il.Emit(OpCodes.Ret);
+            return (Action)method.CreateDelegate(typeof(Action));
+        }
+
         /// <summary>
         /// Get the value of a static property/field in type specified by memberPath
         /// </summary>

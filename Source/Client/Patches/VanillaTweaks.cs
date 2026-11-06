@@ -19,9 +19,9 @@ namespace Multiplayer.Client
         {
             if (done) return;
             GUI.skin.font = Text.fontStyles[1].font;
-            Text.fontStyles[1].font.fontNames = new[] { "arial", "arialbd", "ariali", "arialbi" };
             done = true;
         }
+
     }
 
     // Fix window focus handling
