@@ -461,13 +461,18 @@ static class MpTimeControls
 
     public static void TimeControlButton(Rect button, Color bgColor, ITickable tickable)
     {
+        string denied = MapTimeOwnership.Reason(tickable);
         int speed = (int)tickable.DesiredTimeSpeed;
         if (tickable.ActualRateMultiplier(TimeSpeed.Normal) == 0f)
             speed = 0;
 
         Widgets.DrawRectFast(button, bgColor);
+        if (denied != null) TooltipHandler.TipRegion(button, denied);
+
         if (Widgets.ButtonImage(button, TexButton.SpeedButtonTextures[speed]))
         {
+            if (denied != null) return;
+
             int dir = Event.current.button == 0 ? 1 : -1;
             SendTimeChange(tickable, (TimeSpeed)GenMath.PositiveMod(speed + dir, (int)TimeSpeed.Ultrafast));
             Event.current.Use();
@@ -479,6 +484,11 @@ static class MpTimeControls
         if (tickable is AsyncWorldTimeComp)
             Multiplayer.Client.SendCommand(CommandType.GlobalTimeSpeed, ScheduledCommand.Global, (byte)newSpeed);
         else if (tickable is AsyncTimeComp comp)
-            Multiplayer.Client.SendCommand(CommandType.MapTimeSpeed, comp.map.uniqueID, (byte)newSpeed);
+        {
+            // Hotkeys reach the command without a button, so they are denied here too, the button shows why
+            if (!MapTimeOwnership.CanChangeTime(comp)) return;
+            Multiplayer.Client.SendCommand(CommandType.MapTimeSpeed, comp.map.uniqueID,
+                TimeControlPolicy.MapTimeSpeedData((byte)newSpeed, MapTimeOwnership.Owns(comp.map)));
+        }
     }
 }

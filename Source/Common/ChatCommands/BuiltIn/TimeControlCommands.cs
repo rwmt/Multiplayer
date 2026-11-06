@@ -53,12 +53,13 @@ public abstract class TimeControlCommand<TArgs> : ChatCommand<TArgs>
 
 internal static class TimeControlCommandUtil
 {
-    public static bool CanUse(MultiplayerServer server, IChatSource source)
-    {
-        return server.settings.timeControl != TimeControl.HostOnly ||
-               source is not ServerPlayer { IsHost: false } ||
-               !server.PlayingPlayers.Any(player => player.IsHost);
-    }
+    /// <summary>
+    /// The chat commands change the time everywhere, which is host only under <see cref="TimeControl.HostOnly"/> and
+    /// <see cref="TimeControl.MapOwners"/>. Controlling a single map is possible without a host, see
+    /// <see cref="TimeControlPolicy.CanChangeMapTime"/>.
+    /// </summary>
+    public static bool CanUse(MultiplayerServer server, IChatSource source) =>
+        source is not ServerPlayer player || TimeControlPolicy.CanChangeGlobalTime(server, player);
 
     public static void SetSpeed(MultiplayerServer server, IChatSource source, TimeVote speed)
     {

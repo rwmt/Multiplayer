@@ -318,4 +318,41 @@ namespace Multiplayer.Client
             return -1;
         }
     }
+
+    /// <summary>
+    /// Decides which maps the local player controls the time of, see <see cref="TimeControl.MapOwners"/>. The server can
+    /// not inspect the maps of a standalone session, so the claim is reported inside the command payload, the same way
+    /// players report which map they are looking at.
+    /// </summary>
+    static class MapTimeOwnership
+    {
+        /// A player with colonists on a map controls its time, so a colony transported by caravans or in a visit still
+        /// counts, and so does a map a second player shares, which lets both players slow it down.
+        public static bool Owns(Map map)
+        {
+            Faction faction = Multiplayer.RealPlayerFaction;
+            // A spectator controls no map, its faction is not a colony
+            if (map == null || faction == Multiplayer.WorldComp.spectatorFaction) return false;
+
+            return map.ParentFaction == faction ||
+                   map.mapPawns.AllPawnsSpawned.Any(p => !p.Dead && p.RaceProps.Humanlike && p.Faction == faction);
+        }
+
+        public static bool Owns(ITickable tickable) => tickable is AsyncTimeComp comp && Owns(comp.map);
+
+        /// <summary>
+        /// False under <see cref="TimeControl.MapOwners"/> when the local player controls no colonists on the tickable's
+        /// map. Other time controls and the global tickable (the time of every map, host only) are unaffected, the server
+        /// has the last word in any case.
+        /// </summary>
+        public static bool CanChangeTime(ITickable tickable) =>
+            Multiplayer.GameComp.timeControl != TimeControl.MapOwners || Owns(tickable);
+
+        /// <summary>Drawn over a button that <see cref="CanChangeTime"/> denies, null when it is not denied.</summary>
+        public static string Reason(ITickable tickable)
+        {
+            if (CanChangeTime(tickable)) return null;
+            return "MpTimeControlNotMapOwner".Translate();
+        }
+    }
 }

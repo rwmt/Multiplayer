@@ -275,6 +275,7 @@ namespace Multiplayer.Client
 
                 if (cmdType == CommandType.MapTimeSpeed && Multiplayer.GameComp.asyncTime)
                 {
+                    // Only the speed byte is executed, the ownership claim it may carry is for the server
                     TimeSpeed speed = (TimeSpeed)data.ReadByte();
                     DesiredTimeSpeed = speed;
 

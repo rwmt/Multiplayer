@@ -30,11 +30,16 @@ namespace Multiplayer.Common
                 if (hostOnly && !sourcePlayer.IsHost)
                     return;
 
-                if (cmdType is CommandType.MapTimeSpeed or CommandType.GlobalTimeSpeed &&
-                    server.settings.timeControl == TimeControl.HostOnly &&
-                    !sourcePlayer.IsHost &&
-                    server.PlayingPlayers.Any(p => p.IsHost))
+                if (cmdType == CommandType.MapTimeSpeed)
+                {
+                    if (!TimeControlPolicy.CanChangeMapTime(server, sourcePlayer,
+                            TimeControlPolicy.ReadMapTimeClaim(data)))
+                        return;
+                }
+                else if (cmdType == CommandType.GlobalTimeSpeed && !TimeControlPolicy.CanChangeGlobalTime(server, sourcePlayer))
+                {
                     return;
+                }
             }
 
             var cmd = new ScheduledCommand(
