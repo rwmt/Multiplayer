@@ -11,6 +11,7 @@ using System.Text;
 using HarmonyLib;
 using LudeonTK;
 using Multiplayer.Client.Desyncs;
+using Multiplayer.Common;
 using Multiplayer.Client.Util;
 using Multiplayer.Client.Windows;
 using RimWorld;
@@ -456,7 +457,9 @@ namespace Multiplayer.Client
 
             object FieldValue(FieldInfo field)
             {
-                var value = field.GetValue(null);
+                if (!StaticFieldDump.TryReadStaticValue(field, out var value, out var failure))
+                    return $"[unreadable: {failure}]";
+
                 if (value is ICollection col)
                     return col.Count;
                 if (field.Name.ToLowerInvariant().Contains("path") && value is string path && (path.Contains("/") || path.Contains("\\")))
@@ -464,7 +467,7 @@ namespace Multiplayer.Client
                 return value;
             }
 
-            foreach (var type in asm.GetTypes())
+            foreach (var type in StaticFieldDump.TypesOf(asm))
                 if (!type.IsGenericTypeDefinition && type.Namespace != null && typeValidator(type) && !type.HasAttribute<DefOf>() && !type.HasAttribute<CompilerGeneratedAttribute>())
                     foreach (var field in type.GetFields(BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.DeclaredOnly))
                         if (!field.IsLiteral && !field.IsInitOnly && !field.HasAttribute<CompilerGeneratedAttribute>())
