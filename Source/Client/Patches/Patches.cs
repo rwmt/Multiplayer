@@ -192,6 +192,29 @@ namespace Multiplayer.Client
         }
     }
 
+    /// <summary>
+    /// Overrides whether the planet view is showing, while a debug command is being replayed.
+    ///
+    /// Companion to the cursor overrides above. Debug actions are allowed to read the interface -- vanilla's
+    /// incident action picks its target with
+    /// <c>WorldRendererUtility.WorldSelected ? Find.WorldSelector.SingleSelectedObject : Find.CurrentMap</c> --
+    /// so replaying one faithfully means reproducing what the acting player could see, not just where their
+    /// cursor was. Without this, the same command targets a caravan on a player looking at the planet and a
+    /// colony on a player looking at a map.
+    /// </summary>
+    [HarmonyPatch(typeof(WorldRendererUtility), nameof(WorldRendererUtility.WorldSelected), MethodType.Getter)]
+    public static class WorldSelectedPatch
+    {
+        /// <summary>Non-null only while a debug command is being replayed.</summary>
+        public static bool? result;
+
+        static void Postfix(ref bool __result)
+        {
+            if (result.HasValue)
+                __result = result.Value;
+        }
+    }
+
     [HarmonyPatch(typeof(KeyBindingDef), nameof(KeyBindingDef.IsDownEvent), MethodType.Getter)]
     public static class KeyIsDownPatch
     {
