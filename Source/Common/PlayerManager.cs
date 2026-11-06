@@ -62,6 +62,16 @@ namespace Multiplayer.Common
             return conn.serverPlayer;
         }
 
+        // Drops a connection that a newly arrived one has superseded, so the arrival can take its place
+        // instead of being turned away (#843).
+        public void ReplaceStale(ServerPlayer stale, ConnectionBase replacement)
+        {
+            ServerLog.Log($"Replacing stale connection {stale.conn} with {replacement}");
+
+            stale.conn.CloseReplacedBy(replacement, MpDisconnectReason.ClientLeft);
+            SetDisconnected(stale.conn, MpDisconnectReason.ClientLeft);
+        }
+
         public void SetDisconnected(ConnectionBase conn, MpDisconnectReason reason)
         {
             if (conn.State == ConnectionStateEnum.Disconnected) return;
