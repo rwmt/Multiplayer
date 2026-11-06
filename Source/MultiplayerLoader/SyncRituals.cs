@@ -13,13 +13,20 @@ namespace MultiplayerLoader;
 public static class SyncRituals
 {
     private static List<ISyncMethodForPrepatcher> syncMethodsWithPrepatches = new();
+    private static List<Action<object>> beforeOriginalWithPrepatches = new();
 
     public static bool PrepatcherPrefix(int index, object __instance, object[] __args)
     {
         // This prefix is applied to a generic method and called by all possible instantiations
         // This check makes sure the type is correct
         if (syncMethodsWithPrepatches[index].TargetType == __instance.GetType())
-            return !syncMethodsWithPrepatches[index].DoSync(__instance, __args);
+        {
+            if (syncMethodsWithPrepatches[index].DoSync(__instance, __args))
+                return false;
+
+            // Run at the original method entry, including calls made inside another synced method.
+            beforeOriginalWithPrepatches[index]?.Invoke(__instance);
+        }
         return true;
     }
 
@@ -30,7 +37,8 @@ public static class SyncRituals
     // The second pass with module == null is called from Sync initialization and registers SyncMethods
     public static void ApplyPrepatches(ModuleDefinition module)
     {
-        void Register(Type baseType, string method, Type derivedType, Action<ISyncMethodForPrepatcher> postProcess = null)
+        void Register(Type baseType, string method, Type derivedType, Action<ISyncMethodForPrepatcher> postProcess = null,
+            Action<object> beforeOriginal = null)
         {
             if (module != null)
             {
@@ -51,6 +59,8 @@ public static class SyncRituals
                 postProcess?.Invoke(newSyncMethod);
                 syncMethodsWithPrepatches.Add(newSyncMethod);
             }
+
+            beforeOriginalWithPrepatches.Add(beforeOriginal);
         }
 
         // ======= PawnRitualRoleSelectionWidget =======
@@ -72,9 +82,11 @@ public static class SyncRituals
             m => m.TransformArgument(1, psychicRitualRolesSerializer));
 
         Register(typeof(PawnRoleSelectionWidgetBase<>), nameof(PawnRoleSelectionWidgetBase<RitualRole>.TryAssignAnyRole),
-            typeof(PawnRitualRoleSelectionWidget));
+            typeof(PawnRitualRoleSelectionWidget),
+            beforeOriginal: target => RefreshRoleGroups((PawnRitualRoleSelectionWidget)target));
         Register(typeof(PawnRoleSelectionWidgetBase<>), nameof(PawnRoleSelectionWidgetBase<PsychicRitualRoleDef>.TryAssignAnyRole),
-            typeof(PawnPsychicRitualRoleSelectionWidget));
+            typeof(PawnPsychicRitualRoleSelectionWidget),
+            beforeOriginal: target => RefreshRoleGroups((PawnPsychicRitualRoleSelectionWidget)target));
 
         Register(typeof(PawnRoleSelectionWidgetBase<>), nameof(PawnRoleSelectionWidgetBase<RitualRole>.TryAssign),
             typeof(PawnRitualRoleSelectionWidget),
@@ -116,6 +128,16 @@ public static class SyncRituals
                 lambdaOrdinal: 2).Name,
             typeof(PawnPsychicRitualRoleSelectionWidget)
         ); // Not participating left click delegate (try assign any role or spectate)
+    }
+
+    private static void RefreshRoleGroups<RoleType>(PawnRoleSelectionWidgetBase<RoleType> widget)
+        where RoleType : class, ILordJobRole
+    {
+        // TryAssignAnyRole reads this static cache, normally populated by DrawPawnListInternal.
+        // A remote client may never draw this widget, or may have cached a different ritual.
+        var groups = PawnRoleSelectionWidgetBase<RoleType>.rolesGroupedTmp;
+        groups.Clear();
+        groups.AddRange(widget.assignments.RoleGroups());
     }
 
     private static (WidgetType roleSelectionWidget, string Key) RitualRoleWriter<WidgetType, RoleType>(IEnumerable<RoleType> roles, object target, object[] _)
