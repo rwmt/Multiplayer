@@ -5,6 +5,7 @@ using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Client;
 using Verse;
+using Multiplayer.Client.Factions;
 using Multiplayer.Client.Patches;
 using RimWorld;
 
@@ -198,6 +199,27 @@ namespace Multiplayer.Common
         public void SetThingFilterContext(ThingFilterContext context)
         {
             ThingFilterMarkers.DrawnThingFilter = context;
+        }
+
+        public bool IsMultifaction => Client.Multiplayer.GameComp.multifaction;
+
+        public Faction SpectatorFaction => Client.Multiplayer.WorldComp.spectatorFaction;
+
+        public void PushFaction(Map map, Faction faction) => FactionExtensions.PushFaction(map, faction);
+
+        public void PopFaction(Map map = null) => FactionExtensions.PopFaction(map);
+
+        public void RepeatForWorldFactions(Action action)
+        {
+            bool ignore = false;
+            FactionRepeater.Template(Client.Multiplayer.game?.worldComp.factionData, _ => action(), null, ref ignore);
+        }
+
+        public void RepeatForMapFactions(Map map, Action action)
+        {
+            if (map == null) throw new ArgumentNullException(nameof(map));
+            bool ignore = false;
+            FactionRepeater.Template(map.MpComp()?.factionData, _ => action(), map, ref ignore);
         }
     }
 }
