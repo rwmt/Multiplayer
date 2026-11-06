@@ -41,10 +41,7 @@ namespace Multiplayer.Client
                     else
                     {
                         session.pendingSteam.Add(req.m_steamIDRemote);
-                        PendingPlayerWindow.EnqueueJoinRequest(req.m_steamIDRemote, (joinReq, accepted) =>
-                        {
-                            if(joinReq.steamId.HasValue && accepted) AcceptPlayerJoinRequest(joinReq.steamId.Value);
-                        });
+                        PendingPlayerWindow.EnqueueJoinRequest(req.m_steamIDRemote, PendingJoinRequestCallback);
                     }
                     session.knownUsers.Add(req.m_steamIDRemote);
                     session.NotifyChat();
@@ -80,6 +77,18 @@ namespace Multiplayer.Client
 
             avatarLoaded =
                 Callback<AvatarImageLoaded_t>.Create(loaded => SteamImages.GetTexture(loaded.m_iImage, force: true));
+        }
+
+        private static void PendingJoinRequestCallback(PendingPlayerWindow.Request joinReq, bool accepted)
+        {
+            if (joinReq.steamId.HasValue && accepted)
+            {
+                AcceptPlayerJoinRequest(joinReq.steamId.Value);
+                if (!SteamNetworking.GetP2PSessionState(joinReq.steamId.Value, out var state) || state.m_bConnecting != 1)
+                {
+                    Log.Message("Accepted user join request, but they are already gone");
+                }
+            }
         }
 
         public static void AcceptPlayerJoinRequest(CSteamID id)

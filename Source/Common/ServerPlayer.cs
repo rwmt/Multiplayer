@@ -71,7 +71,7 @@ namespace Multiplayer.Common
 
         public void Disconnect(MpDisconnectReason reason, byte[]? data = null)
         {
-            conn.Close(reason, data);
+            conn.Disconnect(reason, data);
             Server.playerManager.SetDisconnected(conn, reason);
         }
 
