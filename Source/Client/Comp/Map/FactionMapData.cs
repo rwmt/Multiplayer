@@ -1,4 +1,5 @@
 using Multiplayer.Client.Factions;
+using Multiplayer.Client.Persistent;
 using RimWorld;
 using Verse;
 
@@ -23,6 +24,7 @@ public class FactionMapData : IExposable
     public ListerFilthInHomeArea listerFilthInHomeArea;
     public ListerMergeables listerMergeables;
 
+    public GravshipCache gravshipCache;
     private FactionMapData() { }
 
     // Loading ctor
@@ -35,6 +37,8 @@ public class FactionMapData : IExposable
         resourceCounter = new ResourceCounter(map);
         listerFilthInHomeArea = new ListerFilthInHomeArea(map);
         listerMergeables = new ListerMergeables(map);
+
+        gravshipCache = new GravshipCache(map);
     }
 
     private FactionMapData(int factionId, Map map) : this(map)
@@ -65,6 +69,8 @@ public class FactionMapData : IExposable
             planManager ??= new PlanManager(map);
         }
 
+        gravshipCache = new GravshipCache(map);
+
         ExposeActor.OnPostInit(() => map.PopFaction());
     }
 
@@ -89,6 +95,8 @@ public class FactionMapData : IExposable
             resourceCounter = map.resourceCounter,
             listerFilthInHomeArea = map.listerFilthInHomeArea,
             listerMergeables = map.listerMergeables,
+
+            gravshipCache = new GravshipCache(map)
         };
     }
 }
