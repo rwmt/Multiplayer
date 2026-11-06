@@ -120,8 +120,7 @@ namespace Multiplayer.Client
                                 toPatch,
                                 (attr is MpPrefix) ? patch : null,
                                 (attr is MpPostfix) ? patch : null,
-                                (attr is MpTranspiler) ? patch : null,
-                                finalizer: (attr is MpFinalizer) ? patch : null
+                                (attr is MpTranspiler) ? patch : null
                             );
                         }
 
@@ -186,17 +185,6 @@ namespace Multiplayer.Client
         }
 
         public MpPostfix(Type parentType, string parentMethod, int lambdaOrdinal) : base(parentType, parentMethod, lambdaOrdinal)
-        {
-        }
-    }
-
-    /// <summary>
-    /// Finalizer method attribute
-    /// </summary>
-    [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
-    public class MpFinalizer : MpPatch
-    {
-        public MpFinalizer(Type type, string method, Type[] argTypes = null) : base(type, method, argTypes)
         {
         }
     }
