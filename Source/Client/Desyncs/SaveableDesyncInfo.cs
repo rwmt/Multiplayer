@@ -46,9 +46,6 @@ public class SaveableDesyncInfo(
             zip.AddEntry("local_traces.txt", GetLocalTraces());
             zip.AddEntry("host_traces.txt", hostInfo?.Traces ?? "No host traces");
 
-            zip.AddEntry("local_jitted_methods.txt", JittedMethods.GetJittedMethodsString());
-            zip.AddEntry("host_jitted_methods.txt", hostInfo?.JittedMethods ?? "No host jitted methods");
-
             var extraLogs = LogGenerator.PrepareLogData();
             if (extraLogs != null) zip.AddEntry("local_logs.txt", extraLogs);
 
@@ -195,5 +192,5 @@ public class SaveableDesyncInfo(
         }
     }
 
-    public record HostInfo([CanBeNull] string Traces, [CanBeNull] string JittedMethods);
+    public record HostInfo([CanBeNull] string Traces);
 }

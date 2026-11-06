@@ -275,12 +275,6 @@ namespace Multiplayer.Client
             }
         }
 
-        [DebugAction(MultiplayerCategory, "Print jitted methods", allowedGameStates = /* all */ AllowedGameStates.Invalid)]
-        public static void PrintJittedMethods()
-        {
-            Log.Message(JittedMethods.GetJittedMethodsString());
-        }
-
         [DebugAction(MultiplayerCategory, "Dump Def Types", allowedGameStates = AllowedGameStates.Entry)]
         public static void DumpDefTypes()
         {
