@@ -43,6 +43,19 @@ namespace Multiplayer.Common
                 ? null
                 : (MpConnectionState)Activator.CreateInstance(StateImpls[(int)state], conn);
 
+        /// <summary>
+        /// Removes the handlers registered for one state, so a different implementation can take its
+        /// place. <see cref="SetImplementation"/> is additive and rejects a second handler for the
+        /// same packet, which suits registering each state once at start-up but leaves no way to
+        /// replace one afterwards.
+        /// </summary>
+        public static void ClearImplementation(ConnectionStateEnum state)
+        {
+            StateImpls[(int)state] = null!;
+            for (var packetId = 0; packetId < packetHandlers.GetLength(1); packetId++)
+                packetHandlers[(int)state, packetId] = null;
+        }
+
         public static void SetImplementation(ConnectionStateEnum state, Type type)
         {
             if (!type.IsSubclassOf(typeof(MpConnectionState))) return;
