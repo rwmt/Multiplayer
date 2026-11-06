@@ -7,6 +7,8 @@ using RimWorld;
 
 namespace Multiplayer.Client.Patches;
 
+// Replaces the removed Prepatches.DontSetResolution prepatch so debug builds
+// keep their window resolution when the game requests a resolution change.
 [HarmonyPatch]
 static class KeepDebugResolution
 {
