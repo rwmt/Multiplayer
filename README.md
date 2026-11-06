@@ -50,36 +50,13 @@ Diagnostic history also requires the session's desync trace logging to be enable
 The selector is available in the normal mod settings in Release builds, and the
 chosen mode is saved. Managed tracing works on ARM64 as well as x64.
 
-## Versioned CI packages
+## Workshop releases
 
-The Workshop mod currently includes RimWorld 1.5 and 1.6. New packages retain
-both and add the current 1.7 source build. `.github/package-versions.json` is the
-single list of included versions: `current` identifies this source branch;
-`releases` lists the upstream branches to build independently. Adding another
-release entry creates another CI matrix job without changing the packaging code.
-
-PR, beta, and workshop workflows call `.github/workflows/build-packages.yml`.
-The 1.5 job uses upstream `rw-1.5`. The 1.6 job uses `rw-1.6` when available,
-otherwise commit `9df94bd04ea9a94c00bd39a276e58c4c2f965740`. Network failures fail
-the job rather than silently selecting a fallback. Every version records the
-resolved SHA in `<version>/source-commit.txt` in the package.
-
-Each source is built unchanged with its own references. Backports are explicit;
-changes to the 1.7 code do not automatically affect other game versions. Build
-artifacts use a common `<version>/About` and `<version>/files` layout. The shared
-packaging action consumes one `builds-root` and a list of required versions. It
-fails on missing builds, preserves each version's Defs, Languages, Textures and
-assemblies, and generates matching dependency metadata and `LoadFolders.xml`.
-Only release metadata is shared at the package root. No bundler script is used.
-
-The 1.5 release entry explicitly retains the Workshop package's Prepatcher
-requirement: the branch's older About metadata lists Harmony alone, but its ritual
-implementation uses Prepatcher. Additional release dependencies are merged without
-duplicating source declarations.
-
-PR runs upload mod, server, and test-result artifacts for seven days. Standalone
-servers use `Server/<version>/Windows` and `Server/<version>/Linux` for every version.
-The workshop workflow stamps the mod version and uploads the combined mod package.
+`./workshop_bundler.sh` builds the current RimWorld 1.7 mod and retains 1.5 and
+1.6 in the release package. The older versions come from their frozen upstream
+release sources; they do not share the 1.7 implementation. For 1.6, the bundler
+uses `rw-1.6` when available, otherwise commit
+`9df94bd04ea9a94c00bd39a276e58c4c2f965740`.
 
 ## Donations
 
