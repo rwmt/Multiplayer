@@ -40,6 +40,7 @@ public class ConvertToSp
         Multiplayer.StopMultiplayer();
 
         var doc = SaveLoad.SaveGameToDoc();
+        Current.Game?.Dispose();
         MemoryUtility.ClearAllMapsAndWorld();
 
         Current.Game = new Game
