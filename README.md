@@ -33,8 +33,7 @@ dotnet test Source/Tests/Tests.csproj -c Release --no-build
 
 The client build stages resolved mod dependencies into `1.7/Assemblies` and
 `1.7/AssembliesCustom`. Game and Harmony DLLs are supplied by the game/mod
-installation and must not be packaged. See [the metadata audit](Source/RuntimeTests/README.md)
-for local validation and its limitations. Full host/join, reload/rejoin, stockpile
+installation and must not be packaged. Full host/join, reload/rejoin, stockpile
 filter/cache, and ritual scenarios still require live game testing.
 
 ## Desync tracing modes
