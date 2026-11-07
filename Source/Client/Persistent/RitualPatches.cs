@@ -184,7 +184,9 @@ namespace Multiplayer.Client.Persistent
     [HarmonyPatch(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.PostOpen))]
     static class PreventRepeatedRitualPostOpenCalls
     {
-        static bool Prefix() => Multiplayer.Client == null || Multiplayer.ExecutingCmds;
+        // The proxy reuse the session assignments, running FillPawns on it again only happen on the issuing client.
+        static bool Prefix(Dialog_BeginRitual __instance) => Multiplayer.Client == null
+            || (__instance is not RitualBeginProxy && Multiplayer.ExecutingCmds);
     }
 
 

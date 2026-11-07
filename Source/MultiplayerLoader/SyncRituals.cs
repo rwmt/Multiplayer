@@ -72,9 +72,11 @@ public static class SyncRituals
             m => m.TransformArgument(1, psychicRitualRolesSerializer));
 
         Register(typeof(PawnRoleSelectionWidgetBase<>), nameof(PawnRoleSelectionWidgetBase<RitualRole>.TryAssignAnyRole),
-            typeof(PawnRitualRoleSelectionWidget));
+            typeof(PawnRitualRoleSelectionWidget),
+            m => m.SetPreInvoke(RefreshRoleGroups<RitualRole>));
         Register(typeof(PawnRoleSelectionWidgetBase<>), nameof(PawnRoleSelectionWidgetBase<PsychicRitualRoleDef>.TryAssignAnyRole),
-            typeof(PawnPsychicRitualRoleSelectionWidget));
+            typeof(PawnPsychicRitualRoleSelectionWidget),
+            m => m.SetPreInvoke(RefreshRoleGroups<PsychicRitualRoleDef>));
 
         Register(typeof(PawnRoleSelectionWidgetBase<>), nameof(PawnRoleSelectionWidgetBase<RitualRole>.TryAssign),
             typeof(PawnRitualRoleSelectionWidget),
@@ -106,7 +108,8 @@ public static class SyncRituals
                 typeof(PawnRoleSelectionWidgetBase<ILordJobRole>),
                 nameof(PawnRoleSelectionWidgetBase<RitualRole>.DrawPawnListInternal),
                 lambdaOrdinal: 2).Name,
-            typeof(PawnRitualRoleSelectionWidget)
+            typeof(PawnRitualRoleSelectionWidget),
+            m => m.SetPreInvoke(RefreshRoleGroups<RitualRole>)
         ); // Not participating left click delegate (try assign any role or spectate)
         Register(
             typeof(PawnRoleSelectionWidgetBase<>),
@@ -114,8 +117,16 @@ public static class SyncRituals
                 typeof(PawnRoleSelectionWidgetBase<ILordJobRole>),
                 nameof(PawnRoleSelectionWidgetBase<PsychicRitualRoleDef>.DrawPawnListInternal),
                 lambdaOrdinal: 2).Name,
-            typeof(PawnPsychicRitualRoleSelectionWidget)
+            typeof(PawnPsychicRitualRoleSelectionWidget),
+            m => m.SetPreInvoke(RefreshRoleGroups<PsychicRitualRoleDef>)
         ); // Not participating left click delegate (try assign any role or spectate)
+    }
+
+    // rolesGroupedTmp is only filled when the dialog is drawn, so it's empty on clients that don't have it open.
+    private static void RefreshRoleGroups<RoleType>(object target, object[] _) where RoleType : class, ILordJobRole
+    {
+        PawnRoleSelectionWidgetBase<RoleType>.rolesGroupedTmp.Clear();
+        PawnRoleSelectionWidgetBase<RoleType>.rolesGroupedTmp.AddRange(((PawnRoleSelectionWidgetBase<RoleType>)target).assignments.RoleGroups());
     }
 
     private static (WidgetType roleSelectionWidget, string Key) RitualRoleWriter<WidgetType, RoleType>(IEnumerable<RoleType> roles, object target, object[] _)
