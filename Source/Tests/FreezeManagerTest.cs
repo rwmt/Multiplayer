@@ -1,3 +1,4 @@
+using System.Threading;
 using Multiplayer.Common;
 
 namespace Tests;
@@ -113,6 +114,46 @@ public class FreezeManagerTest
         server.freezeManager.Tick();
 
         Assert.That(server.freezeManager.Frozen, Is.False);
+    }
+
+    [Test]
+    public void TryStop_JoinsServerLoopThread()
+    {
+        // The #991 shutdown race is closed by having TryStop wait for the server
+        // loop to finish before nulling the static instance. A fake loop verifies
+        // the wait really happens: TryStop must not return before the loop did.
+        var loopFinished = false;
+        var fakeLoop = new Thread(() =>
+        {
+            Thread.Sleep(100);
+            loopFinished = true;
+        }) { IsBackground = true };
+        server.serverThread = fakeLoop;
+        fakeLoop.Start();
+
+        server.TryStop();
+
+        Assert.That(loopFinished, Is.True);
+        Assert.That(fakeLoop.IsAlive, Is.False);
+    }
+
+    [Test]
+    public void TryStop_FromLoopThreadItself_DoesNotDeadlock()
+    {
+        // Run() calls TryStop at its own exit; self-joining would hang forever.
+        var completed = false;
+        var loopThread = new Thread(() =>
+        {
+            server.serverThread = Thread.CurrentThread;
+            server.TryStop(); // same thread as the loop we must not join
+            completed = true;
+        }) { IsBackground = true };
+        loopThread.Start();
+
+        // If self-join deadlocked, the loop thread would never reach completed=true
+        // and the join with timeout below would observe an alive thread.
+        Assert.That(loopThread.Join(TimeSpan.FromSeconds(5)), Is.True);
+        Assert.That(completed, Is.True);
     }
 
     [Test]

@@ -131,6 +131,15 @@ static class SettlementIncidentTargetTagsPatch
     {
         foreach (var tag in tags)
         {
+            // Each map ticks its storyteller in that map's faction context. Do not let
+            // another player faction's settlement advertise itself as this map's player home.
+            if (tag == IncidentTargetTagDefOf.Map_PlayerHome &&
+                Multiplayer.Client != null &&
+                Multiplayer.GameComp.multifaction &&
+                __instance.Faction is { IsPlayer: true } faction &&
+                faction != Faction.OfPlayer)
+                continue;
+
             // Only return Map_Misc if player's faction is (heuristically) visiting the map
             // This affects multifaction where the storyteller ticks on every settlement for every faction separately
             if (tag != IncidentTargetTagDefOf.Map_Misc ||

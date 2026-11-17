@@ -201,11 +201,7 @@ namespace Multiplayer.Client
         {
             Multiplayer.LocalServer.running = true;
 
-            Multiplayer.localServerThread = new Thread(Multiplayer.LocalServer.Run)
-            {
-                Name = "Local server thread"
-            };
-            Multiplayer.localServerThread.Start();
+            Multiplayer.localServerThread = Multiplayer.LocalServer.StartServer("Local server thread");
 
             const string text = "Server started.";
             Messages.Message(text, MessageTypeDefOf.SilentInput, false);

@@ -250,7 +250,7 @@ namespace Multiplayer.Client.Comp
         /// <param name="quests">Quests to run QuestTick() on</param>
         private static void TickQuests(IEnumerable<Quest> quests)
         {
-            foreach (var quest in quests)
+            foreach (var quest in quests.ToList())
             {
                 quest.QuestTick();
             }
