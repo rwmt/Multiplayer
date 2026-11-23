@@ -453,7 +453,7 @@ namespace Multiplayer.Client.Patches
 
             // Modify cache update checking
             matcher.MatchEndForward(
-                new CodeMatch(OpCodes.Callvirt, typeof(Dictionary<Thing, StatCacheEntry>).GetMethod("TryGetValue"))
+                new CodeMatch(OpCodes.Callvirt, typeof(Dictionary<Thing, StatCacheEntry>).GetMethod(nameof(Dictionary<Thing, StatCacheEntry>.TryGetValue)))
             ).Advance(1).Insert(
                 new CodeInstruction(OpCodes.Ldarg_0),
                 new CodeInstruction(OpCodes.Ldarg_1),

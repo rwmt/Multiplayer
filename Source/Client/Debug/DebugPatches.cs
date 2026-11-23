@@ -140,7 +140,7 @@ namespace Multiplayer.Client.Patches
     }
 
     [EarlyPatch]
-    [HarmonyPatch(typeof(PatchClassProcessor), "ProcessPatchJob")]
+    [HarmonyPatch(typeof(PatchClassProcessor), nameof(PatchClassProcessor.ProcessPatchJob))]
     static class HarmonyMeasurePatchTime
     {
         static void Prefix(ref double __state)

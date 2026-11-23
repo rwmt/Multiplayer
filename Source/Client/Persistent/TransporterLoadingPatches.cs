@@ -144,7 +144,7 @@ namespace Multiplayer.Client.Persistent
     static class DisableTransferCheckboxForOtherFactions
     {
         static MethodInfo TargetMethod() {
-            return typeof(Widgets).GetMethod("Checkbox", [
+            return typeof(Widgets).GetMethod(nameof(Widgets.Checkbox), [
                 typeof(Vector2), typeof(bool).MakeByRefType(), typeof(float), typeof(bool), typeof(bool), typeof(Texture2D), typeof(Texture2D)
             ]);
         }
@@ -202,7 +202,7 @@ namespace Multiplayer.Client.Persistent
     static class DisableTransferCountTextBoxForOtherFactions
     {
         static MethodInfo TargetMethod() {
-            return typeof(Widgets).GetMethod("TextFieldNumeric", BindingFlags.Public | BindingFlags.Static).MakeGenericMethod(typeof(int));
+            return typeof(Widgets).GetMethod(nameof(Widgets.TextFieldNumeric), BindingFlags.Public | BindingFlags.Static).MakeGenericMethod(typeof(int));
         }
         static bool Prefix(Rect rect, int val)
         {

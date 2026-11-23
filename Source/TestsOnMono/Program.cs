@@ -51,8 +51,8 @@ static class Program
         Console.WriteLine(test.GetField().b);
 
         new Harmony("test").Patch(
-            typeof(TestClassForPatches<SomeClass>).GetMethod("GetField"),
-            postfix: new HarmonyMethod(typeof(Program).GetMethod("GenericPostfix"))
+            typeof(TestClassForPatches<SomeClass>).GetMethod(nameof(TestClassForPatches<SomeClass>.GetField)),
+            postfix: new HarmonyMethod(typeof(Program).GetMethod(nameof(GenericPostfix)))
         );
 
         Console.WriteLine(test.GetField().b);

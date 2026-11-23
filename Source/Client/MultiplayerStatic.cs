@@ -365,18 +365,18 @@ namespace Multiplayer.Client
 
                 var thingMethods = new[]
                 {
-                    ("Tick", Type.EmptyTypes),
-                    ("TickRare", Type.EmptyTypes),
-                    ("TickLong", Type.EmptyTypes),
-                    ("TickInterval", [typeof(int)]),
-                    ("TakeDamage", [typeof(DamageInfo)]),
-                    ("Kill", [typeof(DamageInfo?), typeof(Hediff)])
+                    (nameof(Thing.Tick), Type.EmptyTypes),
+                    (nameof(Thing.TickRare), Type.EmptyTypes),
+                    (nameof(Thing.TickLong), Type.EmptyTypes),
+                    (nameof(Thing.TickInterval), [typeof(int)]),
+                    (nameof(Thing.TakeDamage), [typeof(DamageInfo)]),
+                    (nameof(Thing.Kill), [typeof(DamageInfo?), typeof(Hediff)])
                 };
 
                 foreach (Type t in typeof(Thing).AllSubtypesAndSelf())
                 {
                     // SpawnSetup is patched separately because it sets the map
-                    var spawnSetupMethod = t.GetMethod("SpawnSetup", BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly, null, new[] { typeof(Map), typeof(bool) }, null);
+                    var spawnSetupMethod = t.GetMethod(nameof(Thing.SpawnSetup), BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly, null, new[] { typeof(Map), typeof(bool) }, null);
                     if (spawnSetupMethod != null)
                         TryPatch(spawnSetupMethod, thingMethodPrefixSpawnSetup, finalizer: thingMethodFinalizer);
 
@@ -396,9 +396,9 @@ namespace Multiplayer.Client
 
                 var thingMethods = new[]
                 {
-                    ("SpawnSetup", Type.EmptyTypes),
-                    ("Tick", Type.EmptyTypes),
-                    ("TickInterval", [typeof(int)]),
+                    (nameof(WorldObject.SpawnSetup), Type.EmptyTypes),
+                    (nameof(WorldObject.Tick), Type.EmptyTypes),
+                    (nameof(WorldObject.TickInterval), [typeof(int)]),
                 };
 
                 foreach (Type t in typeof(WorldObject).AllSubtypesAndSelf())
@@ -429,13 +429,13 @@ namespace Multiplayer.Client
                 var setMapTimePrefix = new HarmonyMethod(AccessTools.Method(typeof(SetMapTimeForUI), nameof(SetMapTimeForUI.Prefix)));
                 var setMapTimeFinalizer = new HarmonyMethod(AccessTools.Method(typeof(SetMapTimeForUI), nameof(SetMapTimeForUI.Finalizer)));
 
-                var windowMethods = new[] { "DoWindowContents", "WindowUpdate" };
+                var windowMethods = new[] { nameof(MainTabWindow_Inspect.DoWindowContents), nameof(MainTabWindow_Inspect.WindowUpdate) };
                 foreach (string m in windowMethods)
                     TryPatch(typeof(MainTabWindow_Inspect).GetMethod(m), setMapTimePrefix, finalizer: setMapTimeFinalizer);
 
                 foreach (var t in typeof(InspectTabBase).AllSubtypesAndSelf())
                 {
-                    var method = t.GetMethod("FillTab", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly, null, Type.EmptyTypes, null);
+                    var method = t.GetMethod(nameof(InspectTabBase.FillTab), BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly, null, Type.EmptyTypes, null);
                     if (method != null && !method.IsAbstract)
                         TryPatch(method, setMapTimePrefix, finalizer: setMapTimeFinalizer);
                 }
