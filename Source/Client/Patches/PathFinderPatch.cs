@@ -59,7 +59,7 @@ namespace Multiplayer.Client.Patches
                 snapshotDict.TryGetValue(pawn, out snapshot);
         }
 
-        [HarmonyPatch(typeof(PathFinder), "ScheduleBatchedPathJobs")]
+        [HarmonyPatch(typeof(PathFinder), nameof(PathFinder.ScheduleBatchedPathJobs))]
         static class ScheduleBatchedPathJobsSnapshotPositions
         {
             static readonly FieldInfo CachedPawns =
@@ -82,8 +82,8 @@ namespace Multiplayer.Client.Patches
 
             static IEnumerable<MethodBase> TargetMethods()
             {
-                yield return AccessTools.Method(typeof(PathGridDoorsBlockedJob), "Execute");
-                yield return AccessTools.Method(typeof(PathGridDoorsBlockedJob), "CanBlockEver");
+                yield return AccessTools.Method(typeof(PathGridDoorsBlockedJob), nameof(PathGridDoorsBlockedJob.Execute));
+                yield return AccessTools.Method(typeof(PathGridDoorsBlockedJob), nameof(PathGridDoorsBlockedJob.CanBlockEver));
             }
 
             static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
@@ -120,7 +120,7 @@ namespace Multiplayer.Client.Patches
                 AccessTools.Method(typeof(PathGridDoorsBlockedJobCollideWithNonHostilePatch), nameof(GetCollideWithNonHostile));
             static IEnumerable<MethodBase> TargetMethods()
             {
-                yield return AccessTools.Method(typeof(PathGridDoorsBlockedJob), "Execute");
+                yield return AccessTools.Method(typeof(PathGridDoorsBlockedJob), nameof(PathGridDoorsBlockedJob.Execute));
             }
             // start
             // calls to ShouldCollideWithPawns, replace with cached one

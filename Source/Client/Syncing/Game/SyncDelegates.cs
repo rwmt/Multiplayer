@@ -20,8 +20,8 @@ namespace Multiplayer.Client
         {
             const SyncContext mouseKeyContext = SyncContext.QueueOrder_Down | SyncContext.MapMouseCell;
             // TODO probably not needed, perhaps just sync PrepareCycleJob as it contains SetQueuedInformation after TryTakeOrderedJob
-            SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_CarryToBiosculpterPod),      "GetOptionsFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);       // Carry to biosculpter pod
-            SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_CaptureEntity),              "GetOptionsFor", 2).CancelIfAnyFieldNull().SetContext(mouseKeyContext);       // Capture entity
+            SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_CarryToBiosculpterPod),      nameof(FloatMenuOptionProvider_CarryToBiosculpterPod.GetOptionsFor), 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);       // Carry to biosculpter pod
+            SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_CaptureEntity),              nameof(FloatMenuOptionProvider_CaptureEntity.GetOptionsFor), 2).CancelIfAnyFieldNull().SetContext(mouseKeyContext);       // Capture entity
 
             // Other possible float menu options that could be added later:
             // TODO maybe? TransporterUtility.InitiateLoading is not synced, not sure if significant

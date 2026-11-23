@@ -32,7 +32,7 @@ namespace Multiplayer.Client.Patches
         public static void SyncSetPlanColor(Plan plan, ColorDef color)
         {
             plan.Color = color;
-            AccessTools.Method(typeof(Plan), "CheckContiguous").Invoke(plan, null);
+            AccessTools.Method(typeof(Plan), nameof(Plan.CheckContiguous)).Invoke(plan, null);
         }
     }
 }

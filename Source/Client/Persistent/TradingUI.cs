@@ -305,7 +305,7 @@ namespace Multiplayer.Client
     static class DisableTradeCountTextBoxForOtherFactions
     {
         static MethodInfo TargetMethod() {
-            return typeof(Widgets).GetMethod("TextFieldNumeric", BindingFlags.Public | BindingFlags.Static).MakeGenericMethod(typeof(int));
+            return typeof(Widgets).GetMethod(nameof(Widgets.TextFieldNumeric), BindingFlags.Public | BindingFlags.Static).MakeGenericMethod(typeof(int));
         }
         static bool Prefix(Rect rect, int val)
         {
